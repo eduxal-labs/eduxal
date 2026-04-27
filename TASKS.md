@@ -707,8 +707,8 @@ On Next:
 - Store confirmed coverage locally for Step 4 display.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] git commit: `feat: exam wizard step 3 — syllabus coverage`
+- [x] Mark this task `[x]`
+- [x] git commit: `feat: exam wizard step 3 — syllabus coverage`
 
 ---
 

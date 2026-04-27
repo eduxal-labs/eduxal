@@ -9,8 +9,11 @@ import '../../../../database/database.dart';
 import '../../../../database/daos/catalog_dao.dart';
 import '../../../../database/daos/members_dao.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
+import '../../../../database/tables/topics.dart';
 import '../../../../models/membership.dart';
+import '../../../../models/result.dart';
 import '../../../../models/school_config.dart';
+import '../../../../services/paper_service.dart';
 import '../../../theme/app_theme.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -115,6 +118,10 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
   late final CatalogDao _catalogDao;
   late final MembersDao _membersDao;
 
+  // ── Step 3 state ──────────────────────────────────────────────────────────
+  Map<(int, int), List<int>> _confirmedCoverage = {};
+  bool _step3CoverageLoaded = false;
+
   @override
   void initState() {
     super.initState();
@@ -160,7 +167,8 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
       }
       if (mounted) {
         setState(() {
-          _teachers = results..sort((a, b) => a.user.name.compareTo(b.user.name));
+          _teachers = results
+            ..sort((a, b) => a.user.name.compareTo(b.user.name));
           _teachersLoaded = true;
         });
       }
@@ -256,6 +264,20 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
     }
 
     if (_step == 2 && !_validatePapers()) return;
+
+    if (_step == 3) {
+      if (!_step3CoverageLoaded) {
+        _showSnack('Syllabus coverage is still loading. Please wait.');
+        return;
+      }
+      if (_confirmedCoverage.isNotEmpty &&
+          _confirmedCoverage.values.any((v) => v.isEmpty)) {
+        _showSnack(
+          'Select at least one topic for every subject–grade combination.',
+        );
+        return;
+      }
+    }
 
     if (_step >= 5) {
       _activate();
@@ -368,7 +390,8 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
                   rowErrors: Map.from(_rowErrors),
                   examStartDate: _draft.startDate,
                   examEndDate: _draft.endDate,
-                  onAddPaper: () => setState(() => _papers.add(_PaperScheduleRow())),
+                  onAddPaper: () =>
+                      setState(() => _papers.add(_PaperScheduleRow())),
                   onRemovePaper: (i) => setState(() {
                     _papers.removeAt(i);
                     // Re-key errors after removal so indices stay correct.
@@ -384,11 +407,21 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
                   onPaperChanged: (i) => setState(() => _rowErrors.remove(i)),
                 ),
                 // Steps 3–5 — placeholders (Tasks D2, D3)
-                const Center(
-                  child: Text(
-                    'Step 3 — coming soon',
-                    style: TextStyle(fontWeight: FontWeight.w400),
-                  ),
+                // Step 3 — Syllabus Coverage
+                _SyllabusCoverageStep(
+                  papers: _papers,
+                  schoolId: widget.schoolId,
+                  catalogDao: _catalogDao,
+                  gradeLabel: _gradeLabel,
+                  config: widget.config,
+                  onCoverageChanged: (coverage) {
+                    if (mounted) {
+                      setState(() {
+                        _confirmedCoverage = coverage;
+                        _step3CoverageLoaded = true;
+                      });
+                    }
+                  },
                 ),
                 const Center(
                   child: Text(
@@ -563,12 +596,7 @@ class _EventDetailsStepState extends State<_EventDetailsStep> {
               fontSize: 14,
             ),
             items: _EventType.values
-                .map(
-                  (t) => DropdownMenuItem(
-                    value: t,
-                    child: Text(t.label),
-                  ),
-                )
+                .map((t) => DropdownMenuItem(value: t, child: Text(t.label)))
                 .toList(),
             onChanged: (t) {
               if (t == null) return;
@@ -658,12 +686,12 @@ class _EventDetailsStepState extends State<_EventDetailsStep> {
   }
 
   Widget _fieldLabel(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Text(
-          text,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(
+      text,
+      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+    ),
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -787,9 +815,7 @@ class _SchedulePapersStep extends StatelessWidget {
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                  side: BorderSide(
-                    color: cs.primary.withValues(alpha: 0.35),
-                  ),
+                  side: BorderSide(color: cs.primary.withValues(alpha: 0.35)),
                 ),
               ),
             ),
@@ -858,7 +884,8 @@ class _PaperScheduleCard extends StatelessWidget {
   Future<void> _pickDate(BuildContext context) async {
     final first = examStartDate ?? DateTime(DateTime.now().year);
     final last = examEndDate ?? DateTime(DateTime.now().year + 1);
-    final initial = (row.date != null &&
+    final initial =
+        (row.date != null &&
             !row.date!.isBefore(first) &&
             !row.date!.isAfter(last))
         ? row.date!
@@ -1114,7 +1141,8 @@ class _PaperScheduleCard extends StatelessWidget {
               _FieldBlock(
                 label: 'Invigilator (optional)',
                 child: _PickerTile(
-                  text: row.invigilatorName ??
+                  text:
+                      row.invigilatorName ??
                       (teachersLoaded ? 'None assigned' : 'Loading…'),
                   hasValue: row.invigilatorId != null,
                   icon: Icons.person_outline_rounded,
@@ -1172,20 +1200,18 @@ class _TimetablePreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Collect unique sorted dates
-    final dates = papers
-        .where((p) => p.date != null)
-        .map((p) => p.date!)
-        .toSet()
-        .toList()
-      ..sort();
+    final dates =
+        papers.where((p) => p.date != null).map((p) => p.date!).toSet().toList()
+          ..sort();
 
     // Collect unique sorted grades
-    final grades = papers
-        .where((p) => p.grade != null)
-        .map((p) => p.grade!)
-        .toSet()
-        .toList()
-      ..sort();
+    final grades =
+        papers
+            .where((p) => p.grade != null)
+            .map((p) => p.grade!)
+            .toSet()
+            .toList()
+          ..sort();
 
     if (dates.isEmpty || grades.isEmpty) return const SizedBox();
 
@@ -1272,14 +1298,7 @@ class _TimetablePreview extends StatelessWidget {
                             isHeader: false,
                           ),
                           for (int di = 0; di < dates.length; di++)
-                            _dataCell(
-                              gi,
-                              di,
-                              cellData,
-                              cellW,
-                              rowH,
-                              borderC,
-                            ),
+                            _dataCell(gi, di, cellData, cellW, rowH, borderC),
                         ],
                       ),
                       if (gi < grades.length - 1)
@@ -1400,9 +1419,12 @@ class _InvigilatorSheetState extends State<_InvigilatorSheet> {
       _filtered = q.trim().isEmpty
           ? widget.teachers
           : widget.teachers
-              .where((t) =>
-                  t.user.name.toLowerCase().contains(q.trim().toLowerCase()))
-              .toList();
+                .where(
+                  (t) => t.user.name.toLowerCase().contains(
+                    q.trim().toLowerCase(),
+                  ),
+                )
+                .toList();
     });
   }
 
@@ -1589,10 +1611,7 @@ class _BottomNavRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.modalBg(isDark, cs),
         border: Border(
-          top: BorderSide(
-            color: AppTheme.borderColor(isDark, cs),
-            width: 0.5,
-          ),
+          top: BorderSide(color: AppTheme.borderColor(isDark, cs), width: 0.5),
         ),
       ),
       child: Row(
@@ -1745,10 +1764,7 @@ class _StreamDropdown extends StatelessWidget {
         child: DropdownButtonHideUnderline(
           child: DropdownButton<int>(
             value: null,
-            hint: _hint(
-              (!gradeSelected) ? '—' : 'N/A',
-              cs,
-            ),
+            hint: _hint((!gradeSelected) ? '—' : 'N/A', cs),
             dropdownColor: AppTheme.overlayBg(isDark, cs),
             isExpanded: true,
             isDense: true,
@@ -1780,10 +1796,7 @@ class _StreamDropdown extends StatelessWidget {
               child: Text('All streams'),
             ),
             for (final s in streams)
-              DropdownMenuItem(
-                value: s.code,
-                child: Text(s.name),
-              ),
+              DropdownMenuItem(value: s.code, child: Text(s.name)),
           ],
           onChanged: onChanged,
         ),
@@ -1815,8 +1828,8 @@ class _SubjectDropdown extends StatelessWidget {
     final hintText = !gradeSelected
         ? 'Pick a grade first'
         : subjects.isEmpty
-            ? 'No subjects'
-            : 'Select subject';
+        ? 'No subjects'
+        : 'Select subject';
 
     return _DropdownBox(
       cs: cs,
@@ -1837,15 +1850,11 @@ class _SubjectDropdown extends StatelessWidget {
               .map(
                 (s) => DropdownMenuItem(
                   value: s.id,
-                  child: Text(
-                    s.name,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  child: Text(s.name, overflow: TextOverflow.ellipsis),
                 ),
               )
               .toList(),
-          onChanged:
-              (!gradeSelected || subjects.isEmpty) ? null : onChanged,
+          onChanged: (!gradeSelected || subjects.isEmpty) ? null : onChanged,
         ),
       ),
     );
@@ -1871,10 +1880,7 @@ class _DropdownBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.overlayBg(isDark, cs),
         borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-        border: Border.all(
-          color: AppTheme.borderColor(isDark, cs),
-          width: 0.8,
-        ),
+        border: Border.all(color: AppTheme.borderColor(isDark, cs), width: 0.8),
       ),
       child: child,
     );
@@ -1917,11 +1923,7 @@ class _PickerTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(
-              icon,
-              size: 13,
-              color: hasValue ? cs.primary : faded,
-            ),
+            Icon(icon, size: 13, color: hasValue ? cs.primary : faded),
             const SizedBox(width: 5),
             Expanded(
               child: Text(
@@ -2059,26 +2061,46 @@ class _SubjectBadge extends StatelessWidget {
 
 /// Returns a styled hint Text widget for use as DropdownButton.hint.
 Text _hint(String text, ColorScheme cs) => Text(
-      text,
-      style: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w300,
-        color: cs.onSurface.withValues(alpha: 0.45),
-      ),
-    );
+  text,
+  style: TextStyle(
+    fontSize: 12,
+    fontWeight: FontWeight.w300,
+    color: cs.onSurface.withValues(alpha: 0.45),
+  ),
+);
 
 String _fmtDate(DateTime d) {
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   return '${d.day} ${months[d.month - 1]} ${d.year}';
 }
 
 String _fmtDateShort(DateTime d) {
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   return '${d.day}\n${months[d.month - 1]}';
 }
@@ -2106,6 +2128,646 @@ String _abbrevSubject(String name) {
   }
   return words.take(3).map((w) => w[0].toUpperCase()).join();
 }
-```
 
-Now let me check for diagnostics and then update the CONTEXT.md and TASKS.md:
+// ─────────────────────────────────────────────────────────────────────────────
+// Step 3 — Syllabus Coverage
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Internal data for one loaded (subjectId, grade) coverage pair.
+class _CoveragePairData {
+  const _CoveragePairData({required this.topics, required this.taught});
+  final List<Topic> topics;
+  final List<TaughtTopic> taught;
+}
+
+class _SyllabusCoverageStep extends StatefulWidget {
+  const _SyllabusCoverageStep({
+    required this.papers,
+    required this.schoolId,
+    required this.catalogDao,
+    required this.gradeLabel,
+    required this.config,
+    required this.onCoverageChanged,
+  });
+
+  final List<_PaperScheduleRow> papers;
+  final String schoolId;
+  final CatalogDao catalogDao;
+  final String Function(int) gradeLabel;
+  final SchoolConfig config;
+  final void Function(Map<(int, int), List<int>>) onCoverageChanged;
+
+  @override
+  State<_SyllabusCoverageStep> createState() => _SyllabusCoverageStepState();
+}
+
+class _SyllabusCoverageStepState extends State<_SyllabusCoverageStep> {
+  bool _isLoading = true;
+  String? _loadError;
+
+  /// All topics + taught status per (subjectId, grade) key.
+  Map<(int, int), _CoveragePairData> _pairData = {};
+
+  /// User-checked topic IDs per (subjectId, grade).
+  Map<(int, int), Set<int>> _checked = {};
+
+  /// Display name per subjectId.
+  Map<int, String> _subjectNames = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Data loading
+  // ---------------------------------------------------------------------------
+
+  Future<void> _load() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
+
+    // Gather unique (subjectId, grade) pairs from the paper schedule.
+    final keys = <(int, int)>{};
+    for (final p in widget.papers) {
+      if (p.subjectId != null && p.grade != null) {
+        keys.add((p.subjectId!, p.grade!));
+      }
+    }
+
+    if (keys.isEmpty) {
+      if (mounted) setState(() => _isLoading = false);
+      _notifyParent();
+      return;
+    }
+
+    try {
+      // Preserve any existing checked state from prior loads.
+      final checked = Map<(int, int), Set<int>>.from(_checked);
+      final subjectNames = Map<int, String>.from(_subjectNames);
+      final pairData = <(int, int), _CoveragePairData>{};
+
+      // ── 1. Load subject display names ──────────────────────────────────────
+      final uniqueSubjectIds = keys.map((k) => k.$1).toSet();
+      for (final sid in uniqueSubjectIds) {
+        if (!subjectNames.containsKey(sid)) {
+          final subject = await widget.catalogDao.getSubject(sid);
+          if (!mounted) return;
+          if (subject != null) subjectNames[sid] = subject.name;
+        }
+      }
+
+      // ── 2. Load topics from local DB (batched per unique subjectId) ─────────
+      final topicsAllBySubject = <int, List<Topic>>{};
+      for (final sid in uniqueSubjectIds) {
+        topicsAllBySubject[sid] = await widget.catalogDao.getTopicsForSubject(
+          sid,
+        );
+        if (!mounted) return;
+      }
+
+      // ── 3. Fetch taught status per (subjectId, grade) from server ──────────
+      for (final key in keys) {
+        if (!mounted) return;
+        final (subjectId, grade) = key;
+
+        // Filter topics to this specific grade.
+        final gradeTopics =
+            (topicsAllBySubject[subjectId] ?? [])
+                .where((t) => t.grade == grade)
+                .toList()
+              ..sort((a, b) => a.name.compareTo(b.name));
+
+        // Fetch taught status from server.
+        List<TaughtTopic> taught = [];
+        final result = await paperService.getTaughtTopics(
+          school: widget.schoolId,
+          subject: subjectId,
+          grade: grade,
+          accessToken: accessToken,
+        );
+        if (!mounted) return;
+        switch (result) {
+          case Ok(:final value):
+            taught = value;
+          case Err():
+            taught = [];
+        }
+
+        pairData[key] = _CoveragePairData(topics: gradeTopics, taught: taught);
+
+        // Pre-check completed topics only if the user hasn't touched this key.
+        if (!checked.containsKey(key)) {
+          checked[key] = taught
+              .where((t) => t.status == 2)
+              .map((t) => t.topicId)
+              .toSet();
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _pairData = pairData;
+        _subjectNames = subjectNames;
+        _checked = checked;
+        _isLoading = false;
+      });
+      _notifyParent();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _loadError = e.toString();
+      });
+      _notifyParent();
+    }
+  }
+
+  /// Reports coverage to the parent. Only includes (subjectId, grade) pairs
+  /// that have at least one topic in the catalog — so empty-catalog pairs
+  /// never block wizard progression.
+  void _notifyParent() {
+    final coverage = <(int, int), List<int>>{};
+    for (final entry in _checked.entries) {
+      final hasTopics = (_pairData[entry.key]?.topics.isNotEmpty) ?? false;
+      if (hasTopics) {
+        coverage[entry.key] = entry.value.toList();
+      }
+    }
+    widget.onCoverageChanged(coverage);
+  }
+
+  void _setChecked((int, int) key, int topicId, bool value) {
+    setState(() {
+      if (value) {
+        _checked.putIfAbsent(key, () => {}).add(topicId);
+      } else {
+        _checked[key]?.remove(topicId);
+      }
+    });
+    _notifyParent();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    if (_isLoading) return _buildLoading(cs);
+    if (_loadError != null) return _buildError(cs);
+
+    // Derive subject → sorted [grades] mapping.
+    final subjectGrades = <int, List<int>>{};
+    for (final key in _pairData.keys) {
+      subjectGrades.putIfAbsent(key.$1, () => []).add(key.$2);
+    }
+    final subjectIds = subjectGrades.keys.toList()
+      ..sort(
+        (a, b) => (_subjectNames[a] ?? '').compareTo(_subjectNames[b] ?? ''),
+      );
+    for (final sid in subjectIds) {
+      subjectGrades[sid]!.sort();
+    }
+
+    if (subjectIds.isEmpty) {
+      return Center(
+        child: Text(
+          'No papers with subject and grade selected.',
+          style: TextStyle(
+            fontWeight: FontWeight.w400,
+            color: cs.onSurface.withValues(alpha: 0.5),
+          ),
+        ),
+      );
+    }
+
+    return DefaultTabController(
+      // Key by subject count so the controller is recreated if subjects change.
+      key: ValueKey(subjectIds.length),
+      length: subjectIds.length,
+      child: Column(
+        children: [
+          // ── Tab strip ──────────────────────────────────────────────────────
+          ColoredBox(
+            color: AppTheme.modalBg(isDark, cs),
+            child: TabBar(
+              isScrollable: subjectIds.length > 3,
+              tabAlignment: subjectIds.length > 3
+                  ? TabAlignment.start
+                  : TabAlignment.fill,
+              tabs: [
+                for (final sid in subjectIds)
+                  Tab(text: _subjectNames[sid] ?? 'Subject $sid'),
+              ],
+            ),
+          ),
+          // ── Tab bodies ─────────────────────────────────────────────────────
+          Expanded(
+            child: TabBarView(
+              children: [
+                for (final sid in subjectIds)
+                  _buildSubjectTab(
+                    cs: cs,
+                    isDark: isDark,
+                    subjectId: sid,
+                    grades: subjectGrades[sid]!,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubjectTab({
+    required ColorScheme cs,
+    required bool isDark,
+    required int subjectId,
+    required List<int> grades,
+  }) {
+    // Aggregate coverage counts for the summary chip.
+    int totalTopics = 0;
+    int coveredTopics = 0;
+    final uncoveredGrades = <int>[];
+
+    for (final grade in grades) {
+      final key = (subjectId, grade);
+      final topics = _pairData[key]?.topics ?? [];
+      final checkedSet = _checked[key] ?? {};
+      totalTopics += topics.length;
+      coveredTopics += checkedSet.length;
+      if (topics.isNotEmpty && checkedSet.isEmpty) {
+        uncoveredGrades.add(grade);
+      }
+    }
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      children: [
+        // Coverage summary chip.
+        _CoverageChip(covered: coveredTopics, total: totalTopics, cs: cs),
+        const SizedBox(height: 10),
+        // Warning card for grades with zero topics selected.
+        if (uncoveredGrades.isNotEmpty) ...[
+          _UncoveredWarning(
+            grades: uncoveredGrades,
+            gradeLabel: widget.gradeLabel,
+            subjectName: _subjectNames[subjectId] ?? 'Subject',
+            cs: cs,
+            isDark: isDark,
+          ),
+          const SizedBox(height: 10),
+        ],
+        // One expansion tile per grade.
+        for (final grade in grades)
+          _buildGradeTile(
+            cs: cs,
+            isDark: isDark,
+            subjectId: subjectId,
+            grade: grade,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildGradeTile({
+    required ColorScheme cs,
+    required bool isDark,
+    required int subjectId,
+    required int grade,
+  }) {
+    final key = (subjectId, grade);
+    final data = _pairData[key];
+    final topics = data?.topics ?? [];
+    final taught = data?.taught ?? [];
+    final taughtMap = {for (final t in taught) t.topicId: t};
+    final checkedSet = _checked[key] ?? {};
+
+    // Collect stream names for papers with a specific stream on this pair.
+    final streamNames = <String>[];
+    for (final p in widget.papers) {
+      if (p.subjectId == subjectId && p.grade == grade && p.stream != null) {
+        String? name;
+        for (final c in widget.config.curricula) {
+          for (final gc in c.grades) {
+            if (gc.grade == grade) {
+              final gs = gc.streams
+                  .where((s) => s.code == p.stream)
+                  .firstOrNull;
+              if (gs != null) name = gs.name;
+            }
+          }
+        }
+        streamNames.add(name ?? 'Stream ${p.stream}');
+      }
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      color: AppTheme.nestedBg(isDark, cs),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        side: BorderSide(color: AppTheme.borderColor(isDark, cs), width: 0.5),
+      ),
+      child: ExpansionTile(
+        key: PageStorageKey('coverage-$subjectId-$grade'),
+        initiallyExpanded: true,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+        title: Row(
+          children: [
+            Text(
+              widget.gradeLabel(grade),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(width: 8),
+            _InlineBadge(
+              label: '${checkedSet.length}/${topics.length}',
+              cs: cs,
+            ),
+          ],
+        ),
+        children: [
+          if (topics.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+              child: Text(
+                'No topics found in the catalog for this grade.',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w300,
+                  color: cs.onSurface.withValues(alpha: 0.5),
+                ),
+              ),
+            )
+          else
+            for (final topic in topics)
+              CheckboxListTile(
+                dense: true,
+                value: checkedSet.contains(topic.id),
+                title: Text(
+                  topic.name,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                subtitle: _buildTopicSubtitle(taughtMap[topic.id], cs),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 0,
+                ),
+                onChanged: (v) => _setChecked(key, topic.id, v ?? false),
+              ),
+          // Stream overrides section — shown when stream-specific papers exist.
+          if (streamNames.isNotEmpty) ...[
+            Divider(
+              height: 1,
+              indent: 12,
+              endIndent: 12,
+              color: AppTheme.borderColor(isDark, cs),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.alt_route_rounded,
+                    size: 13,
+                    color: cs.primary.withValues(alpha: 0.65),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Stream overrides',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: cs.primary.withValues(alpha: 0.65),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            for (final name in streamNames)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 16, 8),
+                child: Text(
+                  '• $name — has a separate paper for this exam',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w300,
+                    color: cs.onSurface.withValues(alpha: 0.65),
+                  ),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget? _buildTopicSubtitle(TaughtTopic? taught, ColorScheme cs) {
+    if (taught == null) return null;
+    if (taught.status == 2 && taught.taughtDate != null) {
+      return Text(
+        'Covered ${_fmtDate(taught.taughtDate!)}',
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w300,
+          color: cs.primary.withValues(alpha: 0.75),
+        ),
+      );
+    }
+    if (taught.status == 1) {
+      return Text(
+        'In progress',
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w300,
+          color: cs.tertiary.withValues(alpha: 0.75),
+        ),
+      );
+    }
+    return null;
+  }
+
+  Widget _buildLoading(ColorScheme cs) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        for (int i = 0; i < 4; i++) ...[
+          Container(
+            height: 52,
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+        const SizedBox(height: 20),
+        Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              color: cs.primary.withValues(alpha: 0.4),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildError(ColorScheme cs) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline_rounded, color: cs.error, size: 32),
+            const SizedBox(height: 12),
+            const Text(
+              'Failed to load syllabus coverage',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _loadError!,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w300,
+                color: cs.onSurface.withValues(alpha: 0.6),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            TextButton(onPressed: _load, child: const Text('Retry')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Step 3 auxiliary widgets
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Small chip at the top of each subject tab showing N / Total topics covered.
+class _CoverageChip extends StatelessWidget {
+  const _CoverageChip({
+    required this.covered,
+    required this.total,
+    required this.cs,
+  });
+
+  final int covered;
+  final int total;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    final isGood = covered > 0;
+    final chipColor = isGood ? Colors.green.shade700 : cs.error;
+    return Wrap(
+      children: [
+        Chip(
+          label: Text(
+            '$covered / $total topics covered',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: chipColor,
+            ),
+          ),
+          backgroundColor: chipColor.withValues(alpha: 0.08),
+          side: BorderSide(color: chipColor.withValues(alpha: 0.3), width: 0.5),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.compact,
+        ),
+      ],
+    );
+  }
+}
+
+/// Warning card listing grade combinations that have zero topics selected.
+class _UncoveredWarning extends StatelessWidget {
+  const _UncoveredWarning({
+    required this.grades,
+    required this.gradeLabel,
+    required this.subjectName,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final List<int> grades;
+  final String Function(int) gradeLabel;
+  final String subjectName;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = grades
+        .map((g) => '$subjectName — ${gradeLabel(g)}')
+        .join('\n');
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cs.errorContainer.withValues(alpha: isDark ? 0.15 : 0.18),
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(color: cs.error.withValues(alpha: 0.3), width: 0.5),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.warning_amber_rounded,
+            size: 15,
+            color: cs.error.withValues(alpha: 0.85),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'No topics selected for:',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: cs.error.withValues(alpha: 0.9),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  lines,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w300,
+                    color: cs.error.withValues(alpha: 0.8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
