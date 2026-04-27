@@ -8,6 +8,8 @@ import '../../../../models/paper_generation.dart';
 import '../../../../models/question.dart';
 import '../../../../models/result.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/stimulus_block.dart';
+import '../../../widgets/tiptap_renderer.dart';
 import 'paper_pdf_viewer.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1070,6 +1072,19 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
                     ),
                   ),
                 ),
+                const SizedBox(width: 6),
+                // Type badge
+                Chip(
+                  label: Text(
+                    question.type,
+                    style: const TextStyle(fontSize: 10),
+                  ),
+                  backgroundColor: _questionTypeColor(question.type),
+                  padding: EdgeInsets.zero,
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
                 const Spacer(),
                 // Edit button
                 _MiniIconButton(
@@ -1089,11 +1104,19 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
             ),
           ),
 
-          // ── Question text ──
+          // ── Stimulus ──
+          if (question.stimulus != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: StimulusBlock(stimulus: question.stimulus!),
+            ),
+
+          // ── Question body ──
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-            child: Text(
-              question.text,
+            child: renderBody(
+              question.body,
+              question.bodyFormat,
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w300,
@@ -1102,6 +1125,34 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
               ),
             ),
           ),
+
+          // ── Parts ──
+          if (question.parts.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: question.parts
+                    .map(
+                      (p) => Padding(
+                        padding: const EdgeInsets.only(left: 16, top: 6),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '(${p.label})  ',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            Expanded(child: renderBody(p.body, p.bodyFormat)),
+                          ],
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
 
           // ── Rubric (collapsible) ──
           if (question.rubric.isNotEmpty)
@@ -2012,9 +2063,9 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
     ColorScheme cs,
     bool isDark,
   ) {
-    final truncated = question.text.length > 60
-        ? '${question.text.substring(0, 60)}…'
-        : question.text;
+    final truncated = question.body.length > 60
+        ? '${question.body.substring(0, 60)}…'
+        : question.body;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -3138,6 +3189,23 @@ class _AllocationFooterState extends State<_AllocationFooter>
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Question type colour helper
+// ─────────────────────────────────────────────────────────────────────────────
+
+Color _questionTypeColor(String type) {
+  return switch (type) {
+    'definition' => Colors.blue.shade100,
+    'calculation' => Colors.orange.shade100,
+    'structured' => Colors.purple.shade100,
+    'experiment' => Colors.green.shade100,
+    'diagram' => Colors.teal.shade100,
+    'data_response' => Colors.cyan.shade100,
+    'explanation' => Colors.grey.shade200,
+    _ => Colors.grey.shade200,
+  };
 }
 
 class _GenerationErrorBanner extends StatelessWidget {

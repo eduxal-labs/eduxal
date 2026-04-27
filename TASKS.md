@@ -602,8 +602,8 @@ Update all question rendering to:
 6. For `example_answer` display: check if it is a String (old) or a Map with `format` key. If Map, use `renderBody(ea['content'], ea['format'])`.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] git commit: `feat: update question rendering for new schema`
+- [x] Mark this task `[x]`
+- [x] git commit: `feat: update question rendering for new schema`
 
 ---
 
