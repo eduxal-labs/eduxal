@@ -125,6 +125,11 @@ All design tokens are codified in `AppTheme` (`lib/ui/theme/app_theme.dart`) and
 - All tab surfaces in the app use `EduTabBar`, whether icon-only or text-label mode.
 
 ## Last Updated
+Task A1: Added `TiptapRenderer` widget and `renderBody` helper to `lib/ui/widgets/tiptap_renderer.dart`. Added `flutter_math_fork: ^0.7.4` and `flutter_svg: ^2.0.10+1` to `pubspec.yaml`.
+
+- `tiptap_renderer.dart` — new shared widget. `TiptapRenderer` is a read-only, stateless renderer for TipTap/ProseMirror JSON documents. Handles node types: `doc`, `paragraph`, `orderedList`, `bulletList`, `mathBlock`, `table`. Handles inline types: `text` (with bold/italic/code marks), `hardBreak`, `mathInline`. Math nodes rendered via `flutter_math_fork` (`Math.tex`). `renderBody(body, bodyFormat, {style})` is a convenience top-level helper: if `bodyFormat == 'tiptap'` returns a `TiptapRenderer`; otherwise returns a plain `Text` widget.
+
+Previous:
 AUTH-C05: `MemberActionError` converted to sealed class — UI switch expressions updated.
 
 - `teachers_tab.dart` — 3 switch expressions updated: `case Err(error: MemberActionError.permissionDenied): showPermissionDenied(context, 'hardcoded')` replaced with `case Err(error: PermissionDenied(:final reason)): showPermissionDenied(context, reason)`. Affected handlers: `_TeachersTabState` Dismissible `confirmDismiss`, `_TeacherRow._confirmRemove()`, `_TeacherInfoSheetState._confirmRemove()`.

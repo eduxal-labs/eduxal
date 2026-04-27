@@ -215,9 +215,9 @@ class TiptapRenderer extends StatelessWidget {
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/CONTEXT.md` — add TiptapRenderer and renderBody entries
-- [ ] Mark this task `[x]`
-- [ ] git commit: `feat: add TiptapRenderer widget and flutter_math_fork`
+- [x] Update `lib/ui/CONTEXT.md` — add TiptapRenderer and renderBody entries
+- [x] Mark this task `[x]`
+- [x] git commit: `feat: add TiptapRenderer widget and flutter_math_fork`
 
 ---
 
