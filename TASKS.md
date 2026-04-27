@@ -833,8 +833,8 @@ Single-page form (not a wizard) with `Form` + validation:
 5. On error: show SnackBar.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] git commit: `feat: assessment creation page`
+- [x] Mark this task `[x]`
+- [x] git commit: `feat: assessment creation page`
 
 ---
 

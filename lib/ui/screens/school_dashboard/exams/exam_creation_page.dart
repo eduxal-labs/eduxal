@@ -2864,3 +2864,450 @@ class _UncoveredWarning extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Step 4 — Review
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ReviewStep extends StatelessWidget {
+  const _ReviewStep({
+    required this.draft,
+    required this.papers,
+    required this.confirmedCoverage,
+    required this.gradeLabel,
+  });
+
+  final _EventDraft draft;
+  final List<_PaperScheduleRow> papers;
+  final Map<(int, int), List<int>> confirmedCoverage;
+  final String Function(int) gradeLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+    final borderC = AppTheme.borderColor(isDark, cs);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Event details card ────────────────────────────────────────────
+          Container(
+            decoration: BoxDecoration(
+              color: AppTheme.nestedBg(isDark, cs),
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              border: Border.all(color: borderC, width: 0.8),
+            ),
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.event_outlined, size: 16, color: cs.primary),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        draft.name.isEmpty ? '(Untitled)' : draft.name,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.kChipRadius,
+                        ),
+                      ),
+                      child: Text(
+                        draft.type.label,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w400,
+                          color: cs.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Divider(color: borderC, height: 1, thickness: 0.5),
+                const SizedBox(height: 10),
+                _metaRow(
+                  Icons.school_outlined,
+                  'Term ${draft.term}  ·  ${draft.year}',
+                  cs,
+                ),
+                const SizedBox(height: 6),
+                _metaRow(
+                  Icons.date_range_outlined,
+                  draft.startDate != null && draft.endDate != null
+                      ? '${_fmtDate(draft.startDate!)}  –  ${_fmtDate(draft.endDate!)}'
+                      : '—',
+                  cs,
+                ),
+                const SizedBox(height: 6),
+                _metaRow(
+                  Icons.description_outlined,
+                  '${papers.length} paper${papers.length == 1 ? '' : 's'} scheduled',
+                  cs,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          // ── Timetable preview ─────────────────────────────────────────────
+          _TimetablePreview(
+            papers: papers,
+            gradeLabel: gradeLabel,
+            cs: cs,
+            isDark: isDark,
+          ),
+          const SizedBox(height: 16),
+          // ── Paper summary cards ───────────────────────────────────────────
+          Text(
+            'Paper Details',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface.withValues(alpha: 0.75),
+            ),
+          ),
+          const SizedBox(height: 8),
+          for (final row in papers)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _paperCard(row, cs, isDark, borderC),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _metaRow(IconData icon, String text, ColorScheme cs) {
+    return Row(
+      children: [
+        Icon(icon, size: 13, color: cs.onSurface.withValues(alpha: 0.5)),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w300,
+              color: cs.onSurface.withValues(alpha: 0.8),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _paperCard(
+    _PaperScheduleRow row,
+    ColorScheme cs,
+    bool isDark,
+    Color borderC,
+  ) {
+    final topicIds = (row.subjectId != null && row.grade != null)
+        ? confirmedCoverage[(row.subjectId!, row.grade!)] ?? <int>[]
+        : <int>[];
+    final topicCount = topicIds.length;
+    final lowPool = topicCount > 0 && topicCount < 10;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.nestedBg(isDark, cs),
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(color: borderC, width: 0.8),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Subject + grade header
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  row.subjectName ?? '—',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (row.grade != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+                  ),
+                  child: Text(
+                    gradeLabel(row.grade!),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w400,
+                      color: cs.primary,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Divider(color: borderC, height: 1, thickness: 0.5),
+          const SizedBox(height: 8),
+          // Date + time + duration
+          if (row.date != null &&
+              row.startTime != null &&
+              row.endTime != null) ...[
+            _metaRow(
+              Icons.schedule_outlined,
+              '${_fmtDate(row.date!)}  ·  '
+              '${_fmtTime(row.startTime!)} – ${_fmtTime(row.endTime!)}'
+              '  (${_fmtDuration(row.durationMinutes ?? 0)})',
+              cs,
+            ),
+            const SizedBox(height: 4),
+          ],
+          // Invigilator
+          if (row.invigilatorId != null && row.invigilatorName != null)
+            _metaRow(Icons.person_outline_rounded, row.invigilatorName!, cs)
+          else
+            Row(
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  size: 13,
+                  color: Colors.amber.shade600,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'No invigilator assigned',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w300,
+                    color: Colors.amber.shade700,
+                  ),
+                ),
+              ],
+            ),
+          const SizedBox(height: 4),
+          // Topics confirmed count
+          _metaRow(
+            Icons.checklist_outlined,
+            topicCount > 0
+                ? '$topicCount topic${topicCount == 1 ? '' : 's'} confirmed'
+                : 'No topics confirmed',
+            cs,
+          ),
+          // Low question pool warning
+          if (lowPool) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+                border: Border.all(
+                  color: Colors.amber.withValues(alpha: 0.3),
+                  width: 0.8,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 13,
+                    color: Colors.amber.shade700,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Low question pool — paper generation may fail.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w300,
+                        color: Colors.amber.shade700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Step 5 — Confirm
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ConfirmStep extends StatelessWidget {
+  const _ConfirmStep({
+    required this.papers,
+    required this.activating,
+    required this.error,
+    required this.onActivate,
+  });
+
+  final List<_PaperScheduleRow> papers;
+  final bool activating;
+  final String? error;
+  final VoidCallback onActivate;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    final n = papers.length;
+    final subjects = papers
+        .map((p) => p.subjectId)
+        .whereType<int>()
+        .toSet()
+        .length;
+    final grades = papers.map((p) => p.grade).whereType<int>().toSet().length;
+
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 40, 24, 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Icon
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: cs.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.rocket_launch_outlined,
+                size: 28,
+                color: cs.primary,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Ready to activate?',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'You are about to activate $n exam paper${n == 1 ? '' : 's'} '
+              'across $subjects subject${subjects == 1 ? '' : 's'} and '
+              '$grades grade${grades == 1 ? '' : 's'}. '
+              'Papers will be automatically generated 1 hour before each '
+              'scheduled start time. Teachers will be notified 30 minutes before.',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w300,
+                color: cs.onSurface.withValues(alpha: 0.75),
+                height: 1.55,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            // Activate button / loading indicator
+            if (activating)
+              Column(
+                children: [
+                  SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: cs.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Activating…',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w300,
+                      color: cs.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: onActivate,
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text(
+                    'Activate Exam',
+                    style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                  ),
+                ),
+              ),
+            // Error card
+            if (error != null) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: cs.error.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                  border: Border.all(
+                    color: cs.error.withValues(alpha: 0.25),
+                    width: 0.8,
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.error_outline_rounded,
+                      size: 16,
+                      color: cs.error,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        error!,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w300,
+                          color: cs.error.withValues(alpha: 0.9),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
