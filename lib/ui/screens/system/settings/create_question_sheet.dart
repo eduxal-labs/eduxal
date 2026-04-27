@@ -201,7 +201,7 @@ class _CreateQuestionSheetState extends State<CreateQuestionSheet> {
 
     final result = await questionBankService.createQuestion(
       topicId: widget.topicId,
-      text: _textCtrl.text.trim(),
+      body: _textCtrl.text.trim(),
       marks: marks,
       rubric: rubric,
       exampleAnswer: exampleAnswer,

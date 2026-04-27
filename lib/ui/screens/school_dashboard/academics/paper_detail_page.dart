@@ -2094,11 +2094,11 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
       studentSheetCounts[s.adm] = (_submissions[s.adm] ?? []).length;
     }
 
+    final _paperId =
+        '${widget.schoolId}|${widget.exam.id}|${widget.paper.subject}|'
+        '${widget.paper.paper ?? ''}|${widget.paper.grade}|${widget.paper.stream ?? ''}';
     final urlResult = await client.aiMarking.requestUploadUrls(
-      school: widget.schoolId,
-      exam: widget.exam.id,
-      subject: widget.paper.subject,
-      paper: widget.paper.paper,
+      paperId: _paperId,
       schemeCount: widget.schemeFiles.length,
       studentSheetCounts: studentSheetCounts,
       accessToken: token,
@@ -2221,21 +2221,10 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
     widget.onAiProgressChanged?.call(0.5);
 
     print(
-      '[SPREADSHEET] calling markPaper — school=${widget.schoolId} '
-      'exam=${widget.exam.id} subject=${widget.paper.subject} '
-      'paper=${widget.paper.paper} grade=${widget.paper.grade} '
-      'stream=${widget.paper.stream} totalMarks=$_maxScore '
-      'schemeKeys=${urlResponse.schemeUrls.length} '
-      'studentKeys=${studentKeys.length} '
-      'studentKeyEntries=${studentKeys.map((k, v) => MapEntry(k, v.length))}',
+      '[SPREADSHEET] calling markPaper — paperId=$_paperId totalMarks=$_maxScore',
     );
     final markResult = await client.aiMarking.markPaper(
-      school: widget.schoolId,
-      exam: widget.exam.id,
-      subject: widget.paper.subject,
-      paper: widget.paper.paper,
-      grade: widget.paper.grade,
-      stream: widget.paper.stream,
+      paperId: _paperId,
       totalMarks: _maxScore,
       schemeKeys: [for (final u in urlResponse.schemeUrls) u.key],
       studentKeys: studentKeys,
@@ -3100,11 +3089,11 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
       studentSheetCounts[s.adm] = (_submissions[s.adm] ?? []).length;
     }
 
+    final _paperId =
+        '${widget.schoolId}|${widget.exam.id}|${widget.paper.subject}|'
+        '${widget.paper.paper ?? ''}|${widget.paper.grade}|${widget.paper.stream ?? ''}';
     final urlResult = await client.aiMarking.requestUploadUrls(
-      school: widget.schoolId,
-      exam: widget.exam.id,
-      subject: widget.paper.subject,
-      paper: widget.paper.paper,
+      paperId: _paperId,
       schemeCount: widget.schemeFiles.length,
       studentSheetCounts: studentSheetCounts,
       accessToken: token,
@@ -3227,21 +3216,10 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
     widget.onAiProgressChanged?.call(0.5);
 
     print(
-      '[GRADELIST] calling markPaper — school=${widget.schoolId} '
-      'exam=${widget.exam.id} subject=${widget.paper.subject} '
-      'paper=${widget.paper.paper} grade=${widget.paper.grade} '
-      'stream=${widget.paper.stream} totalMarks=$_maxScore '
-      'schemeKeys=${urlResponse.schemeUrls.length} '
-      'studentKeys=${studentKeys.length} '
-      'studentKeyEntries=${studentKeys.map((k, v) => MapEntry(k, v.length))}',
+      '[GRADELIST] calling markPaper — paperId=$_paperId totalMarks=$_maxScore',
     );
     final markResult = await client.aiMarking.markPaper(
-      school: widget.schoolId,
-      exam: widget.exam.id,
-      subject: widget.paper.subject,
-      paper: widget.paper.paper,
-      grade: widget.paper.grade,
-      stream: widget.paper.stream,
+      paperId: _paperId,
       totalMarks: _maxScore,
       schemeKeys: [for (final u in urlResponse.schemeUrls) u.key],
       studentKeys: studentKeys,

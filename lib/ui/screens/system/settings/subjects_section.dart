@@ -1186,7 +1186,8 @@ class _TopicTileState extends State<_TopicTile>
     questionBankService
         .listQuestions(
           topicId: widget.topic.id,
-          limit: 1,
+          page: 0,
+          pageSize: 1,
           accessToken: accessToken,
         )
         .then((result) {
@@ -1452,7 +1453,8 @@ class _TopicExpandedContentState extends State<_TopicExpandedContent> {
   Future<int?> _fetchQuestionCount() async {
     final result = await questionBankService.listQuestions(
       topicId: widget.topic.id,
-      limit: 1,
+      page: 0,
+      pageSize: 1,
       accessToken: accessToken,
     );
     return switch (result) {

@@ -2791,7 +2791,7 @@ print('[SPREADSHEET] calling markPaper — paperId=$_paperId totalMarks=$_maxSco
 
 ---
 
-### Task FIX-04b: Fix question-bank UI callers — update listQuestions/createQuestion/updateQuestion call sites after FIX-03
+### [x] Task FIX-04b: Fix question-bank UI callers — update listQuestions/createQuestion/updateQuestion call sites after FIX-03
 **Files to create/modify:**
 - `lib/ui/screens/system/settings/questions_list_page.dart`
 - `lib/ui/screens/system/settings/create_question_sheet.dart`
@@ -2918,8 +2918,8 @@ For any call that passed a computed offset for load-more, convert: `page: offset
 ---
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Orchestrator: git commit after this task
+- [x] Mark this task `[x]`
+- [x] Orchestrator: git commit after this task
 
 ---
 

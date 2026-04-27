@@ -64,11 +64,11 @@ class _QuestionsListPageState extends State<QuestionsListPage> {
       });
     }
 
-    final offset = reset ? 0 : _questions.length;
+    final page = reset ? 0 : _questions.length ~/ 50;
     final result = await questionBankService.listQuestions(
       topicId: widget.topicId,
-      offset: offset,
-      limit: 50,
+      page: page,
+      pageSize: 50,
       accessToken: accessToken,
     );
 
@@ -1255,7 +1255,7 @@ class _EditQuestionSheetState extends State<_EditQuestionSheet> {
 
     final result = await questionBankService.updateQuestion(
       id: widget.question.id,
-      text: _textCtrl.text.trim(),
+      body: _textCtrl.text.trim(),
       marks: marks,
       rubric: rubric,
       exampleAnswer: exampleAnswer,
