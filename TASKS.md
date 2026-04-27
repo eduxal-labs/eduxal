@@ -1341,9 +1341,9 @@ Update the constructor to include them (with defaults), and update `PaperQuestio
 Add `import 'question.dart' show QuestionPart;` at the top of `paper_generation.dart` if not already imported (it already imports `question.dart` via the `RubricCriterion` + `QuestionImage` usage, so `QuestionPart` will be available).
 
 **Update after completion:**
-- [ ] Update `lib/models/CONTEXT.md` — update `question.dart` entry to mention QuestionPart and new Question fields; update `paper_generation.dart` entry to mention PaperQuestion new fields
-- [ ] Mark this task `[x]`
-- [ ] git commit: `feat: add QuestionPart model and new Question/PaperQuestion fields`
+- [x] Update `lib/models/CONTEXT.md` — update `question.dart` entry to mention QuestionPart and new Question fields; update `paper_generation.dart` entry to mention PaperQuestion new fields
+- [x] Mark this task `[x]`
+- [x] git commit: `feat: add QuestionPart model and new Question/PaperQuestion fields`
 
 ---
 
