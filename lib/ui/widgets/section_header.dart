@@ -39,7 +39,7 @@ class SectionHeader extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          ...?[trailing],
+          if (trailing != null) trailing!,
         ],
       ),
     );

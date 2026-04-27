@@ -67,7 +67,7 @@ class EduSectionCard extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          ...?[trailing],
+          if (trailing != null) trailing!,
         ],
       ),
     );

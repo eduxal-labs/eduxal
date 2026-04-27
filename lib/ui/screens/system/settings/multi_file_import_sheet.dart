@@ -629,6 +629,7 @@ class _ActionChip extends StatelessWidget {
     required this.cs,
     required this.isDark,
     this.isPrimary = false,
+    this.loading = false,
   });
 
   final String label;
@@ -637,10 +638,11 @@ class _ActionChip extends StatelessWidget {
   final ColorScheme cs;
   final bool isDark;
   final bool isPrimary;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
-    final enabled = onTap != null;
+    final enabled = onTap != null && !loading;
     final bgColor = isPrimary && enabled
         ? cs.primary.withValues(alpha: isDark ? 0.15 : 0.1)
         : Colors.transparent;
