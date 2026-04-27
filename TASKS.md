@@ -2690,15 +2690,15 @@ Future<bool> _uploadFile(String putUrl, String localPath) async {
 ```
 
 **Update after completion:**
-- [ ] Update `lib/services/CONTEXT.md` — update `question_bank.dart` entry:
+- [x] Update `lib/services/CONTEXT.md` — update `question_bank.dart` entry:
   - `listQuestions` now uses `page`/`pageSize` instead of `offset`/`limit`
   - `createQuestion` param renamed `text` → `body`
   - `updateQuestion` param renamed `text` → `body`
   - `bulkImport` now parses JSON internally and sends `CreateQuestionRequest` list
   - `requestImageUploadUrls` signature changed to `(questionId, count)` → `List<String>`
   - `importFileWithImages` image-upload loop refactored to per-question `requestImageUploadUrls` calls
-- [ ] Mark this task `[x]`
-- [ ] Orchestrator: git commit after this task
+- [x] Mark this task `[x]`
+- [x] Orchestrator: git commit after this task
 
 ---
 

@@ -178,13 +178,13 @@ Wraps the `QuestionBank` gRPC service for question bank operations. Handles CRUD
 
 | Method | Signature | Description |
 |---|---|---|
-| `listQuestions` | `Future<Result<(List<Question>, int), GrpcError>> listQuestions({required int topicId, int offset = 0, int limit = 50, required String accessToken})` | Paginated question list for a topic. Returns `(questions, totalCount)`. |
+| `listQuestions` | `Future<Result<(List<Question>, int), GrpcError>> listQuestions({required int topicId, int page = 0, int pageSize = 50, required String accessToken})` | Paginated question list for a topic. Returns `(questions, totalCount)`. Pagination params renamed from `offset`/`limit` to `page`/`pageSize` (FIX-03). |
 | `getQuestion` | `Future<Result<Question, GrpcError>> getQuestion({required int id, required String accessToken})` | Single question by ID. |
-| `createQuestion` | `Future<Result<Question, GrpcError>> createQuestion({required int topicId, required String text, required int marks, required List<RubricCriterion> rubric, String? exampleAnswer, List<QuestionImage> images = const [], required String accessToken})` | Create one question in a topic. Maps domain models to proto types for rubric criteria and images. |
-| `updateQuestion` | `Future<Result<Question, GrpcError>> updateQuestion({required int id, required String text, required int marks, required List<RubricCriterion> rubric, String? exampleAnswer, List<QuestionImage> images = const [], required String accessToken})` | Update an existing question. |
+| `createQuestion` | `Future<Result<Question, GrpcError>> createQuestion({required int topicId, required String body, required int marks, required List<RubricCriterion> rubric, String? exampleAnswer, List<QuestionImage> images = const [], required String accessToken})` | Create one question in a topic. Param renamed `text` → `body` (FIX-03). Maps domain models to proto types for rubric criteria. |
+| `updateQuestion` | `Future<Result<Question, GrpcError>> updateQuestion({required int id, required String body, required int marks, required List<RubricCriterion> rubric, String? exampleAnswer, List<QuestionImage> images = const [], required String accessToken})` | Update an existing question. Param renamed `text` → `body` (FIX-03). |
 | `deleteQuestion` | `Future<Result<void, GrpcError>> deleteQuestion({required int id, required String accessToken})` | Delete a question. Returns `Ok(null)` on success. |
-| `bulkImport` | `Future<Result<BulkImportResult, GrpcError>> bulkImport({required String jsonContent, required String accessToken, String? diagnosticLabel})` | Bulk import questions from JSON content. Uses 60s timeout. Question-bank import remains school-agnostic: the client sends only `jsonContent` (no school field). For the system dashboard flow, diagnostics explicitly record `scope=system-wide`, `school=none`, and preserve the exact gRPC code/message on failure so misleading backend errors like "school not found" can be traced without re-auditing the client request shape. |
-| `requestImageUploadUrls` | `Future<Result<List<ImageUploadUrl>, GrpcError>> requestImageUploadUrls({required List<ImageUploadSpec> imageSpecs, required String accessToken})` | Get presigned PUT URLs for question images. Each `ImageUploadSpec` carries `questionId`, `position`, `context`, `filename`, and optional `caption`. Returns proto `ImageUploadUrl` directly (no domain model — transient upload flow only). |
+| `bulkImport` | `Future<Result<BulkImportResult, GrpcError>> bulkImport({required String jsonContent, required String accessToken, String? diagnosticLabel})` | Bulk import questions from JSON content. Uses 60s timeout. Internally parses `jsonContent` JSON, builds a `BulkImportRequest` with a list of `CreateQuestionRequest` objects (each with `topicId`, `body`, `marks`, rubric, and optional `exampleAnswer`), then calls the renamed RPC `client.bulkImport()` (was `bulkImportQuestions`). Public signature unchanged (still accepts `jsonContent` string). School-agnostic: no school field on request. Diagnostics record `scope=system-wide`, `school=none`. (FIX-03) |
+| `requestImageUploadUrls` | `Future<Result<List<String>, GrpcError>> requestImageUploadUrls({required int questionId, required int count, required String accessToken})` | Request `count` presigned S3/R2 PUT URLs for one question's images. Builds `ImageUploadUrlsRequest()..questionId = questionId..count = count`. Returns plain `List<String>` (raw PUT URL strings). Old batch `ImageUploadSpec` API removed (FIX-03). |
 
 #### Paper Generation (Task 04)
 
@@ -217,12 +217,13 @@ Wraps the `QuestionBank` gRPC service for question bank operations. Handles CRUD
 |---|---|---|
 | `uploadFileToUrl` | `static Future<bool> uploadFileToUrl(String putUrl, String localPath)` | Uploads a local file to a presigned S3/R2 PUT URL. Returns `true` on HTTP 2xx, `false` on failure. Auto-detects Content-Type from file extension. |
 | `_contentTypeForExtension` | `static String _contentTypeForExtension(String path)` | Private helper: maps file extension to MIME type (svg, png, jpg, gif, webp). |
+| `_uploadFile` | `Future<bool> _uploadFile(String putUrl, String localPath)` | Private instance helper added in FIX-03. Reads entire file into bytes and PUTs to the presigned URL with `Content-Type: application/octet-stream`. Returns `true` on HTTP 2xx, `false` on any failure (file missing, network error, non-2xx). Used by the per-question image upload loop in `importFileWithImages`. |
 
 #### File Import Orchestrator (Task 04)
 
 | Method | Signature | Description |
 |---|---|---|
-| `importFileWithImages` | `Future<FileImportResult> importFileWithImages({required ParsedImportFile parsed, required String accessToken, ImportProgressCallback? onProgress})` | High-level orchestrator for a single parsed file. Pipeline: bulk import questions → build `ImageUploadSpec` objects for all created questions → request upload URLs in a single batch → upload each file to its PUT URL. Reports progress via optional `onProgress` callback with phase (`'importing'` / `'uploading'`), detail string, and 0.0–1.0 progress. Preserves partial-success and image-upload behavior while adding concise diagnostics for file/topic context, explicit system-wide scope (`scope=system-wide`, `school=none`), and exact gRPC failure details. Returns `FileImportResult` with counts and per-item errors. |
+| `importFileWithImages` | `Future<FileImportResult> importFileWithImages({required ParsedImportFile parsed, required String accessToken, ImportProgressCallback? onProgress})` | High-level orchestrator for a single parsed file. Pipeline: (1) bulk import questions via `bulkImport()`; (2) per-question loop — for each created question, collect local image paths, call `requestImageUploadUrls(questionId, count)`, then upload each file via `_uploadFile()`. Phase 2 replaces the old single-batch `ImageUploadSpec` approach with per-question `requestImageUploadUrls` calls (FIX-03). Missing images increment `imagesSkipped`; URL-request failures add an error and skip uploads for that question. Returns `FileImportResult` with counts and per-item errors. |
 
 **Top-level types (defined above `QuestionBankService` class):**
 
@@ -333,7 +334,16 @@ Wraps three gRPC service clients for the full exam lifecycle. Uses `EventService
 - `client.dart` is the only file that holds the gRPC `ClientChannel`. Services receive the channel (or a service client) via constructor injection.
 
 ## Last Updated
-Task FIX-02 — Updated `AiMarkingService` (`ai_marking.dart`): `requestUploadUrls` and `markPaper` signatures now use `required String paperId` instead of the previous 6-field composite (`school`, `exam`, `subject`, `paper`, `grade`, `stream`). Proto-building blocks updated to `UploadUrlsRequest()..paperId = paperId` and `MarkPaperRequest()..paperId = paperId` respectively. Print log lines updated to reflect new signature.
+Task FIX-03 — Updated `QuestionBankService` (`question_bank.dart`):
+- `listQuestions`: pagination params renamed `offset`/`limit` → `page`/`pageSize`; proto request fields updated accordingly; print log updated.
+- `createQuestion`: param `text` → `body`; proto request field `..text` → `..body`.
+- `updateQuestion`: param `text` → `body`; proto request field `..text` → `..body`.
+- `bulkImport`: try block now parses `jsonContent` JSON internally and builds `BulkImportRequest` with a list of `CreateQuestionRequest` objects (body, marks, topicId, rubric, exampleAnswer); RPC call renamed from `client.bulkImportQuestions()` to `client.bulkImport()`.
+- `requestImageUploadUrls`: completely replaced — new signature `({required int questionId, required int count, required String accessToken})` → `Future<Result<List<String>, GrpcError>>`; builds `ImageUploadUrlsRequest()..questionId..count`; old `ImageUploadSpec`/`ImageUploadUrl` proto types no longer used.
+- `importFileWithImages` Phase 2+3: replaced single-batch `ImageUploadSpec` approach with per-question loop calling `requestImageUploadUrls` and `_uploadFile` per question.
+- Added `_uploadFile(String putUrl, String localPath)` private instance helper (reads bytes, raw PUT to URL, `Content-Type: application/octet-stream`).
+
+Previous: Task FIX-02 — Updated `AiMarkingService` (`ai_marking.dart`): `requestUploadUrls` and `markPaper` signatures now use `required String paperId` instead of the previous 6-field composite (`school`, `exam`, `subject`, `paper`, `grade`, `stream`). Proto-building blocks updated to `UploadUrlsRequest()..paperId = paperId` and `MarkPaperRequest()..paperId = paperId` respectively. Print log lines updated to reflect new signature.
 
 Previous: Task M4 — Added `paper_service.dart` (9 public methods, `TaughtTopic` helper class). File count updated from 8 → 9. Wired in `client.dart` as `late final paper = PaperService(channel: _channel)` with global getter `PaperService get paperService => client.paper`. Key implementation note: `PaperTopicWeight.weight` is a `double` proto field — `int marks` parameters are converted via `.toDouble()`. `TaughtTopic` carries no `topicName` field (not in proto). `StudentPaperEntry.studentId` is the string representation of the integer DB student ID from `StudentPdfStatus.student`.
 

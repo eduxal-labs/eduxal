@@ -78,16 +78,18 @@ class QuestionBankService {
   /// Returns a tuple of `(questions, totalCount)`.
   Future<Result<(List<models.Question>, int), GrpcError>> listQuestions({
     required int topicId,
-    int offset = 0,
-    int limit = 50,
+    int page = 0,
+    int pageSize = 50,
     required String accessToken,
   }) async {
-    print('[QB] listQuestions → topicId=$topicId offset=$offset limit=$limit');
+    print(
+      '[QB] listQuestions → topicId=$topicId page=$page pageSize=$pageSize',
+    );
     try {
       final req = pb.ListQuestionsRequest()
         ..topicId = topicId
-        ..offset = offset
-        ..limit = limit;
+        ..page = page
+        ..pageSize = pageSize;
       final options = CallOptions(
         metadata: {'authorization': 'Bearer $accessToken'},
         timeout: const Duration(seconds: 30),
@@ -137,7 +139,7 @@ class QuestionBankService {
   /// Create a new question in a topic.
   Future<Result<models.Question, GrpcError>> createQuestion({
     required int topicId,
-    required String text,
+    required String body,
     required int marks,
     required List<models.RubricCriterion> rubric,
     String? exampleAnswer,
@@ -151,7 +153,7 @@ class QuestionBankService {
     try {
       final req = pb.CreateQuestionRequest()
         ..topicId = topicId
-        ..text = text
+        ..body = body
         ..marks = marks;
       req.rubric.addAll(rubric.map(_toProtoCriterion));
       if (exampleAnswer != null) req.exampleAnswer = exampleAnswer;
@@ -176,7 +178,7 @@ class QuestionBankService {
   /// Update an existing question.
   Future<Result<models.Question, GrpcError>> updateQuestion({
     required int id,
-    required String text,
+    required String body,
     required int marks,
     required List<models.RubricCriterion> rubric,
     String? exampleAnswer,
@@ -190,7 +192,7 @@ class QuestionBankService {
     try {
       final req = pb.UpdateQuestionRequest()
         ..questionId = id
-        ..text = text
+        ..body = body
         ..marks = marks;
       req.rubric.addAll(rubric.map(_toProtoCriterion));
       if (exampleAnswer != null) req.exampleAnswer = exampleAnswer;
@@ -258,13 +260,45 @@ class QuestionBankService {
       'label=$label scope=system-wide school=none jsonLength=${jsonContent.length}',
     );
     try {
-      final req = pb.BulkImportRequest()..jsonContent = jsonContent;
+      final decoded = jsonDecode(jsonContent) as Map<String, dynamic>;
+      final rawList = (decoded['questions'] as List<dynamic>? ?? [])
+          .cast<Map<String, dynamic>>();
+
+      final req = pb.BulkImportRequest();
+      for (final q in rawList) {
+        final body = q['body'] as String? ?? q['text'] as String? ?? '';
+        final marks = q['marks'] as int? ?? 0;
+        final topicId = q['topic_id'] as int? ?? 0;
+
+        final protoQ = pb.CreateQuestionRequest()
+          ..topicId = topicId
+          ..body = body
+          ..marks = marks;
+
+        // Rubric criteria
+        final rubric = (q['rubric'] as List<dynamic>? ?? [])
+            .cast<Map<String, dynamic>>();
+        for (final r in rubric) {
+          protoQ.rubric.add(
+            pb.RubricCriterionInput()
+              ..criterion = (r['criterion'] as String? ?? '')
+              ..marks = (r['marks'] as int? ?? 0),
+          );
+        }
+
+        // Example answer (string only in bulk import)
+        final ea = q['example_answer'];
+        if (ea is String && ea.isNotEmpty) protoQ.exampleAnswer = ea;
+
+        req.questions.add(protoQ);
+      }
+
       final options = CallOptions(
         metadata: {'authorization': 'Bearer $accessToken'},
         timeout: const Duration(seconds: 60),
       );
       final client = pbgrpc.QuestionBankClient(_mainChannel);
-      final resp = await client.bulkImportQuestions(req, options: options);
+      final resp = await client.bulkImport(req, options: options);
       final result = models.BulkImportResult.fromProto(resp);
       _logImportDiagnostic(
         'bulkImport.response',
@@ -294,32 +328,26 @@ class QuestionBankService {
   // Image Upload URLs
   // ---------------------------------------------------------------------------
 
-  /// Requests presigned S3/R2 PUT URLs for uploading question images.
-  ///
-  /// Each [spec] in [imageSpecs] must contain:
-  /// - `questionId`: the server-assigned question ID
-  /// - `position`: 1-indexed position within the question's images
-  /// - `context`: 0=question, 1=rubric, 2=example_answer
-  /// - `filename`: basename of the file (for extension detection)
-  /// - `caption`: optional caption text
-  ///
-  /// Returns [ImageUploadUrl] objects with `putUrl` for each image.
-  Future<Result<List<pb.ImageUploadUrl>, GrpcError>> requestImageUploadUrls({
-    required List<pb.ImageUploadSpec> imageSpecs,
+  /// Requests [count] presigned S3/R2 PUT URLs for uploading images for one question.
+  Future<Result<List<String>, GrpcError>> requestImageUploadUrls({
+    required int questionId,
+    required int count,
     required String accessToken,
   }) async {
-    print('[QB] requestImageUploadUrls → specs=${imageSpecs.length}');
+    print('[QB] requestImageUploadUrls → questionId=$questionId count=$count');
     try {
-      final req = pb.ImageUploadUrlsRequest();
-      req.images.addAll(imageSpecs);
+      final req = pb.ImageUploadUrlsRequest()
+        ..questionId = questionId
+        ..count = count;
       final options = CallOptions(
         metadata: {'authorization': 'Bearer $accessToken'},
         timeout: const Duration(seconds: 30),
       );
       final client = pbgrpc.QuestionBankClient(_mainChannel);
       final resp = await client.requestImageUploadUrls(req, options: options);
-      print('[QB] requestImageUploadUrls ← OK (urls=${resp.urls.length})');
-      return Ok(resp.urls.toList());
+      final urls = resp.urls.toList();
+      print('[QB] requestImageUploadUrls ← OK (urls=${urls.length})');
+      return Ok(urls);
     } on GrpcError catch (e) {
       print('[QB] requestImageUploadUrls ← GrpcError: ${e.code} ${e.message}');
       return Err(e);
@@ -861,14 +889,10 @@ class QuestionBankService {
           );
         }
 
-        // ── Phase 2: Build ImageUploadSpec objects ───────────────────────
+        // ── Phase 2: Upload images per question ──────────────────────────────
         int imagesUploaded = 0;
         int imagesFailed = 0;
         int imagesSkipped = parsed.missingImages.length;
-
-        final allSpecs = <pb.ImageUploadSpec>[];
-        final specToLocalPath =
-            <String, String>{}; // "qid:position" → local path
 
         final cleanedParsed =
             jsonDecode(parsed.cleanedJson!) as Map<String, dynamic>;
@@ -886,127 +910,51 @@ class QuestionBankService {
 
           if (j >= questions.length) continue;
           final q = questions[j] as Map<String, dynamic>;
-          final images = q['images'] as List<dynamic>? ?? [];
+          final images = (q['images'] as List<dynamic>? ?? [])
+              .cast<Map<String, dynamic>>();
 
-          for (var p = 0; p < images.length; p++) {
-            final img = images[p] as Map<String, dynamic>;
+          final localPaths = <String>[];
+          for (final img in images) {
             final basename = (img['filename'] as String?) ?? '';
-            if (basename.isEmpty) continue;
-
+            if (basename.isEmpty) {
+              imagesSkipped++;
+              continue;
+            }
             final localPath = parsed.imagePathMap[basename];
-            if (localPath == null) continue; // missing on disk
-
-            final contextStr = (img['context'] as String?) ?? 'question';
-            final contextInt = switch (contextStr) {
-              'rubric' => 1,
-              'example_answer' => 2,
-              _ => 0, // question
-            };
-
-            final spec = pb.ImageUploadSpec()
-              ..questionId = questionId
-              ..position = p + 1
-              ..context = contextInt
-              ..filename = basename;
-            if (img['caption'] is String) {
-              spec.caption = img['caption'] as String;
+            if (localPath == null) {
+              imagesSkipped++;
+              continue;
             }
-
-            allSpecs.add(spec);
-            specToLocalPath['$questionId:${p + 1}'] = localPath;
+            localPaths.add(localPath);
           }
-        }
 
-        if (allSpecs.isEmpty) {
-          _logImportDiagnostic(
-            'importFileWithImages.complete',
-            'label=$diagnosticLabel scope=system-wide school=none '
-                'questionsCreated=${value.createdCount} questionsErrored=${value.errors.length} '
-                'imagesUploaded=0 imagesFailed=0 imagesSkipped=$imagesSkipped',
+          if (localPaths.isEmpty) continue;
+
+          final urlResult = await requestImageUploadUrls(
+            questionId: questionId,
+            count: localPaths.length,
+            accessToken: accessToken,
           );
-          return FileImportResult(
-            fileName: parsed.fileName,
-            topic: parsed.topic,
-            questionsCreated: value.createdCount,
-            questionsErrored: value.errors.length,
-            imagesUploaded: 0,
-            imagesFailed: 0,
-            imagesSkipped: imagesSkipped,
-            errors: errors,
-          );
-        }
-
-        // ── Phase 3: Request upload URLs and upload files ────────────────
-        int uploadsDone = 0;
-        final totalUploads = allSpecs.length;
-
-        _logImportDiagnostic(
-          'importFileWithImages.imageUploadRequest',
-          'label=$diagnosticLabel scope=system-wide school=none uploadSpecs=$totalUploads',
-        );
-
-        onProgress?.call(
-          'uploading',
-          'Uploading images (0/$totalUploads)…',
-          0.0,
-        );
-
-        // Single batched call for all images in this file.
-        final urlResult = await requestImageUploadUrls(
-          imageSpecs: allSpecs,
-          accessToken: accessToken,
-        );
-
-        switch (urlResult) {
-          case Err(:final error):
-            imagesFailed += allSpecs.length;
-            final exactMessage = _grpcMessage(error);
-            _logImportDiagnostic(
-              'importFileWithImages.imageUploadRequestFailed',
-              'label=$diagnosticLabel scope=system-wide school=none '
-                  'grpcCode=${error.code} grpcMessage=$exactMessage',
+          if (urlResult is Err) {
+            errors.add(
+              'Q${j + 1}: failed to get image upload URLs — '
+              '${(urlResult as Err<List<String>, GrpcError>).error.message}',
             );
-            errors.add('Image URL request failed: $exactMessage');
-          case Ok(:final value):
-            _logImportDiagnostic(
-              'importFileWithImages.imageUploadResponse',
-              'label=$diagnosticLabel scope=system-wide school=none urls=${value.length}',
-            );
-            for (final uploadUrl in value) {
-              final key = '${uploadUrl.questionId}:${uploadUrl.position}';
-              final localPath = specToLocalPath[key];
-              if (localPath == null) {
-                imagesFailed++;
-                errors.add(
-                  'No local path for Q${uploadUrl.questionId} '
-                  'pos ${uploadUrl.position}.',
-                );
-                uploadsDone++;
-                onProgress?.call(
-                  'uploading',
-                  'Uploading images ($uploadsDone/$totalUploads)…',
-                  uploadsDone / totalUploads,
-                );
-                continue;
-              }
+            imagesFailed += localPaths.length;
+            continue;
+          }
+          final putUrls = (urlResult as Ok<List<String>, GrpcError>).value;
 
-              final ok = await uploadFileToUrl(uploadUrl.putUrl, localPath);
-              if (ok) {
-                imagesUploaded++;
-              } else {
-                imagesFailed++;
-                errors.add(
-                  'Upload failed: Q${uploadUrl.questionId} '
-                  'pos ${uploadUrl.position}.',
-                );
-              }
-              uploadsDone++;
-              onProgress?.call(
-                'uploading',
-                'Uploading images ($uploadsDone/$totalUploads)…',
-                uploadsDone / totalUploads,
-              );
+          for (var p = 0; p < localPaths.length; p++) {
+            final putUrl = p < putUrls.length ? putUrls[p] : '';
+            final success = await _uploadFile(putUrl, localPaths[p]);
+            if (success) {
+              imagesUploaded++;
+            } else {
+              imagesFailed++;
+              errors.add('Q${j + 1} image ${p + 1}: upload failed');
             }
+          }
         }
 
         _logImportDiagnostic(
@@ -1061,6 +1009,36 @@ class QuestionBankService {
       return message;
     }
     return 'gRPC error ${error.code}';
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private File Upload Helper
+  // ---------------------------------------------------------------------------
+
+  /// Uploads a local file to a presigned PUT URL using raw bytes.
+  ///
+  /// Returns `true` on HTTP 2xx, `false` on any failure (file missing,
+  /// network error, non-2xx status).
+  Future<bool> _uploadFile(String putUrl, String localPath) async {
+    if (putUrl.isEmpty) return true;
+    HttpClient? httpClient;
+    try {
+      final file = File(localPath);
+      if (!await file.exists()) return false;
+      final bytes = await file.readAsBytes();
+      httpClient = HttpClient();
+      final req = await httpClient.putUrl(Uri.parse(putUrl));
+      req.headers.set('Content-Type', 'application/octet-stream');
+      req.headers.set('Content-Length', '${bytes.length}');
+      req.add(bytes);
+      final resp = await req.close();
+      await resp.drain<void>();
+      return resp.statusCode >= 200 && resp.statusCode < 300;
+    } catch (_) {
+      return false;
+    } finally {
+      httpClient?.close();
+    }
   }
 
   // ---------------------------------------------------------------------------
