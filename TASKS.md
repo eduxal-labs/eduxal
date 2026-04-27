@@ -976,8 +976,8 @@ If `_showMarkingScheme == true`:
 Between questions: `Divider(height: 24)`.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] git commit: `feat: paper preview screen with marking scheme toggle`
+- [x] Mark this task `[x]`
+- [x] git commit: `feat: paper preview screen with marking scheme toggle`
 
 ---
 
