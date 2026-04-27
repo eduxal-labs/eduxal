@@ -8,6 +8,8 @@ import '../../../../models/question.dart';
 import '../../../../models/result.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/edu_sheet.dart';
+import '../../../widgets/stimulus_block.dart';
+import '../../../widgets/tiptap_renderer.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BulkImportSheet — paste JSON to bulk-import questions into a topic
@@ -47,6 +49,7 @@ class _BulkImportSheetState extends State<BulkImportSheet> {
   bool _validated = false;
   int _validQuestionCount = 0;
   List<String> _validationErrors = [];
+  List<Map<String, dynamic>> _parsedQuestions = [];
 
   // ── Import state ─────────────────────────────────────────────────────────
   bool _importing = false;
@@ -79,6 +82,7 @@ class _BulkImportSheetState extends State<BulkImportSheet> {
 
     final errors = <String>[];
     int count = 0;
+    final parsedQs = <Map<String, dynamic>>[];
 
     try {
       final dynamic parsed = jsonDecode(text);
@@ -109,12 +113,31 @@ class _BulkImportSheetState extends State<BulkImportSheet> {
           errors.add('$prefix: not a JSON object.');
           continue;
         }
+        parsedQs.add(q);
 
-        // text
-        if (q['text'] == null ||
-            q['text'] is! String ||
-            (q['text'] as String).trim().isEmpty) {
-          errors.add('$prefix: missing or empty "text".');
+        // body backward compat (new format: 'body'/'body_format'; old format: 'text')
+        final body = q['body'] as String? ?? q['text'] as String? ?? '';
+        // ignore: unused_local_variable
+        final bodyFormat = q['body_format'] as String? ?? 'plain';
+
+        // example_answer backward compat
+        final rawEa = q['example_answer'];
+        // ignore: unused_local_variable
+        final exampleAnswerContent = rawEa is String
+            ? rawEa
+            : (rawEa as Map?)?['content'] as String? ?? '';
+
+        // New fields (optional — do not reject if absent)
+        final parts = (q['parts'] as List?)?.cast<Map<String, dynamic>>();
+        // ignore: unused_local_variable
+        final stimulus = q['stimulus'] as Map<String, dynamic>?;
+        // ignore: unused_local_variable
+        final qType = q['type'] as String? ?? 'definition';
+        // ignore: unused_local_variable
+        final difficulty = q['difficulty'] as int? ?? 3;
+
+        if (body.trim().isEmpty) {
+          errors.add('$prefix: missing or empty "body" (or "text").');
         }
 
         // marks
@@ -171,6 +194,27 @@ class _BulkImportSheetState extends State<BulkImportSheet> {
           }
         }
 
+        // parts marks sum check
+        if (parts != null && parts.isNotEmpty) {
+          final partsSum = parts.fold<int>(
+            0,
+            (s, p) => s + (p['marks'] as int? ?? 0),
+          );
+          if (marks != null && partsSum != marks) {
+            errors.add(
+              '$prefix: Parts marks sum does not equal question marks',
+            );
+          }
+        }
+
+        // max_marks check
+        final maxMarks = q['max_marks'] as int?;
+        if (maxMarks != null && marks != null && maxMarks > marks) {
+          errors.add(
+            '$prefix: "max_marks" ($maxMarks) must be ≤ "marks" ($marks).',
+          );
+        }
+
         count++;
       }
     } on FormatException catch (e) {
@@ -186,6 +230,7 @@ class _BulkImportSheetState extends State<BulkImportSheet> {
       _validationErrors = errors;
       _validQuestionCount = count;
       _validated = errors.isEmpty && count > 0;
+      _parsedQuestions = errors.isEmpty && count > 0 ? parsedQs : [];
     });
   }
 
@@ -321,6 +366,7 @@ class _BulkImportSheetState extends State<BulkImportSheet> {
                 validated: _validated,
                 questionCount: _validQuestionCount,
                 errors: _validationErrors,
+                questions: _parsedQuestions,
                 cs: cs,
                 isDark: isDark,
               ),
@@ -498,6 +544,7 @@ class _ValidationResults extends StatelessWidget {
     required this.validated,
     required this.questionCount,
     required this.errors,
+    required this.questions,
     required this.cs,
     required this.isDark,
   });
@@ -505,6 +552,7 @@ class _ValidationResults extends StatelessWidget {
   final bool validated;
   final int questionCount;
   final List<String> errors;
+  final List<Map<String, dynamic>> questions;
   final ColorScheme cs;
   final bool isDark;
 
@@ -591,6 +639,217 @@ class _ValidationResults extends StatelessWidget {
                 ),
               ),
             ),
+          ],
+          // ── Preview ──────────────────────────────────────────────────────
+          if (validated && questions.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Divider(height: 1, thickness: 0.5),
+            const SizedBox(height: 10),
+            Text(
+              'Preview',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...questions.asMap().entries.map(
+              (entry) => _QuestionPreviewCard(
+                index: entry.key,
+                q: entry.value,
+                cs: cs,
+                isDark: isDark,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Question preview card — rich rendering for validated questions
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _QuestionPreviewCard extends StatelessWidget {
+  const _QuestionPreviewCard({
+    required this.index,
+    required this.q,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final int index;
+  final Map<String, dynamic> q;
+  final ColorScheme cs;
+  final bool isDark;
+
+  Color _typeColor(String qType) => switch (qType) {
+    'definition' => Colors.blue.shade100,
+    'calculation' => Colors.orange.shade100,
+    'structured' => Colors.purple.shade100,
+    'experiment' => Colors.green.shade100,
+    'diagram' => Colors.teal.shade100,
+    _ => Colors.grey.shade200,
+  };
+
+  Color _typeTextColor(String qType) => switch (qType) {
+    'definition' => Colors.blue.shade800,
+    'calculation' => Colors.orange.shade800,
+    'structured' => Colors.purple.shade800,
+    'experiment' => Colors.green.shade800,
+    'diagram' => Colors.teal.shade800,
+    _ => Colors.grey.shade700,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final body = q['body'] as String? ?? q['text'] as String? ?? '';
+    final bodyFormat = q['body_format'] as String? ?? 'plain';
+    final stimulus = q['stimulus'] as Map<String, dynamic>?;
+    final qType = q['type'] as String? ?? 'definition';
+    final difficulty = (q['difficulty'] as int? ?? 3).clamp(0, 5);
+    final marks = q['marks'] as int? ?? 0;
+    final parts =
+        (q['parts'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppTheme.overlayBg(isDark, cs),
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(color: AppTheme.borderColor(isDark, cs), width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header: type badge + difficulty + marks badge ─────────
+          Row(
+            children: [
+              // Question number
+              Text(
+                '${index + 1}.',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+              ),
+              const SizedBox(width: 6),
+              // Type badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _typeColor(qType),
+                  borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+                ),
+                child: Text(
+                  qType,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: _typeTextColor(qType),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              // Difficulty stars
+              Text(
+                List.filled(difficulty, '★').join(),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.amber.shade700,
+                  letterSpacing: 1,
+                ),
+              ),
+              const Spacer(),
+              // Marks badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+                ),
+                child: Text(
+                  '$marks mark${marks == 1 ? '' : 's'}',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: cs.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // ── Stimulus ──────────────────────────────────────────────
+          if (stimulus != null) StimulusBlock(stimulus: stimulus),
+
+          // ── Body ──────────────────────────────────────────────────
+          renderBody(
+            body,
+            bodyFormat,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurface,
+              height: 1.4,
+            ),
+          ),
+
+          // ── Parts ─────────────────────────────────────────────────
+          if (parts.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            ...parts.map((part) {
+              final label = part['label'] as String? ?? '';
+              final partBody = part['body'] as String? ?? '';
+              final partBodyFormat = part['body_format'] as String? ?? 'plain';
+              final partMarks = part['marks'] as int? ?? 0;
+              return Padding(
+                padding: const EdgeInsets.only(left: 12, bottom: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (label.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6, top: 1),
+                        child: Text(
+                          '($label)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    Expanded(
+                      child: renderBody(
+                        partBody,
+                        partBodyFormat,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: cs.onSurface.withValues(alpha: 0.85),
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '$partMarks mk',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
           ],
         ],
       ),

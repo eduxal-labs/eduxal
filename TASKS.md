@@ -1033,9 +1033,9 @@ After successful validation, show a preview list. Each preview item renders:
 Keep the existing image upload workflow (absolute path → R2 upload → update URL) completely unchanged.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md`
-- [ ] Mark this task `[x]`
-- [ ] git commit: `feat: update bulk import for new question schema`
+- [x] Update `lib/ui/screens/system/CONTEXT.md`
+- [x] Mark this task `[x]`
+- [x] git commit: `feat: update bulk import for new question schema`
 
 ---
 
