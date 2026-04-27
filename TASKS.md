@@ -2702,7 +2702,7 @@ Future<bool> _uploadFile(String putUrl, String localPath) async {
 
 ---
 
-### Task FIX-04a: Fix paper_detail_page.dart — update aiMarking call sites after FIX-02
+### [x] Task FIX-04a: Fix paper_detail_page.dart — update aiMarking call sites after FIX-02
 **Files to create/modify:** `lib/ui/screens/school_dashboard/academics/paper_detail_page.dart`
 **Context files to read (if needed):** none — all required info is inlined below
 **Depends on:** Task FIX-02
@@ -2786,8 +2786,8 @@ print('[SPREADSHEET] calling markPaper — paperId=$_paperId totalMarks=$_maxSco
 (and similarly for the `[GRADELIST]` log in the second occurrence).
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] Orchestrator: git commit after this task
+- [x] Mark this task `[x]`
+- [x] Orchestrator: git commit after this task
 
 ---
 
