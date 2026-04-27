@@ -792,8 +792,8 @@ On status tap: optimistic UI update + call `SetTaughtTopics` RPC. On error: reve
 Entry point: add "Topics Coverage" `ListTile` (with `Icons.checklist` icon) in the teacher's subject section of the school academics screen.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
-- [ ] git commit: `feat: taught topics page for teachers`
+- [x] Mark this task `[x]`
+- [x] git commit: `feat: taught topics page for teachers`
 
 ---
 

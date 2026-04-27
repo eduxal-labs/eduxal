@@ -122,6 +122,10 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
   Map<(int, int), List<int>> _confirmedCoverage = {};
   bool _step3CoverageLoaded = false;
 
+  // ── Steps 4–5 state ───────────────────────────────────────────────────────
+  bool _activating = false;
+  String? _activationError;
+
   @override
   void initState() {
     super.initState();
@@ -321,9 +325,94 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
     return true;
   }
 
-  void _activate() {
-    // TODO: Task D3 — wire up PaperService.createEvent
-    _showSnack('Activate — coming soon (Task D3)');
+  Future<void> _activate() async {
+    if (_activating) return;
+    setState(() {
+      _activating = true;
+      _activationError = null;
+    });
+
+    // 1. Create the event.
+    final typeInt = _draft.type.index; // exam=0, mock=1, holidayRevision=2
+    final eventResult = await paperService.createEvent(
+      school: widget.schoolId,
+      name: _draft.name,
+      type: typeInt,
+      term: _draft.term,
+      year: _draft.year,
+      startDate: _draft.startDate!,
+      endDate: _draft.endDate!,
+      accessToken: accessToken,
+    );
+    if (!mounted) return;
+
+    final String eventId;
+    switch (eventResult) {
+      case Ok(:final value):
+        eventId = value;
+      case Err(:final error):
+        setState(() {
+          _activating = false;
+          _activationError = 'Activation failed: ${error.message}';
+        });
+        return;
+    }
+
+    // 2. Schedule each paper.
+    final scheduleIds = <int, String>{}; // paper index → scheduleId
+    for (int i = 0; i < _papers.length; i++) {
+      final row = _papers[i];
+      final startMinutes = row.startTime!.hour * 60 + row.startTime!.minute;
+      final endMinutes = row.endTime!.hour * 60 + row.endTime!.minute;
+      final schedResult = await paperService.schedulePaper(
+        eventId: eventId,
+        subject: row.subjectId!,
+        grade: row.grade!,
+        stream: row.stream ?? 0,
+        date: row.date!,
+        startMinutes: startMinutes,
+        endMinutes: endMinutes,
+        invigilatorId: row.invigilatorId,
+        accessToken: accessToken,
+      );
+      if (!mounted) return;
+      switch (schedResult) {
+        case Ok(:final value):
+          scheduleIds[i] = value;
+        case Err(:final error):
+          setState(() {
+            _activating = false;
+            _activationError = 'Activation failed: ${error.message}';
+          });
+          return;
+      }
+    }
+
+    // 3. Confirm topic coverage for each (subjectId, grade) pair.
+    for (final coverageEntry in _confirmedCoverage.entries) {
+      final (subjectId, grade) = coverageEntry.key;
+      final topicIds = coverageEntry.value;
+      if (topicIds.isEmpty) continue;
+
+      // Find all paper indices that match this (subject, grade).
+      for (int i = 0; i < _papers.length; i++) {
+        final row = _papers[i];
+        if (row.subjectId != subjectId || row.grade != grade) continue;
+        final scheduleId = scheduleIds[i];
+        if (scheduleId == null) continue;
+        await paperService.confirmExamCoverage(
+          scheduleId: scheduleId,
+          topicIds: topicIds,
+          accessToken: accessToken,
+        );
+        if (!mounted) return;
+      }
+    }
+
+    // 4. Success.
+    setState(() => _activating = false);
+    _showSnack('Exam activated — papers will be auto-generated');
+    if (mounted) Navigator.of(context).pop();
   }
 
   void _showSnack(String msg) {
@@ -423,17 +512,21 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
                     }
                   },
                 ),
-                const Center(
-                  child: Text(
-                    'Step 4 — coming soon',
-                    style: TextStyle(fontWeight: FontWeight.w400),
-                  ),
+                // Step 4 — Review
+                _ReviewStep(
+                  draft: _draft,
+                  papers: _papers,
+                  confirmedCoverage: _confirmedCoverage,
+                  gradeLabel: _gradeLabel,
                 ),
-                const Center(
-                  child: Text(
-                    'Step 5 — coming soon',
-                    style: TextStyle(fontWeight: FontWeight.w400),
-                  ),
+                // Step 5 — Confirm
+                _ConfirmStep(
+                  papers: _papers,
+                  activating: _activating,
+                  error: _activationError,
+                  onActivate: () {
+                    _activate();
+                  },
                 ),
               ],
             ),
