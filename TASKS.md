@@ -388,9 +388,9 @@ class _ImageBlock extends StatelessWidget {
 ```
 
 **Update after completion:**
-- [ ] Update `lib/ui/CONTEXT.md`
-- [ ] Mark this task `[x]`
-- [ ] git commit: `feat: add StimulusBlock widget`
+- [x] Update `lib/ui/CONTEXT.md`
+- [x] Mark this task `[x]`
+- [x] git commit: `feat: add StimulusBlock widget`
 
 ---
 
