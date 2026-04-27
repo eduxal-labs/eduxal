@@ -18,7 +18,6 @@ class AnswerSpaceWidget extends StatelessWidget {
   final int answerBoxHeightMm;
 
   static const double _mmToPx = 3.78;
-  static const double _lineHeight = 24.0;
 
   @override
   Widget build(BuildContext context) {

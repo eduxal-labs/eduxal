@@ -4,13 +4,10 @@ import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart' hide Action;
 
 import '../../../../cache/file_cache.dart';
-import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/timetable_dao.dart';
 import '../../../../database/daos/catalog_dao.dart';
-import '../../../../database/tables/enums.dart';
 import '../../../../models/active_term_context.dart';
-import '../../../../models/membership.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
 import '../../../../models/timetable_rules.dart';

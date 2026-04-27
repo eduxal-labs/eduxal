@@ -715,36 +715,6 @@ class _RoleIdentityCell extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _RoleDescriptionCell — standalone description text (kept for reuse)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _RoleDescriptionCell extends StatelessWidget {
-  const _RoleDescriptionCell({required this.role});
-
-  final Role role;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final hasDescription =
-        role.description != null && role.description!.isNotEmpty;
-
-    return Text(
-      hasDescription ? role.description! : '—',
-      style: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w400,
-        color: cs.onSurfaceVariant.withValues(
-          alpha: hasDescription ? 0.8 : 0.5,
-        ),
-      ),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // _RolePermissionsBadge — descriptive count or dash
 // ─────────────────────────────────────────────────────────────────────────────
 

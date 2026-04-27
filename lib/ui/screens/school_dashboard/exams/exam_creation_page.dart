@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -9,7 +8,7 @@ import '../../../../database/database.dart';
 import '../../../../database/daos/catalog_dao.dart';
 import '../../../../database/daos/members_dao.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
-import '../../../../database/tables/topics.dart';
+
 import '../../../../models/membership.dart';
 import '../../../../models/result.dart';
 import '../../../../models/school_config.dart';
@@ -42,8 +41,6 @@ class _EventDraft {
     required this.type,
     required this.term,
     required this.year,
-    this.startDate,
-    this.endDate,
   });
 }
 
@@ -497,7 +494,6 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
                   }),
                   onPaperChanged: (i) => setState(() => _rowErrors.remove(i)),
                 ),
-                // Steps 3–5 — placeholders (Tasks D2, D3)
                 // Step 3 — Syllabus Coverage
                 _SyllabusCoverageStep(
                   papers: _papers,
@@ -1460,7 +1456,7 @@ class _TimetablePreview extends StatelessWidget {
           : Wrap(
               spacing: 3,
               runSpacing: 3,
-              children: subjects!
+              children: subjects
                   .map((name) => _SubjectBadge(name: name, cs: cs))
                   .toList(),
             ),

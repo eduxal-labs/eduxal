@@ -3,7 +3,6 @@ import 'package:flutter/material.dart' hide Action;
 import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/school_config.dart';
-import '../../../theme/app_theme.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -98,7 +97,7 @@ String subjectLabel(int subjectCode, SchoolConfig config) {
 // ═════════════════════════════════════════════════════════════════════════════
 
 class NoTermState extends StatelessWidget {
-  const NoTermState();
+  const NoTermState({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -146,7 +145,7 @@ class NoTermState extends StatelessWidget {
 }
 
 class EmptyTimetableState extends StatelessWidget {
-  const EmptyTimetableState({required this.cs});
+  const EmptyTimetableState({super.key, required this.cs});
 
   final ColorScheme cs;
 
@@ -195,7 +194,7 @@ class EmptyTimetableState extends StatelessWidget {
 }
 
 class EmptyConfigState extends StatelessWidget {
-  const EmptyConfigState({required this.cs});
+  const EmptyConfigState({super.key, required this.cs});
 
   final ColorScheme cs;
 
@@ -244,7 +243,7 @@ class EmptyConfigState extends StatelessWidget {
 }
 
 class NotEnrolledState extends StatelessWidget {
-  const NotEnrolledState({required this.cs});
+  const NotEnrolledState({super.key, required this.cs});
 
   final ColorScheme cs;
 

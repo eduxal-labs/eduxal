@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:bson/bson.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart' hide Action;
@@ -117,8 +115,9 @@ class _CreateRoleSheetState extends State<CreateRoleSheet> {
 
   void _toggleResourceAll(Resource resource, List<Action> actions) {
     // Only consider actions the user can actually edit.
-    final editableActions =
-        actions.where((a) => _canEditPermission(resource, a)).toList();
+    final editableActions = actions
+        .where((a) => _canEditPermission(resource, a))
+        .toList();
     if (editableActions.isEmpty) return;
 
     final allOn = editableActions.every(
@@ -668,7 +667,8 @@ class _ResourceRow extends StatelessWidget {
         .toList();
 
     // Disable "select all" toggle if any action in this resource can't be edited.
-    final canToggleAll = canEditPermission == null ||
+    final canToggleAll =
+        canEditPermission == null ||
         actions.any((a) => canEditPermission!(resource, a));
 
     return Padding(
@@ -807,7 +807,9 @@ class _ResourceRow extends StatelessWidget {
                                 border: Border.all(
                                   color: allOn
                                       ? cs.primary.withValues(alpha: 0.4)
-                                      : cs.outlineVariant.withValues(alpha: 0.5),
+                                      : cs.outlineVariant.withValues(
+                                          alpha: 0.5,
+                                        ),
                                   width: 1,
                                 ),
                               ),
@@ -816,7 +818,9 @@ class _ResourceRow extends StatelessWidget {
                                 size: 14,
                                 color: allOn
                                     ? cs.primary
-                                    : cs.onSurfaceVariant.withValues(alpha: 0.45),
+                                    : cs.onSurfaceVariant.withValues(
+                                        alpha: 0.45,
+                                      ),
                               ),
                             ),
                           ),

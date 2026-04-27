@@ -16,7 +16,7 @@ import '../../../../models/permissions.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
 import '../../../../models/timetable_rules.dart';
-import '../../../../core/extensions.dart';
+
 import '../../../../services/timetable_generator.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/active_term_provider.dart';
