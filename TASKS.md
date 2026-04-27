@@ -2289,7 +2289,7 @@ MarkingPhase _phaseFromInt(int phase) => switch (phase) {
 
 ---
 
-### Task FIX-02: Fix AiMarkingService — update to paper_id-based proto API
+### [x] Task FIX-02: Fix AiMarkingService — update to paper_id-based proto API
 **Files to create/modify:** `lib/services/ai_marking.dart`
 **Context files to read (if needed):** none — all required info is inlined below
 **Depends on:** nothing
@@ -2389,9 +2389,9 @@ print('[AI] markPaper → paperId=$paperId totalMarks=$totalMarks '
 ```
 
 **Update after completion:**
-- [ ] Update `lib/services/CONTEXT.md` — update `ai_marking.dart` entry: `requestUploadUrls` and `markPaper` signatures now use `paperId: String`
-- [ ] Mark this task `[x]`
-- [ ] Orchestrator: git commit after this task
+- [x] Update `lib/services/CONTEXT.md` — update `ai_marking.dart` entry: `requestUploadUrls` and `markPaper` signatures now use `paperId: String`
+- [x] Mark this task `[x]`
+- [x] Orchestrator: git commit after this task
 
 ---
 
