@@ -159,7 +159,7 @@ M-Pesa Daraja API configuration for a school. Serializable to/from JSON.
 Display model for failed log entries shown in the notifications panel.
 - Fields: `logId` (int), `SyncAction action`, `String resource` (human-readable display key), `errorMessage` (String?), `attempts` (int), `DateTime occurred`.
 - Helpers: `title` (e.g. "Sync failed — Create Teacher"), `subtitle` (error message or attempt count).
-- Private: `_actionName(SyncAction)` — maps all 77 `SyncAction` values to human-readable names.
+- Private: `_actionName(SyncAction)` — maps all persisted `SyncAction` values, including the standalone `inviteUser` action, to human-readable names.
 
 ### `CurriculumLevel` / level data — `curriculum_levels.dart`
 Defines all CBC and 8-4-4 levels with their valid subject lists.
@@ -258,3 +258,6 @@ Task P05 — Added `StreamCopyResult` class to `paper_generation.dart`. Added `i
 
 Previous:
 Task 01 — Added `questionIds` (List\<int\>) field to `BulkImportResult` in `question.dart` for server-assigned question IDs used in image upload flow.
+
+## Task INV-02 — Notification model update
+- `AppNotification` now labels `SyncAction.inviteUser` explicitly as **Invite User** so failed standalone invites render with the correct title instead of falling back to a generic action label.

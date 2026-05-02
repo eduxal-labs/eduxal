@@ -544,14 +544,19 @@ class _ActionBadge extends StatelessWidget {
 
   static (String, Color) _labelAndColor(SyncAction action) {
     final name = action.name;
+    if (action == SyncAction.inviteUser) {
+      return ('Invite', const Color(0xFF26A69A));
+    }
     if (name.startsWith('create')) return ('Create', const Color(0xFF26A69A));
     if (name.startsWith('update')) return ('Update', const Color(0xFFFFB300));
     if (name.startsWith('delete')) return ('Delete', const Color(0xFFEF5350));
     if (name.startsWith('assign')) return ('Assign', const Color(0xFF42A5F5));
-    if (name.startsWith('unassign'))
+    if (name.startsWith('unassign')) {
       return ('Unassign', const Color(0xFF78909C));
-    if (name.startsWith('unenroll'))
+    }
+    if (name.startsWith('unenroll')) {
       return ('Unenroll', const Color(0xFF78909C));
+    }
     if (name.startsWith('enroll')) return ('Enroll', const Color(0xFF42A5F5));
     if (name.startsWith('mark')) return ('Mark', const Color(0xFF7E57C2));
     if (name.startsWith('approve')) return ('Approve', const Color(0xFF66BB6A));
@@ -627,6 +632,7 @@ IconData _iconForAction(SyncAction action) => switch (action) {
   SyncAction.deleteRole ||
   SyncAction.assignRole ||
   SyncAction.unassignRole => Icons.verified_user_outlined,
+  SyncAction.inviteUser => Icons.person_add_alt_1_rounded,
   SyncAction.updateUser ||
   SyncAction.deleteUser => Icons.person_outline_rounded,
   SyncAction.updateSettings => Icons.settings_outlined,

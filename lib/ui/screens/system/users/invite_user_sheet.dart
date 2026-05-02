@@ -15,8 +15,8 @@ import '../../../theme/app_theme.dart';
 
 /// Bottom sheet (mobile) / dialog content (desktop) for inviting a new user.
 ///
-/// Collects name, phone, and optional email. Checks for a duplicate phone
-/// number locally before submitting. On submit, calls
+/// Collects name, phone, and the standalone invite level. Checks for a
+/// duplicate phone number locally before submitting. On submit, calls
 /// [UsersDao.inviteUser] which writes both the `users` row and the `logs`
 /// insert entry in a single transaction.
 class InviteUserSheet extends StatefulWidget {
@@ -33,7 +33,6 @@ class _InviteUserSheetState extends State<InviteUserSheet> {
 
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
 
   // ── Image picking ───────────────────────────────────────────────────────────
 
@@ -47,29 +46,39 @@ class _InviteUserSheetState extends State<InviteUserSheet> {
 
   String? _nameError;
   String? _phoneError;
-  String? _emailError;
 
   bool _submitting = false;
   bool _submitted = false;
 
-  /// The level to assign to the invited user. Defaults to [UserLevel.normal].
-  /// System users with `Users.Create` and Super users may select
-  /// [UserLevel.system]. Super-level cannot be assigned from this UI (§16a).
+  /// The level queued in the standalone invite payload.
   UserLevel _selectedLevel = UserLevel.normal;
 
-  /// Whether the current user may create system-level users.
-  /// True for Super users (bypass all checks) and System users with
-  /// `Users.Create` permission. System users without that permission
-  /// can only invite Normal-level users.
-  bool get _canCreateSystemUser =>
-      widget.permissions.isElevated &&
-      widget.permissions.can(Resource.users, Action.create);
+  List<UserLevel> get _allowedInviteLevels {
+    if (widget.permissions.level == UserLevel.super_) {
+      return const [UserLevel.normal, UserLevel.system, UserLevel.super_];
+    }
+
+    if (widget.permissions.level == UserLevel.system &&
+        widget.permissions.can(Resource.users, Action.create)) {
+      return const [UserLevel.system];
+    }
+
+    return const [];
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final allowedLevels = _allowedInviteLevels;
+    if (allowedLevels.isNotEmpty) {
+      _selectedLevel = allowedLevels.first;
+    }
+  }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
-    _emailCtrl.dispose();
     super.dispose();
   }
 
@@ -96,17 +105,12 @@ class _InviteUserSheetState extends State<InviteUserSheet> {
     return RegExp(r'^\+?[0-9]{7,15}$').hasMatch(phone);
   }
 
-  static bool _isValidEmail(String email) =>
-      RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
-
   bool _validate() {
     final name = _nameCtrl.text.trim();
     final phone = _phoneCtrl.text.trim();
-    final email = _emailCtrl.text.trim();
 
     String? nameErr;
     String? phoneErr;
-    String? emailErr;
 
     if (name.length < 2) {
       nameErr = 'Name must be at least 2 characters.';
@@ -116,17 +120,13 @@ class _InviteUserSheetState extends State<InviteUserSheet> {
     } else if (!_isValidPhone(phone)) {
       phoneErr = 'Enter a valid phone number (7–15 digits).';
     }
-    if (email.isNotEmpty && !_isValidEmail(email)) {
-      emailErr = 'Enter a valid email address.';
-    }
 
     setState(() {
       _nameError = nameErr;
       _phoneError = phoneErr;
-      _emailError = emailErr;
     });
 
-    return nameErr == null && phoneErr == null && emailErr == null;
+    return nameErr == null && phoneErr == null;
   }
 
   // ── Duplicate phone check ───────────────────────────────────────────────────
@@ -154,25 +154,27 @@ class _InviteUserSheetState extends State<InviteUserSheet> {
     if (!_validate()) return;
     if (_duplicateWarning != null) return; // hard block on duplicate
 
-    // ── Privilege escalation guards ──────────────────────────────────────────
-    // Super users can only be created by other super users AND only via a
-    // different flow. Block unconditionally in the invite sheet.
-    if (_selectedLevel == UserLevel.super_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cannot invite Super-level users')),
-      );
-      return;
-    }
-
-    // System users without Users.Create may not invite system-level users.
-    if (_selectedLevel == UserLevel.system &&
-        !widget.permissions.can(Resource.users, Action.create)) {
+    final allowedLevels = _allowedInviteLevels;
+    if (allowedLevels.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'You do not have permission to create System-level users',
+            'Standalone invites are reserved for system creators with Users.Create and super users.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (!allowedLevels.contains(_selectedLevel)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.permissions.level == UserLevel.system
+                ? 'System creators can only invite System-level users from this screen.'
+                : 'Only Super users may invite ${_selectedLevel.name} users from this screen.',
           ),
         ),
       );
@@ -202,19 +204,11 @@ class _InviteUserSheetState extends State<InviteUserSheet> {
       final nowSeconds = BigInt.from(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
       );
-      final email = _emailCtrl.text.trim();
-
-      // SyncAction note: There is no `SyncAction.createUser` — by design,
-      // users are created as side-effects of member creation (§16a). For
-      // standalone user creation (system-level management), inviteUser() uses
-      // `SyncAction.updateUser` + `UpdateUserPayload` as an upsert. The
-      // server handles the "user does not exist" case by creating the row.
       await usersDao.inviteUser(
         UsersCompanion(
           id: Value(id),
           phone: Value(phone),
           name: Value(_nameCtrl.text.trim()),
-          email: Value(email.isEmpty ? null : email),
           level: Value(_selectedLevel),
           status: const Value(UserStatus.invited),
           created: Value(nowSeconds),
@@ -367,35 +361,23 @@ class _InviteUserSheetState extends State<InviteUserSheet> {
 
                   const SizedBox(height: 14),
 
-                  // Email (optional)
-                  _FormLabel(label: 'Email (optional)', cs: cs),
-                  const SizedBox(height: 6),
-                  _FormField(
-                    controller: _emailCtrl,
-                    hint: 'example@domain.com',
-                    error: _emailError,
-                    cs: cs,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.done,
-                    onEditingComplete: _submit,
-                  ),
-
-                  // ── Level picker (visible to System / Super creators) ───
-                  if (_canCreateSystemUser) ...[
+                  // ── Level picker (mirrors server standalone-invite rules) ─
+                  if (_allowedInviteLevels.isNotEmpty) ...[
                     const SizedBox(height: 14),
                     _FormLabel(label: 'User level', cs: cs),
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        for (final level in [
-                          UserLevel.normal,
-                          UserLevel.system,
-                        ])
+                        for (final level in _allowedInviteLevels)
                           Padding(
                             padding: const EdgeInsets.only(right: 8),
                             child: ChoiceChip(
                               label: Text(
-                                level == UserLevel.normal ? 'Normal' : 'System',
+                                level == UserLevel.normal
+                                    ? 'Normal'
+                                    : level == UserLevel.system
+                                    ? 'System'
+                                    : 'Super',
                               ),
                               selected: _selectedLevel == level,
                               visualDensity: VisualDensity.compact,
@@ -429,6 +411,18 @@ class _InviteUserSheetState extends State<InviteUserSheet> {
                             ),
                           ),
                       ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      widget.permissions.level == UserLevel.system
+                          ? 'System creators may only queue standalone System invites.'
+                          : 'Super creators may queue standalone Normal, System, or Super invites.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.75),
+                        height: 1.35,
+                      ),
                     ),
                   ],
 

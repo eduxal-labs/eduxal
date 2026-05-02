@@ -1,6 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
-
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
@@ -8,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../core/permission_parser.dart';
 import '../models/permissions.dart';
+import '../proto/services/sync.pb.dart' as sync_pb;
 import 'tables/enums.dart';
 
 import 'daos/accounts_dao.dart';
@@ -77,6 +76,57 @@ part 'database.g.dart';
 
 /// Global singleton — initialised in main.dart before runApp().
 late final AppDatabase db;
+
+class _LegacyInviteLogRewrite {
+  const _LegacyInviteLogRewrite({
+    required this.action,
+    required this.payload,
+    required this.resetFailed,
+  });
+
+  final SyncAction action;
+  final Uint8List payload;
+  final bool resetFailed;
+}
+
+_LegacyInviteLogRewrite? _rewriteLegacyStandaloneInviteLog({
+  required SyncAction action,
+  required List<int> payload,
+  required LogStatus status,
+}) {
+  if (action != SyncAction.updateUser) return null;
+
+  try {
+    final update = sync_pb.UpdateUserPayload.fromBuffer(payload);
+    final isInviteShape =
+        update.hasId() &&
+        update.id.isNotEmpty &&
+        update.hasPhone() &&
+        update.phone.isNotEmpty &&
+        update.hasName() &&
+        update.name.isNotEmpty &&
+        update.hasLevel() &&
+        update.hasStatus() &&
+        update.status == UserStatus.invited.index;
+
+    if (!isInviteShape) return null;
+
+    final invite = sync_pb.InviteUserPayload(
+      id: update.id,
+      phone: update.phone,
+      name: update.name,
+      level: update.level,
+    );
+
+    return _LegacyInviteLogRewrite(
+      action: SyncAction.inviteUser,
+      payload: Uint8List.fromList(invite.writeToBuffer()),
+      resetFailed: status == LogStatus.failed,
+    );
+  } catch (_) {
+    return null;
+  }
+}
 
 @DriftDatabase(
   tables: [
@@ -288,7 +338,36 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
+
+  Future<void> _rewriteLegacyInviteLogs() async {
+    final rows = await customSelect(
+      'SELECT id, payload, status FROM logs WHERE action = ?',
+      variables: [Variable.withInt(SyncAction.updateUser.value)],
+    ).get();
+
+    for (final row in rows) {
+      final rewrite = _rewriteLegacyStandaloneInviteLog(
+        action: SyncAction.updateUser,
+        payload: row.read<Uint8List>('payload'),
+        status: LogStatus.values[row.read<int>('status')],
+      );
+      if (rewrite == null) continue;
+
+      final id = row.read<int>('id');
+      if (rewrite.resetFailed) {
+        await customStatement(
+          'UPDATE logs SET action = ?, payload = ?, status = ?, error = NULL, attempts = 0 WHERE id = ?',
+          [rewrite.action.value, rewrite.payload, LogStatus.pending.index, id],
+        );
+      } else {
+        await customStatement(
+          'UPDATE logs SET action = ?, payload = ? WHERE id = ?',
+          [rewrite.action.value, rewrite.payload, id],
+        );
+      }
+    }
+  }
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -630,6 +709,9 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'ALTER TABLE papers ADD COLUMN custom_instructions TEXT',
         );
+      }
+      if (from < 12) {
+        await _rewriteLegacyInviteLogs();
       }
     },
     onCreate: (m) async {

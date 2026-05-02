@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
@@ -179,28 +177,22 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
     await into(users).insertOnConflictUpdate(user);
   }
 
-  /// Creates a new invited user and enqueues a log entry, both in a single
-  /// transaction.
+  /// Creates a new invited user and enqueues the standalone invite action,
+  /// both in a single transaction.
   ///
   /// The [user] companion must have all required fields populated:
   /// - [UsersCompanion.id] — caller generates via [ObjectId().oid]
   /// - [UsersCompanion.phone]
   /// - [UsersCompanion.name]
   /// - [UsersCompanion.status] — should be [UserStatus.invited]
-  /// - [UsersCompanion.level]  — [UserLevel.normal] or [UserLevel.system]
-  ///   (per §16a: System users with `Users.Create` and Super users may invite
-  ///   system-level users; Super-level users are never created from the client)
+  /// - [UsersCompanion.level] — target level for the standalone invite action
   /// - [UsersCompanion.created] and [UsersCompanion.updated] — seconds since epoch
   ///
   /// The [accountId] is the currently active account's user id, used to
   /// associate the log entry with the correct account.
   ///
-  /// ### Why `SyncAction.updateUser` instead of a create action?
-  /// The `SyncAction` enum has no `createUser` value — by design, users are
-  /// created as side-effects of member creation (see AGENT.md §16a). This
-  /// method handles **standalone** user creation (system-level management)
-  /// using `SyncAction.updateUser` + `UpdateUserPayload` as an upsert. The
-  /// server detects that the user does not yet exist and creates the row.
+  /// The queued payload for standalone invites contains only `id`, `phone`,
+  /// `name`, and `level` to match the server's `InviteUserPayload` contract.
   Future<void> inviteUser(
     UsersCompanion user, {
     required String accountId,
@@ -208,23 +200,17 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
     await transaction(() async {
       await into(users).insert(user);
 
-      // Uses SyncAction.updateUser because there is no createUser action in
-      // the enum (users are normally created as side-effects of member
-      // creation). The server treats this as an upsert for standalone user
-      // creation (system-level management). See AGENT.md §16a.
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-      final payload = sync_pb.UpdateUserPayload(
+      final payload = sync_pb.InviteUserPayload(
         id: user.id.value,
-        phone: user.phone.present ? user.phone.value : null,
-        name: user.name.present ? user.name.value : null,
-        email: user.email.present ? user.email.value : null,
-        level: user.level.present ? user.level.value.index : null,
-        status: user.status.present ? user.status.value.index : null,
+        phone: user.phone.value,
+        name: user.name.value,
+        level: user.level.value.index,
       );
       await into(logs).insert(
         LogsCompanion(
           account: Value(accountId),
-          action: const Value(SyncAction.updateUser),
+          action: const Value(SyncAction.inviteUser),
           resource: Value(user.name.present ? user.name.value : user.id.value),
           payload: Value(Uint8List.fromList(payload.writeToBuffer())),
           status: const Value(LogStatus.pending),

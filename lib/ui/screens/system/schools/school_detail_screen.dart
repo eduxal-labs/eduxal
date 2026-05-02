@@ -5026,7 +5026,9 @@ class _AddOwnerSheetState extends State<_AddOwnerSheet> {
           ),
         );
       } else if (_notFound) {
-        // Create a new invited user, then link as owner.
+        // Stage a local invited user row so the optimistic owner link has a
+        // valid FK, but queue only the createOwner action — its payload
+        // already carries the owner invite fields.
         final userId = ObjectId().oid;
         final nowSeconds = BigInt.from(
           DateTime.now().millisecondsSinceEpoch ~/ 1000,
@@ -5034,7 +5036,7 @@ class _AddOwnerSheetState extends State<_AddOwnerSheet> {
         final name = _nameCtrl.text.trim();
         final email = _emailCtrl.text.trim();
 
-        await usersDao.inviteUser(
+        await usersDao.upsertUser(
           UsersCompanion(
             id: Value(userId),
             phone: Value(phone),
@@ -5045,10 +5047,8 @@ class _AddOwnerSheetState extends State<_AddOwnerSheet> {
             created: Value(nowSeconds),
             updated: Value(nowSeconds),
           ),
-          accountId: accountId,
         );
 
-        // Fetch the freshly created user row.
         final createdUser = await usersDao.getUser(userId);
 
         await schoolsDao.linkOwner(

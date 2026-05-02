@@ -310,8 +310,8 @@ Other DAOs are created locally where needed (e.g. inside service classes or scre
 ## Callers Updated in C9
 
 - `lib/services/members.dart` — `MemberCreationService` methods now pass `existingUser: existing` to all `addExistingUserAs*` calls.
-- `lib/ui/screens/system/schools/create_school_sheet.dart` — `createSchool` calls now pass `ownerUser: UsersData` instead of `ownerUserId: String`. Fetches the created user row via `usersDao.getUser()` when a new user is invited.
-- `lib/ui/screens/system/schools/school_detail_screen.dart` — `linkOwner` calls now pass `ownerUser: UsersData`. Fetches the created user row via `usersDao.getUser()` when a new user is invited.
+- `lib/ui/screens/system/schools/create_school_sheet.dart` — `createSchool` calls now pass `ownerUser: UsersData` instead of `ownerUserId: String`. When the phone is not found locally, the sheet stages an optimistic invited `users` row via `upsertUser()` and queues only the `createSchool` log (no extra standalone invite log).
+- `lib/ui/screens/system/schools/school_detail_screen.dart` — `linkOwner` calls now pass `ownerUser: UsersData`. When the owner phone is new, the sheet stages an optimistic invited `users` row via `upsertUser()` and queues only the `createOwner` log.
 
 ## DAOs Updated in C11
 
@@ -352,3 +352,7 @@ Previous: Tasks D1, D2, D3 — `logs_dao.dart`: Added `notifyUpdates` to `markFa
 Previous: Task F12 — `exams_grades_dao.dart`: Added TODO(perf) comment to `watchExamGroups` documenting that when `teacherId` is non-null, all exams for the term are loaded and filtered in Dart (checking exam creator, invigilator, and subject_teachers). Moving the filter to SQL is difficult with Drift's query builder due to the multi-table join/EXISTS logic required. Acceptable for typical term sizes (< 50 exams) but flagged for revisit if performance degrades on large schools.
 
 Previous: Tasks D01, E06 — Added `getAggregatedPermissions` and `watchAggregatedPermissions` to `SchoolScopesDao` for DAO-based permission loading and reactive permission updates. Added `watchSystemPermissions` to `UsersDao` for reactive system dashboard permissions. Previous: Task A02 — Fixed `SchoolScopesDao` permission encoding.
+
+## Task INV-02 — Standalone invite contract
+- **`users_dao.dart`** — `inviteUser()` now writes `SyncAction.inviteUser` with `InviteUserPayload { id, phone, name, level }` while still inserting the optimistic local `users` row in the same transaction.
+- **`logs_dao.dart`** — `_revertCreate(...)` now handles `SyncAction.inviteUser` explicitly by deleting only the optimistic invited `users` row for that payload. The `createSchool` revert path also removes a staged invited owner row when the school creation is discarded.

@@ -533,11 +533,15 @@ class _ActionBadge extends StatelessWidget {
 
   (String, Color) _labelAndColor(SyncAction action) {
     final name = action.name;
+    if (action == SyncAction.inviteUser) {
+      return ('Invite', const Color(0xFF26A69A));
+    }
     if (name.startsWith('create')) return ('Create', const Color(0xFF26A69A));
     if (name.startsWith('update')) return ('Update', const Color(0xFFFFB300));
     if (name.startsWith('delete')) return ('Delete', cs.error);
-    if (name.startsWith('unassign'))
+    if (name.startsWith('unassign')) {
       return ('Unassign', const Color(0xFFAB47BC));
+    }
     if (name.startsWith('assign')) return ('Assign', const Color(0xFF42A5F5));
     if (name.startsWith('unenroll')) return ('Unenroll', cs.error);
     if (name.startsWith('enroll')) return ('Enroll', const Color(0xFF26A69A));
@@ -615,6 +619,7 @@ IconData _iconForAction(SyncAction action) => switch (action) {
   SyncAction.deleteRole => Icons.verified_user_outlined,
   SyncAction.assignRole ||
   SyncAction.unassignRole => Icons.lock_outline_rounded,
+  SyncAction.inviteUser => Icons.person_add_alt_1_rounded,
   SyncAction.updateUser ||
   SyncAction.deleteUser => Icons.person_outline_rounded,
   SyncAction.updateSettings => Icons.settings_outlined,

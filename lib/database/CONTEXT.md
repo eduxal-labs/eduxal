@@ -14,7 +14,7 @@ All tables are defined in `tables/`, all query logic lives in `daos/`, and the `
 
 | File | Status | Description |
 |---|---|---|
-| `database.dart` | ✅ Complete | `AppDatabase` class — registers all 35 tables + all DAOs. Schema version **11**. `MigrationStrategy.onUpgrade` handles: v1→v2 (add `accounts.lastSeq` column), v2→v3 (drop+recreate `logs` table for action-based model), v3→v4 (drop overly-restrictive unique indexes on exams), v4→v5 (create `paper_submissions` table), v5→v6 (add `accounts.theme` column), v6→v7 (add `papers.grade`/`stream`, drop `exam_grades`, recreate triggers), v7→v8 (rebuild `papers` and `grades` tables for new composite PK shape), v8→v9 (create `scheme_pages` and `answer_pages` tables), v9→v10 (migrate `roles.permissions` from TEXT to BLOB — table recreation with data conversion via `parsePermissions()` → `Permissions.toBlob()`), v10→v11 (add `papers.time_allowed_minutes` and `papers.custom_instructions` nullable columns via `ALTER TABLE`). `onCreate` applies triggers + indexes as raw SQL. Singleton accessed via global `db` variable set in `client.dart`'s `initializeClient()`. |
+| `database.dart` | ✅ Complete | `AppDatabase` class — registers all 35 tables + all DAOs. Schema version **12**. `MigrationStrategy.onUpgrade` handles: v1→v2 (add `accounts.lastSeq` column), v2→v3 (drop+recreate `logs` table for action-based model), v3→v4 (drop overly-restrictive unique indexes on exams), v4→v5 (create `paper_submissions` table), v5→v6 (add `accounts.theme` column), v6→v7 (add `papers.grade`/`stream`, drop `exam_grades`, recreate triggers), v7→v8 (rebuild `papers` and `grades` tables for new composite PK shape), v8→v9 (create `scheme_pages` and `answer_pages` tables), v9→v10 (migrate `roles.permissions` from TEXT to BLOB — table recreation with data conversion via `parsePermissions()` → `Permissions.toBlob()`), v10→v11 (add `papers.time_allowed_minutes` and `papers.custom_instructions` nullable columns via `ALTER TABLE`), v11→v12 (rewrite legacy invite-shaped `updateUser` logs to `inviteUser`, rebuild payload bytes as `InviteUserPayload`, and reset failed invite rows to `pending`). `onCreate` applies triggers + indexes as raw SQL. Singleton accessed via global `db` variable set in `client.dart`'s `initializeClient()`. |
 | `database.g.dart` | ✅ Generated | Drift code-gen output — `part of` `database.dart`. Contains all generated data classes (`UsersData`, `SchoolsData`, `AccountsData`, etc.) and table accessors. **Never edit manually.** Regenerate with `dart run build_runner build`. |
 
 ## Subdirectories
@@ -130,3 +130,8 @@ Previous: Task C03 — Add `time_allowed_minutes` and `custom_instructions` to `
 - `database.g.dart` regenerated — `PapersData` now has `int? timeAllowedMinutes` and `String? customInstructions` fields; `PapersCompanion` has corresponding `Value<int?>` and `Value<String?>` fields.
 
 Previous: Task A01 — Migrate `roles.permissions` from TEXT to BLOB (schema version 10).
+
+## Task INV-02 — Standalone invite queue migration
+- `database.dart` now imports `sync.pb.dart` directly for the one-time schema v12 queue rewrite helper.
+- `_rewriteLegacyStandaloneInviteLog(...)` is a pure payload helper that detects legacy invite-shaped `UpdateUserPayload` blobs and rewrites them to `InviteUserPayload`.
+- `onUpgrade` runs the v12 rewrite before normal sync resumes, so previously failed standalone invites automatically replay with the new contract.

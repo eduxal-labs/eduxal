@@ -569,3 +569,42 @@ The system role detail screen (`lib/ui/screens/system/roles/role_detail_screen.d
 **Prevention:**
 - When a bug fix is applied to one variant of a screen (e.g., school dashboard roles), always audit whether the same fix is needed on other variants (e.g., system roles). Search for parallel implementations.
 - The system roles screen still uses a string-based permission model (`Map<String, bool>`) with local `_parsePermissions`/`_serialisePermissions` instead of the typed `Resource`/`Action` enum model. A future task should fully convert it to the typed system used by the school dashboard, using the shared `parsePermissions`/`serialisePermissions` from `core/permission_parser.dart`.
+
+---
+
+## BUG-020: Standalone user invites were queued as `updateUser`, got stuck, and duplicated school-owner logs
+
+**Status:** Fixed
+**Date:** 2026-05-02
+**Files affected:**
+- `lib/database/database.dart`
+- `lib/database/daos/users_dao.dart`
+- `lib/database/daos/logs_dao.dart`
+- `lib/ui/screens/system/users/invite_user_sheet.dart`
+- `lib/ui/screens/system/schools/create_school_sheet.dart`
+- `lib/ui/screens/system/schools/school_detail_screen.dart`
+- `lib/services/authorization_service.dart`
+- `lib/models/app_notification.dart`
+- `lib/ui/screens/system/notifications/notifications_section.dart`
+- `lib/ui/screens/system/notifications/notifications_panel.dart`
+- `lib/ui/screens/notifications/notifications_page.dart`
+
+**Symptom:**
+Standalone user invites from the system users screen were written as `SyncAction.updateUser` with an invite-shaped `UpdateUserPayload`. Once the server moved to a dedicated `inviteUser` action, those queued rows failed and stayed stuck in the failed queue. The school-creation and owner-link flows also queued an extra standalone invite log even though their parent payloads already embedded the owner invite fields.
+
+**Root cause:**
+The client originally used `updateUser` as a create-via-update workaround because no standalone invite action existed. After the contract added `InviteUserPayload` + `SyncAction.inviteUser`, old on-disk log rows still contained protobuf bytes for `UpdateUserPayload`, so replaying them kept hitting the wrong server path. The school-owner UI also still called `usersDao.inviteUser()`, producing redundant logs beside `createSchool` / `createOwner` even though those parent actions already carried owner identity data.
+
+**Fix:**
+1. Bumped the local Drift schema to **12**.
+2. Added a one-time migration that scans queued `updateUser` logs, detects the legacy invite shape (`id + phone + name + level + status=invited`), rewrites the payload to `InviteUserPayload`, and changes the action to `SyncAction.inviteUser`.
+3. Failed invite-shaped rows are reset back to `pending`, `error = NULL`, and `attempts = 0` so they replay automatically after upgrade.
+4. `UsersDao.inviteUser()` now queues the dedicated standalone invite action and payload.
+5. The standalone invite sheet now mirrors the final server invite rules: system creators with `Users.Create` may invite **System** only; only super creators may invite **Normal**, **System**, or **Super**.
+6. School creation and owner-link flows no longer queue a second standalone invite log. They stage a local invited `users` row for optimistic FK integrity and rely on the parent `createSchool` / `createOwner` action payload for sync.
+7. Revert, notification, and authorization mappings were updated for the new `inviteUser` action, including discarding failed optimistic invite rows cleanly.
+
+**Prevention:**
+- Standalone invites must use `SyncAction.inviteUser` only; genuine user edits stay on `SyncAction.updateUser`.
+- Any future on-disk sync action change must ship with an explicit queue migration because `logs.action` values and protobuf payloads are persisted locally.
+- School/member parent actions that already embed invite fields must not queue a second standalone invite log.

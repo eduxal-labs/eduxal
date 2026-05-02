@@ -108,10 +108,10 @@ Already-failed queued `updateUser` invite attempts must work after the app upgra
   - how version `12` rewrites and replays them automatically
 
 **Update after completion:**
-- [ ] Update `lib/database/CONTEXT.md`
-- [ ] Update `lib/database/daos/CONTEXT.md`
-- [ ] Append a new entry to `BUG.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/database/CONTEXT.md`
+- [x] Update `lib/database/daos/CONTEXT.md`
+- [x] Append a new entry to `BUG.md`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
@@ -142,9 +142,9 @@ Already-failed queued `updateUser` invite attempts must work after the app upgra
 - Preserve the existing optimistic local row behavior so the invited user still appears locally before sync completes.
 
 **Update after completion:**
-- [ ] Update `lib/database/daos/CONTEXT.md`
-- [ ] Update `lib/ui/screens/system/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/database/daos/CONTEXT.md`
+- [x] Update `lib/ui/screens/system/CONTEXT.md`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
@@ -173,8 +173,8 @@ Already-failed queued `updateUser` invite attempts must work after the app upgra
 - Update any stale comments in those files so they no longer describe school-owner creation as a standalone user invite followed by a second action.
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
@@ -201,11 +201,11 @@ Already-failed queued `updateUser` invite attempts must work after the app upgra
 - Keep existing `updateUser` authorization behavior untouched for real updates.
 
 **Update after completion:**
-- [ ] Update `lib/models/CONTEXT.md`
-- [ ] Update `lib/ui/screens/CONTEXT.md`
-- [ ] Update `lib/ui/screens/system/CONTEXT.md`
-- [ ] Update `lib/database/daos/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/models/CONTEXT.md`
+- [x] Update `lib/ui/screens/CONTEXT.md`
+- [x] Update `lib/ui/screens/system/CONTEXT.md`
+- [x] Update `lib/database/daos/CONTEXT.md`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---

@@ -183,6 +183,13 @@ class LogsDao extends DatabaseAccessor<AppDatabase> with _$LogsDaoMixin {
         final p = sync_pb.CreateSchoolPayload.fromBuffer(payload);
         await customStatement('DELETE FROM schools WHERE id = ?', [p.id]);
         touchedTables.add('schools');
+        if (p.hasOwnerId() && p.hasOwnerPhone()) {
+          await customStatement(
+            'DELETE FROM users WHERE id = ? AND status = ?',
+            [p.ownerId, 0],
+          );
+          touchedTables.add('users');
+        }
 
       // ── Teachers ─────────────────────────────────────────────────────────
       case SyncAction.createTeacher:
@@ -385,6 +392,15 @@ class LogsDao extends DatabaseAccessor<AppDatabase> with _$LogsDaoMixin {
         final p = sync_pb.CreatePlanPayload.fromBuffer(payload);
         await customStatement('DELETE FROM plans WHERE id = ?', [p.id]);
         touchedTables.add('plans');
+
+      // ── Standalone user invites ────────────────────────────────────────────
+      case SyncAction.inviteUser:
+        final p = sync_pb.InviteUserPayload.fromBuffer(payload);
+        await customStatement('DELETE FROM users WHERE id = ? AND status = ?', [
+          p.id,
+          0,
+        ]);
+        touchedTables.add('users');
 
       // ── Subscriptions ─────────────────────────────────────────────────────
       case SyncAction.createSubscription:

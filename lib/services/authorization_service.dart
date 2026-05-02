@@ -228,6 +228,7 @@ class AuthorizationService {
       SyncAction.deleteTopic,
       SyncAction.updateRole,
       SyncAction.deleteRole,
+      SyncAction.inviteUser,
       SyncAction.deleteUser,
     };
     if (systemActions.contains(action)) return const OrgContext.system();
@@ -389,6 +390,7 @@ class AuthorizationService {
       SyncAction.assignRole => (Resource.roles, Action.assign),
       SyncAction.unassignRole => (Resource.roles, Action.unassign),
       // ── Users ──────────────────────────────────────────────────────────────
+      SyncAction.inviteUser => (Resource.users, Action.create),
       SyncAction.updateUser => (Resource.users, Action.update),
       SyncAction.deleteUser => (Resource.users, Action.delete),
       // ── Settings — DEPRECATED (table removed in schema v2) ─────────────────

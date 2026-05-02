@@ -542,6 +542,7 @@ class _NotificationTileState extends State<_NotificationTile> {
     SyncAction.assignRole ||
     SyncAction.unassignRole => Icons.lock_outline_rounded,
     // Users
+    SyncAction.inviteUser => Icons.person_add_alt_1_rounded,
     SyncAction.updateUser ||
     SyncAction.deleteUser => Icons.person_outline_rounded,
     // Settings
@@ -642,6 +643,9 @@ class _ActionBadge extends StatelessWidget {
 
   (String, Color) _labelAndColor(SyncAction action) {
     final name = action.name;
+    if (action == SyncAction.inviteUser) {
+      return ('Invite', const Color(0xFF26A69A));
+    }
     if (name.startsWith('create')) return ('Create', const Color(0xFF26A69A));
     if (name.startsWith('update')) return ('Update', const Color(0xFFFFB300));
     if (name.startsWith('delete')) return ('Delete', cs.error);

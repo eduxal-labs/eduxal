@@ -123,6 +123,7 @@ class AppNotification {
     SyncAction.deleteRole => 'Delete Role',
     SyncAction.assignRole => 'Assign Role',
     SyncAction.unassignRole => 'Unassign Role',
+    SyncAction.inviteUser => 'Invite User',
     SyncAction.updateUser => 'Update User',
     SyncAction.deleteUser => 'Delete User',
     SyncAction.updateSettings => 'Update Settings',

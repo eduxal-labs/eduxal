@@ -97,7 +97,7 @@ This directory contains **7 subdirectories**, each representing a major area of 
 - **Data source:** `logsDao.watchFailedLogs(accountId)` → `Stream<List<AppNotification>>`, `logsDao.watchFailedLogCount(accountId)` → `Stream<int>` (for title badge)
 - **Key features:**
   - AppBar with back chevron, "Notifications" title, and live count badge
-  - Reactive list of failed sync entries with domain icon (derived from `SyncAction`), title, action badge (Create/Update/Delete/Assign/Mark/Approve/etc.), error subtitle, monospaced resource identifier, and relative timestamp
+  - Reactive list of failed sync entries with domain icon (derived from `SyncAction`), title, action badge (Create/Update/Delete/Invite/Assign/Mark/Approve/etc.), error subtitle, monospaced resource identifier, and relative timestamp
   - Empty state with checkmark icon + "No sync issues." centered
   - Each tile wrapped in `InkWell` for future retry/dismiss interactions
   - Icon mapping (`_iconForAction`), relative time formatter, and action badge (`_ActionBadge`) are self-contained top-level helpers
@@ -160,3 +160,6 @@ main.dart → SplashScreen
 
 ## Last Updated
 Task B1 — Extracted shared permission editor helpers to `shared/role_permission_editor.dart`. Added `shared/` directory with `ResourceGroup`, `kResourceGroups`, `kActionColors`, `kActionIcons`, `actionLabel` — used by all three system role files. Previous: Task F10 — Guardian card ward info: `_MembershipCard` in `home/home_screen.dart` now shows "Guardian of {ward.name}" subtitle for each `GuardianEntry` in the membership. Previous: Task 02 — Generate Lessons UI.
+
+## Task INV-02 — Notifications page
+- `notifications_page.dart` now treats `SyncAction.inviteUser` as a first-class failed action with its own badge label (**Invite**) and user-invite icon mapping instead of relying on the generic action fallback.

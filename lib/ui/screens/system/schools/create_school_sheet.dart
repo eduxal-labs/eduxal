@@ -27,9 +27,10 @@ import 'school_detail_screen.dart';
 /// found, prompts for the new user's name (and optional email) to create an
 /// invited user first.
 ///
-/// On submit, calls [SchoolsDao.createSchool] (and optionally
-/// [UsersDao.inviteUser] for a new owner). Each DAO method runs its own
-/// internal transaction and calls `sync.schedulePush()` on completion.
+/// On submit, calls [SchoolsDao.createSchool]. When the owner phone is not
+/// found locally, the sheet stages an optimistic invited `users` row without
+/// queueing a separate standalone invite log because `CreateSchoolPayload`
+/// already carries the owner invite fields.
 class CreateSchoolSheet extends StatefulWidget {
   const CreateSchoolSheet({super.key, required this.permissions});
 
@@ -250,12 +251,14 @@ class _CreateSchoolSheetState extends State<CreateSchoolSheet> {
           accountId: accountId,
         );
       } else {
-        // New user — create an invited user first, then the school.
+        // Stage a local invited user row so the optimistic owner link has a
+        // valid FK, but queue only the createSchool action — its payload
+        // already carries the owner invite data for sync.
         final ownerUserId = ObjectId().oid;
         final ownerName = _ownerNameCtrl.text.trim();
         final ownerEmail = _ownerEmailCtrl.text.trim();
 
-        await usersDao.inviteUser(
+        await usersDao.upsertUser(
           UsersCompanion(
             id: Value(ownerUserId),
             phone: Value(phone),
@@ -266,10 +269,8 @@ class _CreateSchoolSheetState extends State<CreateSchoolSheet> {
             created: Value(nowSeconds),
             updated: Value(nowSeconds),
           ),
-          accountId: accountId,
         );
 
-        // Fetch the freshly created user row to pass to createSchool.
         ownerUser = (await usersDao.getUser(ownerUserId))!;
 
         await schoolsDao.createSchool(
