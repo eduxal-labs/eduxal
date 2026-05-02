@@ -230,7 +230,7 @@ Already-failed queued `updateUser` invite attempts must work after the app upgra
 - If the migration helper is otherwise difficult to test through the full database upgrade path, expose it through a small internal helper and test that helper directly.
 
 **Update after completion:**
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
