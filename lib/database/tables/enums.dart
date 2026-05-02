@@ -345,7 +345,9 @@ class LogStatusConverter extends TypeConverter<LogStatus, int> {
 /// The semantic action type for the action-based sync model.
 ///
 /// Each value represents a single, self-contained operation that the client
-/// can push to the server. Values are fixed — do not reorder or renumber.
+/// can push to the server. These integers are mirrored manually from
+/// `../ledger/src/db/database/tables/actions.rs` and persisted in the local
+/// sync queue, so this enum must remain append-only.
 enum SyncAction {
   // Schools
   createSchool(0),
@@ -477,7 +479,9 @@ enum SyncAction {
   deleteScheme(92),
   // Answer pages (student answer sheet file sync)
   uploadAnswerSheet(93),
-  deleteAnswerSheet(94);
+  deleteAnswerSheet(94),
+  // Users (standalone system invite)
+  inviteUser(95);
 
   const SyncAction(this.value);
   final int value;

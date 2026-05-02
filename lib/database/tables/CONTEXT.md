@@ -89,6 +89,7 @@ Contains **all** enum types and their `TypeConverter` classes used across the ta
 | `LogTable` | `LogTableConverter` | `logs.tbl` | users(0)–discounts(29) — 30 values, explicit `.value` field |
 | `LogOperation` | `LogOperationConverter` | `logs.op` | insert(0), update(1), delete(2) |
 | `LogStatus` | `LogStatusConverter` | `logs.status` | pending(0), failed(1) |
+| `SyncAction` | `SyncActionConverter` | local sync queue action IDs | `createSchool(0)`–`inviteUser(95)` — manual mirror of server action constants, persisted on disk, append-only |
 
 ### Column Bitset Enums
 
@@ -125,6 +126,8 @@ Used for the `logs.columns` bitmask on UPDATE entries. One enum per synced table
 | `DiscountsColumn` | `discounts` | amount(0), unit(1), updated(2) |
 
 > Tables with no updatable columns (insert/delete only): `owners`, `enrollments`, `scopes` — no column bitset enum exists for these.
+
+> **SyncAction note:** `inviteUser(95)` is the standalone user-invite action added for the action-based sync queue. `SyncAction` values are maintained manually in `enums.dart` to match `../ledger/src/db/database/tables/actions.rs`, and the integer IDs are persisted locally, so only append new values.
 
 ## Special File: `curriculum_subjects.dart`
 

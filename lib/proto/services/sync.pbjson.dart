@@ -1995,6 +1995,22 @@ final $typed_data.Uint8List unassignRolePayloadDescriptor = $convert.base64Decod
     'ChNVbmFzc2lnblJvbGVQYXlsb2FkEhsKBnNjaG9vbBgBIAEoCUgAUgZzY2hvb2yIAQESEgoEdX'
     'NlchgCIAEoCVIEdXNlchISCgRyb2xlGAMgASgJUgRyb2xlQgkKB19zY2hvb2w=');
 
+@$core.Deprecated('Use inviteUserPayloadDescriptor instead')
+const InviteUserPayload$json = {
+  '1': 'InviteUserPayload',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'phone', '3': 2, '4': 1, '5': 9, '10': 'phone'},
+    {'1': 'name', '3': 3, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'level', '3': 4, '4': 1, '5': 5, '10': 'level'},
+  ],
+};
+
+/// Descriptor for `InviteUserPayload`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List inviteUserPayloadDescriptor = $convert.base64Decode(
+    'ChFJbnZpdGVVc2VyUGF5bG9hZBIOCgJpZBgBIAEoCVICaWQSFAoFcGhvbmUYAiABKAlSBXBob2'
+    '5lEhIKBG5hbWUYAyABKAlSBG5hbWUSFAoFbGV2ZWwYBCABKAVSBWxldmVs');
+
 @$core.Deprecated('Use updateUserPayloadDescriptor instead')
 const UpdateUserPayload$json = {
   '1': 'UpdateUserPayload',

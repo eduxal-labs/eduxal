@@ -55,9 +55,9 @@ Already-failed queued `updateUser` invite attempts must work after the app upgra
   - the fact that action integers are persisted and must remain append-only
 
 **Update after completion:**
-- [ ] Update `lib/proto/CONTEXT.md`
-- [ ] Update `lib/database/tables/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/proto/CONTEXT.md`
+- [x] Update `lib/database/tables/CONTEXT.md`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---

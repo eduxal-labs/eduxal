@@ -21,7 +21,7 @@ proto/
 │   ├── authentication.pbenum.dart   # Enums defined in authentication.proto (if any)
 │   ├── authentication.pbgrpc.dart   # gRPC client/server stubs: AuthenticationClient
 │   ├── authentication.pbjson.dart   # JSON serialization support
-│   ├── sync.pb.dart                 # Message classes: MutationBatch, Mutation, PushAck, MutationResult, WatchRequest, SyncDelta, FileUrl, InsertData (30 *Insert messages), UpdateData (25 *Update messages)
+│   ├── sync.pb.dart                 # Message classes: ActionRequest, ActionResponse, ActionRow, WatchRequest, SyncDelta, FileUrl, InsertData, and 79 action payload messages (including InviteUserPayload)
 │   ├── sync.pbenum.dart             # Enums from sync.proto (InsertData_Row, UpdateData_Row oneof enums)
 │   ├── sync.pbgrpc.dart             # gRPC client/server stubs: SyncClient
 │   └── sync.pbjson.dart             # JSON serialization support
@@ -46,7 +46,7 @@ proto/
 |---|---|---|---|---|
 | Authentication | `AuthenticationClient` | `services/authentication.pbgrpc.dart` | `login`, `verify`, `setup`, `refresh` | ✅ Generated |
 | Account | — | — | — | ❌ Not needed (P2 closed) |
-| Sync | `SyncClient` | `services/sync.pbgrpc.dart` | `pushChanges` (client-streaming → server ack stream), `watchChanges` (server-streaming) | ✅ Generated |
+| Sync | `SyncClient` | `services/sync.pbgrpc.dart` | `pushActions` (client-streaming → server response stream), `watchChanges` (server-streaming) | ✅ Generated |
 
 ## Key Proto Message Types
 
@@ -78,15 +78,18 @@ proto/
 
 | Message | Fields | Used by |
 |---|---|---|
-| `MutationBatch` | `batchId` (string), `mutations` (repeated Mutation) | `LogProcessor.buildBatches()` → pushed to server via `SyncClient.pushChanges()` |
-| `Mutation` | `table` (int32), `operation` (int32), `rowKey` (string), `insert` (InsertData, optional), `update` (UpdateData, optional) | Individual mutation within a batch. `insert` set for op=Insert, `update` set for op=Update, neither for op=Delete. No `columns` field — bitmask stays local in `logs` table. |
-| `PushAck` | `batchId` (string), `success` (bool), `error` (optional string), `serverSeq` (int64), `results` (repeated MutationResult) | Server acknowledgement of a pushed batch |
-| `MutationResult` | `index` (int32), `success` (bool), `error` (optional string), `code` (int32: 0=ok, 1=permission_denied, 2=conflict, 3=validation_error, 4=not_found), `fileUrls` (repeated FileUrl) | Per-mutation result within a PushAck |
+| `ActionRequest` | `id` (int32), `action` (int32), `payload` (bytes) | Client streams queued sync actions to `SyncClient.pushActions()` |
+| `ActionResponse` | `id` (int32), `success` (bool), `code` (int32), `error` (string), `rows` (repeated `ActionRow`), `fileUrls` (repeated `FileUrl`) | Per-action server result for queue replay |
+| `ActionRow` | `table` (int32), `operation` (int32), `rowKey` (string), `data` (`InsertData`) | Reconciliation row returned after an action executes; upserts include full row data, deletes omit it |
 | `WatchRequest` | `lastSeq` (int64) | Client sends to start server-streaming watch |
-| `SyncDelta` | `seq` (int64), `table` (int32), `operation` (int32), `rowKey` (string), `data` (InsertData), `fileUrls` (repeated FileUrl) | Server-pushed change event. `data` carries an `InsertData` with the row's mutable fields. PKs come from `rowKey` (pipe-delimited). |
+| `SyncDelta` | `seq` (int64), `table` (int32), `operation` (int32), `rowKey` (string), `data` (`InsertData`), `fileUrls` (repeated `FileUrl`) | Server-pushed change event. PKs come from `rowKey` (pipe-delimited). |
 | `FileUrl` | `path` (string), `putUrl` (optional string), `getUrl` (optional string), `expiry` (int64) | S3 presigned URLs for file sync |
-| `InsertData` | oneof `row` with 30 per-table `*Insert` messages | Wrapper for full row data (all mutable non-PK, non-timestamp fields). Used in `Mutation.insert` and `SyncDelta.data`. |
-| `UpdateData` | oneof `row` with 25 per-table `*Update` messages (missing: owners, enrollments, subjects, lessons, scopes) | Wrapper for partial row data (only updatable fields). Used in `Mutation.update`. Server uses `has*()` to detect which fields were set. |
+| `InsertData` | oneof `row` with 30 per-table `*Insert` messages | Wrapper for full row data returned in action responses and watch deltas |
+| `InviteUserPayload` | `id`, `phone`, `name`, `level` | Standalone `SyncAction.inviteUser` payload for system/super invites |
+| `UpdateUserPayload` | `id`, optional `phone`, `email`, `name`, `level`, `status` | Real `SyncAction.updateUser` payload for existing user updates |
+| `DeleteUserPayload` | `id` | Real `SyncAction.deleteUser` payload for existing user deletes |
+
+> **Important:** `SyncAction` integers are not generated from proto. They live in `lib/database/tables/enums.dart`, mirror the server constants in `../ledger/src/db/database/tables/actions.rs`, and are stored in the local sync queue, so new values must be appended without renumbering existing ones.
 
 ### `services/sync.pb.dart` — Per-Table Insert & Update Messages
 

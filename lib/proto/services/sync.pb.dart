@@ -7805,6 +7805,96 @@ class UnassignRolePayload extends $pb.GeneratedMessage {
   void clearRole() => $_clearField(3);
 }
 
+class InviteUserPayload extends $pb.GeneratedMessage {
+  factory InviteUserPayload({
+    $core.String? id,
+    $core.String? phone,
+    $core.String? name,
+    $core.int? level,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (phone != null) result.phone = phone;
+    if (name != null) result.name = name;
+    if (level != null) result.level = level;
+    return result;
+  }
+
+  InviteUserPayload._();
+
+  factory InviteUserPayload.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory InviteUserPayload.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'InviteUserPayload',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'phone')
+    ..aOS(3, _omitFieldNames ? '' : 'name')
+    ..aI(4, _omitFieldNames ? '' : 'level')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  InviteUserPayload clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  InviteUserPayload copyWith(void Function(InviteUserPayload) updates) =>
+      super.copyWith((message) => updates(message as InviteUserPayload))
+          as InviteUserPayload;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static InviteUserPayload create() => InviteUserPayload._();
+  @$core.override
+  InviteUserPayload createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static InviteUserPayload getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<InviteUserPayload>(create);
+  static InviteUserPayload? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get phone => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set phone($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPhone() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPhone() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get name => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set name($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasName() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearName() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get level => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set level($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasLevel() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearLevel() => $_clearField(4);
+}
+
 class UpdateUserPayload extends $pb.GeneratedMessage {
   factory UpdateUserPayload({
     $core.String? id,
