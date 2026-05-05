@@ -188,6 +188,9 @@ For `UserLevel.super_` users, all permissions are granted unconditionally via `S
 - **Reactive system permissions (D01):** `system_dashboard_screen.dart` `_SystemDashboardScreenState` now mixes in `WidgetsBindingObserver`. After initial `_loadPermissions()` one-shot load, subscribes to `usersDao.watchSystemPermissions(userId)` — a Drift reactive stream that re-emits when any system-scoped scope or role row changes via sync deltas. On change, rebuilds `SystemPermissions` and calls `setState`. Also re-loads permissions on `AppLifecycleState.resumed` via `_reloadPermissionsOnResume()`. New field: `_permissionsSub` (`StreamSubscription<List<RolePermissions>>?`). New import: `dart:async`.
 
 ## Last Updated
+Task C2 — `system_dashboard_screen.dart`: Added `_showNoPermissionsWarning` getter and `_buildNoPermissionsWarning` widget method. When a `UserLevel.system` user has no system-scoped roles (only Home + Notifications tabs visible), a warning banner is shown in both mobile (between `EduTabBar` and `TabBarView`) and desktop (top of content area above `_DesktopBody`) layouts. The banner uses `cs.errorContainer` styling with an info icon and directs the user to contact a Super administrator.
+
+Previous:
 Task G1 — `settings/bulk_import_sheet.dart`: Updated for new question schema. `_validate()` now accepts both old (`text`) and new (`body`/`body_format`) formats with full backward compat. Extracts new optional fields (`parts`, `stimulus`, `type`, `difficulty`, `example_answer`). Added validation for parts marks sum and `max_marks`. Stores valid parsed questions in `_parsedQuestions`. `_ValidationResults` now accepts a `questions` parameter and renders a rich per-question preview (`_QuestionPreviewCard`) after successful validation — type badge, difficulty stars, stimulus via `StimulusBlock`, body via `renderBody`, and parts list. Added imports: `stimulus_block.dart`, `tiptap_renderer.dart`.
 
 Previous:

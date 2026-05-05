@@ -386,6 +386,47 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
     );
   }
 
+  // ── No-permissions warning ─────────────────────────────────────────────
+
+  /// Returns `true` when the current user is [UserLevel.system] but has no
+  /// system-level roles assigned, meaning only Home + Notifications tabs are
+  /// visible.
+  bool get _showNoPermissionsWarning =>
+      _permissions.isElevated &&
+      _permissions.level != UserLevel.super_ &&
+      _mobileTabs.length <= 2;
+
+  Widget _buildNoPermissionsWarning(ColorScheme cs) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cs.errorContainer.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+        border: Border.all(color: cs.errorContainer.withValues(alpha: 0.6)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, size: 18, color: cs.error),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'You have no system-level roles assigned. '
+              'Contact a Super administrator to assign you a system role '
+              'so you can manage users, schools, and settings.',
+              style: TextStyle(
+                fontSize: 12,
+                color: cs.onErrorContainer,
+                fontWeight: FontWeight.w300,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── FAB logic (mobile only) ────────────────────────────────────────────────
 
   bool get _showFab {
@@ -515,6 +556,8 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
             padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
             tabs: _mobileTabs.map((t) => EduTab(icon: t.icon)).toList(),
           ),
+          // ── No-permissions warning banner ─────────────────────────────
+          if (_showNoPermissionsWarning) _buildNoPermissionsWarning(cs),
           // ── Animated tab content ─────────────────────────────────────
           Expanded(
             child: SlideTransition(
@@ -647,35 +690,46 @@ class _SystemDashboardScreenState extends State<SystemDashboardScreen>
       position: _slideUp,
       child: FadeTransition(
         opacity: _fadeIn,
-        child: _DesktopBody(
-          tabController: _desktopTabController,
-          tabs: _desktopTabs,
-          permissions: _permissions,
-          accountId: cache.currentUser?.user.id,
-          onInviteUser: _permissions.can(Resource.users, Action.create)
-              ? () => showEduSheet(
-                  context: context,
-                  builder: (_) => InviteUserSheet(permissions: _permissions),
-                  maxWidth: 480,
-                )
-              : null,
-          onAddMember: _permissions.can(Resource.users, Action.update)
-              ? _openAddMemberModal
-              : null,
-          onCreateSchool: _permissions.can(Resource.schools, Action.create)
-              ? () => showEduSheet(
-                  context: context,
-                  builder: (_) => CreateSchoolSheet(permissions: _permissions),
-                  maxWidth: 520,
-                )
-              : null,
-          onCreateRole: _permissions.can(Resource.roles, Action.create)
-              ? () => showEduSheet(
-                  context: context,
-                  builder: (_) => CreateRoleSheet(permissions: _permissions),
-                  maxWidth: 480,
-                )
-              : null,
+        child: Column(
+          children: [
+            if (_showNoPermissionsWarning) _buildNoPermissionsWarning(cs),
+            Expanded(
+              child: _DesktopBody(
+                tabController: _desktopTabController,
+                tabs: _desktopTabs,
+                permissions: _permissions,
+                accountId: cache.currentUser?.user.id,
+                onInviteUser: _permissions.can(Resource.users, Action.create)
+                    ? () => showEduSheet(
+                        context: context,
+                        builder: (_) =>
+                            InviteUserSheet(permissions: _permissions),
+                        maxWidth: 480,
+                      )
+                    : null,
+                onAddMember: _permissions.can(Resource.users, Action.update)
+                    ? _openAddMemberModal
+                    : null,
+                onCreateSchool:
+                    _permissions.can(Resource.schools, Action.create)
+                    ? () => showEduSheet(
+                        context: context,
+                        builder: (_) =>
+                            CreateSchoolSheet(permissions: _permissions),
+                        maxWidth: 520,
+                      )
+                    : null,
+                onCreateRole: _permissions.can(Resource.roles, Action.create)
+                    ? () => showEduSheet(
+                        context: context,
+                        builder: (_) =>
+                            CreateRoleSheet(permissions: _permissions),
+                        maxWidth: 480,
+                      )
+                    : null,
+              ),
+            ),
+          ],
         ),
       ),
     );

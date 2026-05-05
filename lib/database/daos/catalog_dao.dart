@@ -315,6 +315,43 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
     sync.schedulePush();
   }
 
+  /// Finds an existing topic by (subject, grade, name), or creates a new one.
+  /// Returns the topic ID (local auto-increment or existing).
+  /// Writes a `createTopic` log entry only when creating a new topic.
+  Future<int> findOrCreateTopic({
+    required int subjectId,
+    required int grade,
+    required String name,
+    required String accountId,
+  }) async {
+    final existing =
+        await (select(topics)..where(
+              (t) =>
+                  t.subject.equals(subjectId) &
+                  t.grade.equals(grade) &
+                  t.name.equals(name),
+            ))
+            .getSingleOrNull();
+    if (existing != null) return existing.id;
+    await createTopic(
+      subjectId: subjectId,
+      grade: grade,
+      name: name,
+      accountId: accountId,
+    );
+    final created =
+        await (select(topics)
+              ..where(
+                (t) =>
+                    t.subject.equals(subjectId) &
+                    t.grade.equals(grade) &
+                    t.name.equals(name),
+              )
+              ..orderBy([(t) => OrderingTerm.desc(t.id)]))
+            .getSingle();
+    return created.id;
+  }
+
   /// Updates a topic's [name] and writes a [SyncAction.updateTopic] log.
   Future<void> updateTopic({
     required int id,

@@ -36,9 +36,9 @@ final int rawGrade;
 Update the `ParsedImportFile` constructor and the `_buildResult` helper accordingly.
 
 **Update after completion:**
-- [ ] Update `lib/services/CONTEXT.md` — add entry for `ParsedImportFile.rawGrade` and `_normalizeGrade`
-- [ ] Mark this task `[x]`
-- [ ] Orchestrator: git commit after this task
+- [x] Update `lib/services/CONTEXT.md` — add entry for `ParsedImportFile.rawGrade` and `_normalizeGrade`
+- [x] Mark this task `[x]`
+- [x] Orchestrator: git commit after this task
 
 ---
 

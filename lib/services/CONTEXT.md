@@ -241,7 +241,7 @@ Pure-Dart utility for parsing and validating question bank JSON files for bulk i
 **Top-level function:** `parseImportFile(String filePath, String jsonContent) → ParsedImportFile` — intentionally school-agnostic for system question import; validates only file-local payload structure and image references, never a school identifier. This parser is not responsible for any school lookup and should not be treated as part of a school-scoped import contract.
 
 **Data classes:**
-- `ParsedImportFile` — Full result of parsing: file metadata (subject, curriculum, grade, topic), question count, image reference analysis (found/missing counts), cleaned JSON with basenames, `imagePathMap` (basename→absolute path), `questionImageMap` (question index→basenames).
+- `ParsedImportFile` — Full result of parsing: file metadata (subject, curriculum, grade, rawGrade, topic), question count, image reference analysis (found/missing counts), cleaned JSON with basenames, `imagePathMap` (basename→absolute path), `questionImageMap` (question index→basenames).
 - `MissingImage` — A single missing image reference: `questionIndex`, `filename` (basename), `absolutePath`.
 
 **Key properties on `ParsedImportFile`:**
@@ -249,6 +249,8 @@ Pure-Dart utility for parsing and validating question bank JSON files for bulk i
 - `hasMissingImages` — `true` if any image file was not found on disk
 - `hasImages` — `true` if any image references exist
 - `cleanedJson` — JSON string with image filenames stripped to basenames (null if invalid)
+
+**Grade normalization:** The private top-level helper `_normalizeGrade(String curriculum, int rawGrade) → int` maps raw Form 1–4 grades (1–4) to DB-compatible grade numbers (41–44) for the 8-4-4 curriculum. CBC grades and already-normalized 8-4-4 grades pass through unchanged. Called inside `parseImportFile()` after grade validation; the result is stored in `ParsedImportFile.grade` while the original value is preserved in `ParsedImportFile.rawGrade`.
 
 **Dependencies:** `dart:convert`, `dart:io` only.
 
@@ -334,7 +336,13 @@ Wraps three gRPC service clients for the full exam lifecycle. Uses `EventService
 - `client.dart` is the only file that holds the gRPC `ClientChannel`. Services receive the channel (or a service client) via constructor injection.
 
 ## Last Updated
-Task FIX-03 — Updated `QuestionBankService` (`question_bank.dart`):
+Task A1 — Updated `ImportFileParser` (`import_file_parser.dart`):
+- Added `rawGrade` field to `ParsedImportFile` — preserves the original grade number from JSON before normalization.
+- Added private top-level helper `_normalizeGrade(String curriculum, int rawGrade) → int` — maps Form 1–4 (1–4) to DB-compatible 41–44 for 8-4-4; CBC passes through.
+- `parseImportFile()` now normalizes the grade after validation and passes both `grade` (normalized) and `rawGrade` to the result.
+- Updated `_errorResult`, `_buildResult`, and all `_buildResult` call sites to include `rawGrade`.
+
+Previous: Task FIX-03 — Updated `QuestionBankService` (`question_bank.dart`):
 - `listQuestions`: pagination params renamed `offset`/`limit` → `page`/`pageSize`; proto request fields updated accordingly; print log updated.
 - `createQuestion`: param `text` → `body`; proto request field `..text` → `..body`.
 - `updateQuestion`: param `text` → `body`; proto request field `..text` → `..body`.

@@ -2768,7 +2768,7 @@ class _CreateExamFromGradeSheetState extends State<_CreateExamFromGradeSheet> {
 
                 // Title.
                 Text(
-                  'New Exam'
+                  'New Exam',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,

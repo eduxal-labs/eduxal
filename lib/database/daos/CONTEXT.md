@@ -17,6 +17,7 @@ Each DAO extends `DatabaseAccessor<AppDatabase>` and is annotated with `@DriftAc
 | `accounts_dao.dart` | `AccountsDao` | Auth session management | ✅ Complete |
 | `announcements_dao.dart` | `AnnouncementsDao` | School announcements | ✅ Complete |
 | `attendance_dao.dart` | `AttendanceDao` | Student attendance tracking | ✅ Complete |
+| `catalog_dao.dart` | `CatalogDao` | Global catalog (subjects, topics, streams, mpesa) | ✅ Complete |
 | `departments_dao.dart` | `DepartmentsDao` | School departments | ✅ Complete |
 | `enrollments_dao.dart` | `EnrollmentsDao` | Student grade/stream enrollments | ✅ Complete |
 | `exams_grades_dao.dart` | `ExamsGradesDao` | Exams, papers, grades, mastery | ✅ Complete |

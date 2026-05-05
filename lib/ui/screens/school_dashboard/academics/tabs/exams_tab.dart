@@ -262,16 +262,10 @@ class _ExamsTabState extends State<ExamsTab>
       final typeLabel = _typeFilter != null
           ? _examTypeLabel(_typeFilter!)
           : null;
-      final personLabel = _personalizedFilter == true
-          ? 'personalized'
-          : _personalizedFilter == false
-          ? 'standard'
-          : null;
 
-      final parts = <String>[?typeLabel?.toLowerCase(), ?personLabel];
-      message = parts.isEmpty
-          ? 'No exams found'
-          : 'No ${parts.join(' ')} exams found';
+      message = typeLabel != null
+          ? 'No ${typeLabel.toLowerCase()} exams found'
+          : 'No exams found';
       icon = Icons.filter_list_off_rounded;
     }
 

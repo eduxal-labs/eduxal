@@ -395,6 +395,7 @@ ParsedImportFile _errorResult(String filePath, String fileName, String error) {
     subject: '',
     curriculum: '',
     grade: 0,
+    rawGrade: 0,
     topic: '',
     questionCount: 0,
     questionsWithImages: 0,
@@ -414,6 +415,7 @@ ParsedImportFile _buildResult({
   required String subject,
   required String curriculum,
   required int grade,
+  required int rawGrade,
   required String topic,
   required int questionCount,
   required int questionsWithImages,
@@ -431,6 +433,7 @@ ParsedImportFile _buildResult({
     subject: subject,
     curriculum: curriculum,
     grade: grade,
+    rawGrade: rawGrade,
     topic: topic,
     questionCount: questionCount,
     questionsWithImages: questionsWithImages,
@@ -442,4 +445,28 @@ ParsedImportFile _buildResult({
     imagePathMap: imagePathMap,
     questionImageMap: questionImageMap,
   );
+}
+
+/// Normalizes a raw grade number to the DB-compatible grade number.
+///
+/// For 8-4-4 curriculum, Form 1–4 (raw 1–4) are mapped to grade numbers
+/// 41–44 respectively. Values already in the 41–44 range pass through.
+/// For CBC curriculum, the raw grade is returned as-is.
+int _normalizeGrade(String curriculum, int rawGrade) {
+  if (curriculum == '844') {
+    switch (rawGrade) {
+      case 1:
+        return 41;
+      case 2:
+        return 42;
+      case 3:
+        return 43;
+      case 4:
+        return 44;
+      default:
+        return rawGrade;
+    }
+  }
+  // CBC — return as-is.
+  return rawGrade;
 }
