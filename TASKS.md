@@ -359,7 +359,7 @@ void _openBulkFileImport() {
 
 ## Track B: Exam Creation UI — Remove Assessment/Assignment & Personalized
 
-### Task B1: Remove Type selector and Personalized toggle from `_CreateExamFromGradeSheet`
+### [x] Task B1: Remove Type selector and Personalized toggle from `_CreateExamFromGradeSheet`
 **Files to create/modify:** `lib/ui/screens/school_dashboard/academics/grade_detail_page.dart`
 **Context files to read (if needed):** None beyond the file itself
 **Depends on:** None
