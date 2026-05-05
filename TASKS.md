@@ -418,7 +418,7 @@ In `ExamsTab` (starts at line 1 in `exams_tab.dart`):
 
 ## Track C: System User Membership & Permission Visibility
 
-### Task C1: Ensure system-scoped permission roles are created for system users by default
+### [x] Task C1: Ensure system-scoped permission roles are created for system users by default
 **Files to create/modify:** `lib/ui/screens/system/members/members_section.dart` (the Add Member / Invite User flow)
 **Context files to read (if needed):** `lib/database/daos/roles_dao.dart`, `lib/database/daos/school_scopes_dao.dart`
 **Depends on:** None
@@ -443,7 +443,7 @@ In `lib/ui/screens/system/users/invite_user_sheet.dart` (or wherever user creati
 Also add a similar auto-assignment in the `MembersSection` / `AddMemberSheet` flow for consistency.
 
 **Update after completion:**
-- [ ] Update relevant CONTEXT.md files
+- [x] Update relevant CONTEXT.md files
 - [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
