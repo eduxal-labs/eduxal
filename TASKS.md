@@ -164,7 +164,7 @@ Future<void> createTopic({
 
 **Update after completion:**
 - [ ] Update `lib/database/daos/CONTEXT.md` — add `findOrCreateSubject` and `findOrCreateTopic` entries
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
@@ -280,7 +280,7 @@ import 'import_file_parser.dart';
 
 **Update after completion:**
 - [ ] Update `lib/services/CONTEXT.md` — add `importQuestionsFromParsedFile` entry
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
@@ -308,7 +308,7 @@ Check if `_executeImport` passes subjectId/topicId — if so, it should now dele
 
 **Update after completion:**
 - [ ] Update `lib/ui/screens/system/settings/CONTEXT.md` if it exists, or `lib/ui/screens/system/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
@@ -352,7 +352,7 @@ void _openBulkFileImport() {
 
 **Update after completion:**
 - [ ] Update `lib/ui/screens/system/settings/CONTEXT.md` or relevant CONTEXT.md
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
@@ -388,9 +388,9 @@ In `_CreateExamFromGradeSheet` (starts around line 2550 in `grade_detail_page.da
 5. Remove unused `ExamType` import if no longer needed (check if `ExamType` is used elsewhere in the file).
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/academics/CONTEXT.md`
-- [ ] Mark this task `[x]`
-- [ ] Orchestrator: git commit after this task
+- [x] Update `lib/ui/screens/school_dashboard/academics/CONTEXT.md` (via school_dashboard/CONTEXT.md)
+- [x] Mark this task `[x]`
+- [x] Orchestrator: git commit after this task
 
 ---
 
@@ -410,8 +410,8 @@ In `ExamsTab` (starts at line 1 in `exams_tab.dart`):
 5. Simplify the exam count display label to just show the type filter count
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/school_dashboard/academics/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — updated exams_tab entry
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
@@ -444,7 +444,7 @@ Also add a similar auto-assignment in the `MembersSection` / `AddMemberSheet` fl
 
 **Update after completion:**
 - [ ] Update relevant CONTEXT.md files
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
@@ -526,7 +526,7 @@ Also: check if `_fetchMemberships` correctly handles the case where the `schools
 
 **Update after completion:**
 - [ ] Update `lib/ui/screens/home/CONTEXT.md` if it exists
-- [ ] Mark this task `[x]`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
@@ -597,7 +597,7 @@ The current `GradeDetailPage` already has a `_CreateExamFromGradeSheet`. After T
 For now, this task is a **verification task**: confirm the flow works end-to-end and document any gaps.
 
 **Update after completion:**
-- [ ] Mark this task `[x]` with notes on what was verified
+- [x] Mark this task `[x]` with notes on what was verified
 - [ ] Orchestrator: git commit after this task (only if changes made)
 
 ---
@@ -629,7 +629,7 @@ Add a convenience: when a `TeacherEntry` is the active entry, and the teacher is
 For now, document the current behavior and add a clear comment in the code about what permissions are needed.
 
 **Update after completion:**
-- [ ] Mark this task `[x]` with findings
+- [x] Mark this task `[x]` with findings
 - [ ] Orchestrator: git commit after this task (only if changes made)
 
 ---

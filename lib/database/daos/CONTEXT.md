@@ -279,6 +279,44 @@ Each DAO extends `DatabaseAccessor<AppDatabase>` and is annotated with `@DriftAc
 - `watchStudent(schoolId, student, year, term)` → `Stream<AiUsageData?>` — single student's AI usage (reactive)
 - `getStudent(schoolId, student, year, term)` → `Future<AiUsageData?>` — non-reactive single student lookup
 
+### `CatalogDao`
+Global catalog tables: [Subjects], [Topics], [Streams], [Mpesa]. All mutating methods write a [Logs] entry inside the same transaction for sync replay.
+
+**Subjects (global catalog):**
+- `watchSubjects()` → `Stream<List<Subject>>` — all subjects in global catalog
+- `watchSubjectsByCurriculum(curriculum)` → `Stream<List<Subject>>` — subjects filtered by curriculum type
+- `getSubjects()` → `Future<List<Subject>>` — one-shot read of all subjects
+- `getSubject(id)` → `Future<Subject?>` — single subject lookup
+- `createSubject(name, curriculum, accountId)` → `Future<void>` — optimistic insert + `sync_pb.CreateSubjectPayload` log
+- `findOrCreateSubject({name, curriculum, accountId})` → `Future<int>` — **(NEW A2)** finds existing subject by (name, curriculum), or creates new one; returns subject ID
+- `updateSubject(id, name?, curriculum?, accountId)` → `Future<void>` — optimistic update + `sync_pb.UpdateSubjectPayload` log
+- `deleteSubject(id, subjectName, accountId)` → `Future<void>` — optimistic delete + `sync_pb.DeleteSubjectPayload` log
+
+**Topics:**
+- `watchTopicsByCurriculum(curriculum)` → `Stream<List<Topic>>` — topics for subjects matching curriculum
+- `watchTopicsBySubjectAndGrade({subjectId, grade})` → `Stream<List<Topic>>` — topics for a specific subject+grade
+- `getTopicsForSubject(subjectId)` → `Future<List<Topic>>` — one-shot read of topics for a subject
+- `watchTopicCountForSubject(subjectId)` → `Stream<int>` — reactive count for badge display
+- `createTopic({subjectId, grade, name, accountId})` → `Future<void>` — optimistic insert + `sync_pb.CreateTopicPayload` log
+- `findOrCreateTopic({subjectId, grade, name, accountId})` → `Future<int>` — **(NEW A2)** finds existing topic by (subject, grade, name), or creates new one; returns topic ID
+- `updateTopic({id, name, accountId})` → `Future<void>` — optimistic update + `sync_pb.UpdateTopicPayload` log
+- `deleteTopic({id, topicName, accountId})` → `Future<void>` — optimistic delete + `sync_pb.DeleteTopicPayload` log
+
+**Streams (per-school):**
+- `watchStreamsBySchoolAndGrade({schoolId, year, term, grade})` → `Stream<List<Stream>>`
+- `watchAllStreamsForSchool(schoolId)` → `Stream<List<Stream>>`
+- `getStreamsForSchool(schoolId, grade)` → `Future<List<Stream>>`
+- `createSchoolStream({...})` → `Future<void>`
+- `updateStream({...})` → `Future<void>`
+- `deleteStream({...})` → `Future<void>`
+- `deleteAllStreamsForGrade({...})` → `Future<void>`
+
+**M-Pesa (per-school):**
+- `watchMpesa(schoolId)` → `Stream<MpesaData?>`
+- `getMpesa(schoolId)` → `Future<MpesaData?>`
+- `upsertMpesa({...})` → `Future<void>`
+- `deleteMpesa({...})` → `Future<void>`
+
 ## Global DAO Singletons
 
 The following DAOs are instantiated as global `late final` variables in `client.dart` during `initializeClient()`:
