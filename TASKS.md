@@ -532,37 +532,33 @@ Also: check if `_fetchMemberships` correctly handles the case where the `schools
 ---
 
 ### Task C4: Verify and fix `SchoolPermissions` merging of system + school scopes for system users
-**Files to create/modify:** `lib/database/daos/school_scopes_dao.dart` (review only — likely already correct)
-**Context files to read (if needed):** `lib/models/school_permissions.dart`, `lib/models/permissions.dart`
-**Depends on:** None
-**Parallel group:** P5
+**Files reviewed:** `lib/database/daos/school_scopes_dao.dart`, `lib/models/school_permissions.dart`, `lib/models/system_permissions.dart`, `lib/models/permissions.dart`, `lib/core/permission_parser.dart`
+**Status:** ✅ Complete — all logic verified correct. One debug log added.
 
-**Specification:**
-Review `SchoolScopesDao.getAggregatedPermissions()` — it already includes system-scoped scopes for `system` and `super_` users (lines 335-341). This is correct per AGENT.md §17.
+### Findings
 
-However, verify that:
-1. The `parsePermissionsBlob` function correctly handles the permission blobs stored in roles
-2. The `union` operation on `Permissions` correctly merges permissions
+1. **`SchoolScopesDao.getAggregatedPermissions()`** — ✅ Correct.
+   - Lines 337-341: system/super users include system-scoped scopes (`school IS NULL`).
+   - Uses `parsePermissionsBlob` + `Permissions.union()`. Debug log at L364-369.
 
-Add a debug log that shows the number of scopes found and the resulting permission map for system users, so future debugging is easier:
+2. **`SchoolPermissions.can()` / `canAny()` / `canAll()`** — ✅ Correct.
+   - Super bypass (`_level == UserLevel.super_`) on all three check methods.
 
-```dart
-debugPrint(
-  '[SchoolScopesDao] getAggregatedPermissions: '
-  'user=$userId school=$schoolId level=${userLevel.name} → '
-  '${rows.length} scope-role pairs → $aggregated',
-);
-```
+3. **`SystemPermissions.forUser()`** — ✅ Logic correct. Added final debug log (L99-102)
+   showing level, role count, and merged permissions (matching the DAO log pattern).
+   Imports `parsePermissionsBlob` from `../core/permission_parser.dart` correctly.
 
-(This log already exists. Just verify it fires correctly.)
+4. **`Permissions.union()`** — ✅ Correct. Proper bitwise OR per resource.
+   `can()` uses `mask & action.mask != 0` correctly.
 
-Also add a similar log in `SystemPermissions.forUser` to show what was parsed.
+5. **`parsePermissionsBlob()`** — ✅ Correct. Binary blob → UTF-8 JSON fallback. Never throws.
 
-No code changes needed if the logic is correct — just add a verification task comment and close.
+**Change made:** Added a final `debugPrint` in `SystemPermissions.forUser` (L99-102) that logs
+level, role count, and the merged permissions result — matching the pattern in the DAO.
 
 **Update after completion:**
-- [ ] Mark this task `[x]` (review only — no changes if correct)
-- [ ] Orchestrator: git commit after this task (only if changes made)
+- [x] Mark this task `[x]` — review complete, one minor debug log added
+- [x] Orchestrator: git commit after this task
 
 ---
 

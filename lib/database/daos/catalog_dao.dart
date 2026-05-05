@@ -106,6 +106,38 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
     sync.schedulePush();
   }
 
+  /// Finds an existing subject by name and curriculum, or creates a new one.
+  /// Returns the subject ID (local auto-increment or existing).
+  /// Writes a `createSubject` log entry only when creating a new subject.
+  Future<int> findOrCreateSubject({
+    required String name,
+    required CurriculumType curriculum,
+    required String accountId,
+  }) async {
+    final existing =
+        await (select(subjects)..where(
+              (s) =>
+                  s.name.equals(name) & s.curriculum.equals(curriculum.index_),
+            ))
+            .getSingleOrNull();
+    if (existing != null) return existing.id;
+    await createSubject(
+      name: name,
+      curriculum: curriculum,
+      accountId: accountId,
+    );
+    final created =
+        await (select(subjects)
+              ..where(
+                (s) =>
+                    s.name.equals(name) &
+                    s.curriculum.equals(curriculum.index_),
+              )
+              ..orderBy([(s) => OrderingTerm.desc(s.id)]))
+            .getSingle();
+    return created.id;
+  }
+
   /// Updates a subject's [name] and/or [curriculum] and writes a
   /// [SyncAction.updateSubject] log.
   Future<void> updateSubject({
