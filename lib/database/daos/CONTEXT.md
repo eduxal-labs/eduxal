@@ -384,7 +384,9 @@ Other DAOs are created locally where needed (e.g. inside service classes or scre
 - **`logs_dao.dart`** — `markFailed` and `retryLog` changed from `return customStatement(...)` to `await customStatement(...); db.notifyUpdates({TableUpdate('logs')})` so that `watchFailedLogs` and `watchFailedLogCount` streams re-emit on status changes (BUG-008 pattern). `_revertCreate` now collects all touched data table names into a `Set<String> touchedTables` and calls `db.notifyUpdates(touchedTables.map(...).toSet())` after the switch block, ensuring phantom rows are cleared from the UI. The `createPaper` case now includes all 6 PK columns `(school, exam, subject, paper, grade, stream)` using dynamic condition building with `IS NULL` for absent nullable fields, preventing accidental cross-grade/stream deletion (BUG-001 prevention).
 
 ## Last Updated
-Task G8 — `users_dao.dart`: Changed `watchSystemMembers()` filter from `level = system` to `level = system OR level = super_` so that Super users remain visible in the Members tab after promotion.
+Task A2 — `catalog_dao.dart`: Added `findOrCreateSubject` and `findOrCreateTopic` methods (finds existing by natural key or creates new). Also added full `CatalogDao` section to this context file.
+
+Previous: Task G8 — `users_dao.dart`: Changed `watchSystemMembers()` filter from `level = system` to `level = system OR level = super_` so that Super users remain visible in the Members tab after promotion.
 
 Previous: Tasks D1, D2, D3 — `logs_dao.dart`: Added `notifyUpdates` to `markFailed`, `retryLog`, and `_revertCreate`; fixed `createPaper` revert to use full 6-column PK.
 

@@ -42,7 +42,7 @@ Update the `ParsedImportFile` constructor and the `_buildResult` helper accordin
 
 ---
 
-### Task A2: Add `findOrCreateSubject` and `findOrCreateTopic` methods to `CatalogDao`
+### [x] Task A2: Add `findOrCreateSubject` and `findOrCreateTopic` methods to `CatalogDao`
 **Files to create/modify:** `lib/database/daos/catalog_dao.dart`
 **Context files to read (if needed):** `lib/database/tables/subjects.dart`, `lib/database/tables/topics.dart`, `lib/database/tables/curriculum_subjects.dart`
 **Depends on:** None
@@ -163,7 +163,7 @@ Future<void> createTopic({
 ```
 
 **Update after completion:**
-- [ ] Update `lib/database/daos/CONTEXT.md` — add `findOrCreateSubject` and `findOrCreateTopic` entries
+- [x] Update `lib/database/daos/CONTEXT.md` — add `findOrCreateSubject` and `findOrCreateTopic` entries
 - [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
