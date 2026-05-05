@@ -223,6 +223,7 @@ Wraps the `QuestionBank` gRPC service for question bank operations. Handles CRUD
 
 | Method | Signature | Description |
 |---|---|---|
+| `importQuestionsFromParsedFile` | `Future<FileImportResult> importQuestionsFromParsedFile({required ParsedImportFile parsed, required String accountId, ImportProgressCallback? onProgress})` | Client-side orchestration entry point for the bulk JSON import flow. Resolves curriculum type from string (`"844"` → `CurriculumType.eightFourFour`, `"cbc"` → `CurriculumType.cbc`), auto-creates subject and topic records via `catalogDao.findOrCreateSubject()` and `catalogDao.findOrCreateTopic()`, injects `topic_id` into each question in the cleaned JSON, then delegates to `importFileWithImages()` for upload. Uses global `accessToken` for gRPC auth and `catalogDao` for catalog lookups. |
 | `importFileWithImages` | `Future<FileImportResult> importFileWithImages({required ParsedImportFile parsed, required String accessToken, ImportProgressCallback? onProgress})` | High-level orchestrator for a single parsed file. Pipeline: (1) bulk import questions via `bulkImport()`; (2) per-question loop — for each created question, collect local image paths, call `requestImageUploadUrls(questionId, count)`, then upload each file via `_uploadFile()`. Phase 2 replaces the old single-batch `ImageUploadSpec` approach with per-question `requestImageUploadUrls` calls (FIX-03). Missing images increment `imagesSkipped`; URL-request failures add an error and skip uploads for that question. Returns `FileImportResult` with counts and per-item errors. |
 
 **Top-level types (defined above `QuestionBankService` class):**
@@ -336,7 +337,12 @@ Wraps three gRPC service clients for the full exam lifecycle. Uses `EventService
 - `client.dart` is the only file that holds the gRPC `ClientChannel`. Services receive the channel (or a service client) via constructor injection.
 
 ## Last Updated
-Task A1 — Updated `ImportFileParser` (`import_file_parser.dart`):
+Task A3 — Updated `QuestionBankService` (`question_bank.dart`):
+- Added `importQuestionsFromParsedFile` method — full client-side orchestration for JSON import with auto subject/topic creation.
+- New imports: `client.dart` (for `catalogDao`, `accessToken`), `database/tables/curriculum_subjects.dart` (for `CurriculumType`).
+- Method resolves `CurriculumType` from string, calls `catalogDao.findOrCreateSubject`/`findOrCreateTopic`, injects `topic_id` into cleaned JSON, then delegates to existing `importFileWithImages`.
+
+Previous: Task A1 — Updated `ImportFileParser` (`import_file_parser.dart`):
 - Added `rawGrade` field to `ParsedImportFile` — preserves the original grade number from JSON before normalization.
 - Added private top-level helper `_normalizeGrade(String curriculum, int rawGrade) → int` — maps Form 1–4 (1–4) to DB-compatible 41–44 for 8-4-4; CBC passes through.
 - `parseImportFile()` now normalizes the grade after validation and passes both `grade` (normalized) and `rawGrade` to the result.

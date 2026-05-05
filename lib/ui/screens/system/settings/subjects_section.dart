@@ -82,20 +82,32 @@ class _SubjectsSectionState extends State<SubjectsSection> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── Search bar ─────────────────────────────────────────────────
+            // ── Search bar + actions ─────────────────────────────────────
             Padding(
               padding: const EdgeInsets.only(
                 bottom: 8,
                 top: 4,
                 left: 16,
-                right: 16,
+                right: 8,
               ),
-              child: _SearchField(
-                controller: _searchCtrl,
-                focusNode: _searchFocus,
-                cs: cs,
-                isDark: isDark,
-                onChanged: (v) => setState(() => _search = v),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _SearchField(
+                      controller: _searchCtrl,
+                      focusNode: _searchFocus,
+                      cs: cs,
+                      isDark: isDark,
+                      onChanged: (v) => setState(() => _search = v),
+                    ),
+                  ),
+                  if (_canCreate)
+                    IconButton(
+                      icon: const Icon(Icons.upload_file_rounded, size: 22),
+                      tooltip: 'Import questions from JSON files',
+                      onPressed: _openBulkFileImport,
+                    ),
+                ],
               ),
             ),
 
@@ -159,6 +171,19 @@ class _SubjectsSectionState extends State<SubjectsSection> {
           ],
         );
       },
+    );
+  }
+
+  void _openBulkFileImport() {
+    showEduSheet(
+      context: context,
+      builder: (_) => MultiFileImportSheet(
+        subjectName: 'Auto-detect',
+        subjectId: null, // null = auto-detect from JSON
+        curriculum: widget.curriculumNotifier.value,
+        onImported: () => setState(() {}),
+      ),
+      maxWidth: 680,
     );
   }
 

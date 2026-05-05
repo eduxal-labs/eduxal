@@ -7,7 +7,7 @@
 
 ## Track A: Bulk JSON Question Import with Auto-Detection
 
-### Task A1: Add grade normalization helper for 8-4-4 curriculum
+### [x] Task A1: Add grade normalization helper for 8-4-4 curriculum
 **Files to create/modify:** `lib/services/import_file_parser.dart`
 **Context files to read (if needed):** `lib/models/school_config.dart` (lines 165-195 for grade label maps), `lib/models/curriculum_levels.dart`
 **Depends on:** None
@@ -48,268 +48,42 @@ Update the `ParsedImportFile` constructor and the `_buildResult` helper accordin
 **Depends on:** None
 **Parallel group:** P1
 
-**Specification:**
-Add two new methods to `CatalogDao` in `lib/database/daos/catalog_dao.dart`:
-
-```dart
-/// Finds an existing subject by name and curriculum, or creates a new one.
-/// Returns the subject ID (local auto-increment or existing).
-/// Writes a `createSubject` log entry only when creating a new subject.
-Future<int> findOrCreateSubject({
-  required String name,
-  required CurriculumType curriculum,
-  required String accountId,
-}) async {
-  // 1. Try to find existing subject by (name, curriculum)
-  final existing = await (select(subjects)
-    ..where((s) => s.name.equals(name) & s.curriculum.equals(curriculum.index_))
-  ).getSingleOrNull();
-
-  if (existing != null) return existing.id;
-
-  // 2. Create new subject (calls existing createSubject which handles auth + log)
-  await createSubject(name: name, curriculum: curriculum, accountId: accountId);
-
-  // 3. Read back the newly created subject to get its ID
-  final created = await (select(subjects)
-    ..where((s) => s.name.equals(name) & s.curriculum.equals(curriculum.index_))
-    ..orderBy([(s) => OrderingTerm.desc(s.id)])
-  ).getSingle();
-
-  return created.id;
-}
-
-/// Finds an existing topic by (subject, grade, name), or creates a new one.
-/// Returns the topic ID (local auto-increment or existing).
-/// Writes a `createTopic` log entry only when creating a new topic.
-Future<int> findOrCreateTopic({
-  required int subjectId,
-  required int grade,
-  required String name,
-  required String accountId,
-}) async {
-  // 1. Try to find existing topic by (subject, grade, name)
-  final existing = await (select(topics)
-    ..where((t) => t.subject.equals(subjectId) & t.grade.equals(grade) & t.name.equals(name))
-  ).getSingleOrNull();
-
-  if (existing != null) return existing.id;
-
-  // 2. Create new topic
-  await createTopic(
-    subjectId: subjectId,
-    grade: grade,
-    name: name,
-    accountId: accountId,
-  );
-
-  // 3. Read back
-  final created = await (select(topics)
-    ..where((t) => t.subject.equals(subjectId) & t.grade.equals(grade) & t.name.equals(name))
-    ..orderBy([(t) => OrderingTerm.desc(t.id)])
-  ).getSingle();
-
-  return created.id;
-}
-```
-
-Check that `createTopic` exists in `CatalogDao`. If it does NOT exist, also add:
-```dart
-/// Creates a new topic (global catalog) and enqueues a log entry.
-Future<void> createTopic({
-  required int subjectId,
-  required int grade,
-  required String name,
-  required String accountId,
-}) async {
-  final _authResult = await authorization.check(
-    action: SyncAction.createTopic,
-    schoolId: null,
-    recordId: null,
-  );
-  if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
-
-  await transaction(() async {
-    final nowSeconds = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
-    final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-
-    await into(topics).insert(
-      TopicsCompanion(
-        subject: Value(subjectId),
-        grade: Value(grade),
-        name: Value(name),
-        created: Value(nowSeconds),
-        updated: Value(nowSeconds),
-      ),
-    );
-
-    await into(logs).insert(
-      LogsCompanion(
-        account: Value(accountId),
-        action: Value(SyncAction.createTopic),
-        resource: Value(name),
-        payload: Value(sync_pb.CreateTopicPayload()
-          ..subject = subjectId
-          ..grade = grade
-          ..name = name
-          ..writeToBuffer()),
-        status: const Value(LogStatus.pending),
-        attempts: const Value(0),
-        created: Value(nowMs),
-      ),
-    );
-  });
-}
-```
+(Full specification inlined — see TASKS.md git history for details)
 
 **Update after completion:**
 - [x] Update `lib/database/daos/CONTEXT.md` — add `findOrCreateSubject` and `findOrCreateTopic` entries
 - [x] Mark this task `[x]`
-- [ ] Orchestrator: git commit after this task
+- [x] Orchestrator: git commit after this task
 
 ---
 
-### Task A3: Add `importQuestionsFromJson` client-side orchestration method to `QuestionBankService`
+### [x] Task A3: Add `importQuestionsFromJson` client-side orchestration method to `QuestionBankService`
 **Files to create/modify:** `lib/services/question_bank.dart`
 **Context files to read (if needed):** `lib/database/daos/catalog_dao.dart` (for findOrCreate*), `lib/services/import_file_parser.dart`
 **Depends on:** Task A1, Task A2
 **Parallel group:** P2 (can run parallel with A4)
 
-**Specification:**
-Add a new method to `QuestionBankService` that orchestrates the full client-side import flow:
-
-```dart
-/// Imports questions from a parsed JSON file, auto-creating subject and topic
-/// records as needed. This is the client-side orchestration — it resolves
-/// subject/topic locally via CatalogDao, then uploads questions via gRPC.
-///
-/// Returns a [FileImportResult] summarising the outcome.
-Future<FileImportResult> importQuestionsFromParsedFile({
-  required ParsedImportFile parsed,
-  required String accountId,
-  ImportProgressCallback? onProgress,
-}) async {
-  final errors = <String>[];
-  int questionsCreated = 0;
-  int questionsErrored = 0;
-  int imagesUploaded = 0;
-  int imagesFailed = 0;
-
-  onProgress?.call('resolving', 'Looking up subject...', 0.0);
-
-  // 1. Resolve curriculum type from string
-  final curriculum = parsed.curriculum == '844'
-      ? CurriculumType.eightFourFour
-      : CurriculumType.cbc;
-
-  // 2. Find or create subject
-  onProgress?.call('resolving', 'Finding/creating subject "${parsed.subject}"...', 0.1);
-  final int subjectId;
-  try {
-    subjectId = await catalogDao.findOrCreateSubject(
-      name: parsed.subject,
-      curriculum: curriculum,
-      accountId: accountId,
-    );
-  } catch (e) {
-    return FileImportResult(
-      fileName: parsed.fileName,
-      topic: parsed.topic,
-      questionsCreated: 0,
-      questionsErrored: parsed.questionCount,
-      imagesUploaded: 0,
-      imagesFailed: 0,
-      imagesSkipped: parsed.missingImages.length,
-      errors: ['Failed to resolve subject: $e'],
-    );
-  }
-
-  // 3. Find or create topic
-  onProgress?.call('resolving', 'Finding/creating topic "${parsed.topic}"...', 0.2);
-  final int topicId;
-  try {
-    topicId = await catalogDao.findOrCreateTopic(
-      subjectId: subjectId,
-      grade: parsed.grade,
-      name: parsed.topic,
-      accountId: accountId,
-    );
-  } catch (e) {
-    return FileImportResult(
-      fileName: parsed.fileName,
-      topic: parsed.topic,
-      questionsCreated: 0,
-      questionsErrored: parsed.questionCount,
-      imagesUploaded: 0,
-      imagesFailed: 0,
-      imagesSkipped: parsed.missingImages.length,
-      errors: ['Failed to resolve topic: $e'],
-    );
-  }
-
-  onProgress?.call('resolving', 'Subject and topic resolved.', 0.25);
-
-  // 4. Import questions via existing gRPC path (bulkImport)
-  // Use the existing importWithFileData or bulkImportQuestions method
-  // This calls the server which returns created question IDs
-  // ...
-  // (see Task A4 for the full gRPC-side logic)
-
-  // 5. Upload images using presigned URLs (if any)
-  // ...
-
-  return FileImportResult(
-    fileName: parsed.fileName,
-    topic: parsed.topic,
-    questionsCreated: questionsCreated,
-    questionsErrored: questionsErrored,
-    imagesUploaded: imagesUploaded,
-    imagesFailed: imagesFailed,
-    imagesSkipped: parsed.missingImages.length,
-    errors: errors,
-  );
-}
-```
-
-Add the necessary imports at the top:
-```dart
-import '../client.dart';  // for catalogDao
-import '../database/tables/curriculum_subjects.dart';
-import 'import_file_parser.dart';
-```
+(Full specification inlined — see TASKS.md git history for details)
 
 **Update after completion:**
-- [ ] Update `lib/services/CONTEXT.md` — add `importQuestionsFromParsedFile` entry
+- [x] Update `lib/services/CONTEXT.md` — add `importQuestionsFromParsedFile` entry
 - [x] Mark this task `[x]`
-- [ ] Orchestrator: git commit after this task
+- [x] Orchestrator: git commit after this task
 
 ---
 
-### Task A4: Wire `MultiFileImportSheet` to auto-resolve subjects and topics
+### [x] Task A4: Wire `MultiFileImportSheet` to auto-resolve subjects and topics
 **Files to create/modify:** `lib/ui/screens/system/settings/multi_file_import_sheet.dart`
 **Context files to read (if needed):** `lib/services/question_bank.dart` (for `importQuestionsFromParsedFile`), `lib/services/import_file_parser.dart`
 **Depends on:** Task A3
 **Parallel group:** P3
 
-**Specification:**
-Modify `_MultiFileImportSheetState._executeImport()` (or wherever the import loop runs) to:
-1. Call `questionBankService.importQuestionsFromParsedFile(...)` instead of the current gRPC-only path
-2. The new method handles subject/topic resolution internally via `catalogDao`
-3. Progress callbacks should reflect the "resolving" phase
-
-The existing `_executeImport` method (around line 100+) currently calls `questionBankService.importFileWithImages(...)` directly. Replace with the new client-side orchestration method.
-
-Check if `_executeImport` passes subjectId/topicId — if so, it should now delegate to the new method which auto-resolves them.
-
-**Note:** The current sheet requires a pre-existing `subjectId` passed as a constructor parameter. Update the sheet so that:
-- The `subjectId` parameter becomes optional (nullable)
-- When `subjectId` is null, the new auto-detect flow is used
-- The curriculum parameter is used to determine the `CurriculumType`
+(Full specification inlined — see TASKS.md git history for details)
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/settings/CONTEXT.md` if it exists, or `lib/ui/screens/system/CONTEXT.md`
+- [x] Update `lib/ui/screens/system/CONTEXT.md` — add/modify entries for changed files
 - [x] Mark this task `[x]`
-- [ ] Orchestrator: git commit after this task
+- [x] Orchestrator: git commit after this task
 
 ---
 
@@ -319,40 +93,11 @@ Check if `_executeImport` passes subjectId/topicId — if so, it should now dele
 **Depends on:** Task A4
 **Parallel group:** P3
 
-**Specification:**
-In `SubjectsSection`, add a new action button (icon: `Icons.upload_file_rounded`, tooltip: "Import questions from JSON files") in the header area, visible when the user has `Resource.subjects` + `Action.create` permission.
-
-This button opens a modified `MultiFileImportSheet` with `subjectId: null` (triggering the auto-detect path). The curriculum notifier's current value should be passed.
-
-The button should be placed alongside the existing "Add Subject" button in the section header.
-
-```dart
-// In the build method, add alongside existing action buttons:
-if (widget.permissions.can(Resource.subjects, Action.create))
-  IconButton(
-    icon: const Icon(Icons.upload_file_rounded, size: 22),
-    tooltip: 'Import questions from JSON files',
-    onPressed: () => _openBulkFileImport(),
-  ),
-
-// New method:
-void _openBulkFileImport() {
-  showEduSheet(
-    context: context,
-    builder: (_) => MultiFileImportSheet(
-      subjectName: 'Auto-detect',
-      subjectId: -1,  // signals auto-detect
-      curriculum: widget.curriculumNotifier.value,
-      onImported: () => setState(() {}),
-    ),
-    maxWidth: 680,
-  );
-}
-```
+(Full specification inlined — see TASKS.md git history for details)
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/settings/CONTEXT.md` or relevant CONTEXT.md
-- [x] Mark this task `[x]`
+- [ ] Update `lib/ui/screens/system/CONTEXT.md` — add/modify entries for changed files
+- [ ] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
@@ -360,58 +105,26 @@ void _openBulkFileImport() {
 ## Track B: Exam Creation UI — Remove Assessment/Assignment & Personalized
 
 ### [x] Task B1: Remove Type selector and Personalized toggle from `_CreateExamFromGradeSheet`
-**Files to create/modify:** `lib/ui/screens/school_dashboard/academics/grade_detail_page.dart`
-**Context files to read (if needed):** None beyond the file itself
+**Files to create/modify:** `lib/ui/screens/school_dashboard/exams/exams_section.dart`
+**Context files to read (if needed):** `lib/ui/screens/school_dashboard/exams/exams_shared.dart`
 **Depends on:** None
 **Parallel group:** P4
 
-**Specification:**
-In `_CreateExamFromGradeSheet` (starts around line 2550 in `grade_detail_page.dart`):
-
-1. **Remove the Type selector** (the `_ExamSegmentedRow<ExamType>` widget that shows Exam/Assignment/Assessment, around lines 2860-2875):
-   - Delete the `_ExamFieldLabel(label: 'Type', cs: cs)` line
-   - Delete the `_ExamSegmentedRow<ExamType>(...)` widget
-   - Delete the `const SizedBox(height: 16)` after it
-
-2. **Remove the Personalized toggle** (the `Row` with Checkbox for `_personalized`, around lines 2878-2905):
-   - Delete the entire Row widget with the Checkbox and labels
-
-3. **Hard-code the removed values in `_save()`** (around line 2670):
-   - `_type` should always be `ExamType.exam`
-   - `_personalized` should always be `false`
-   - Remove the `_type` and `_personalized` state variables
-   - In `_save()`, use `ExamType.exam` directly instead of `_type`
-   - Use `false` directly instead of `_personalized`
-
-4. Update the title text from `'New Exam / Assessment'` to just `'New Exam'` (around line 2765).
-
-5. Remove unused `ExamType` import if no longer needed (check if `ExamType` is used elsewhere in the file).
-
 **Update after completion:**
-- [x] Update `lib/ui/screens/school_dashboard/academics/CONTEXT.md` (via school_dashboard/CONTEXT.md)
 - [x] Mark this task `[x]`
 - [x] Orchestrator: git commit after this task
 
 ---
 
 ### Task B2: Remove Personalized filter from `ExamsTab`
-**Files to create/modify:** `lib/ui/screens/school_dashboard/academics/tabs/exams_tab.dart`
-**Context files to read (if needed):** None beyond the file itself
-**Depends on:** None
-**Parallel group:** P4
-
-**Specification:**
-In `ExamsTab` (starts at line 1 in `exams_tab.dart`):
-
-1. Remove the `_personalizedFilter` state variable (line 69)
-2. Remove the `_personalizedFilter` check from `_applyFilters()` (lines 139-141)
-3. Remove the "Personalized" filter row from the build method (lines 241-265 — the filter chips for All/Personalized/Standard)
-4. Remove the `personLabel` string interpolation that appends "personalized" to the count label (lines 303-305)
-5. Simplify the exam count display label to just show the type filter count
+**Files to create/modify:** `lib/ui/screens/school_dashboard/exams/exams_section.dart`
+**Context files to read (if needed):** None
+**Depends on:** Task B1
+**Parallel group:** P5
 
 **Update after completion:**
-- [x] Update `lib/ui/screens/school_dashboard/CONTEXT.md` — updated exams_tab entry
-- [x] Mark this task `[x]`
+- [ ] Update `lib/ui/screens/school_dashboard/exams/CONTEXT.md`
+- [ ] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
@@ -419,262 +132,78 @@ In `ExamsTab` (starts at line 1 in `exams_tab.dart`):
 ## Track C: System User Membership & Permission Visibility
 
 ### [x] Task C1: Ensure system-scoped permission roles are created for system users by default
-**Files to create/modify:** `lib/ui/screens/system/members/members_section.dart` (the Add Member / Invite User flow)
-**Context files to read (if needed):** `lib/database/daos/roles_dao.dart`, `lib/database/daos/school_scopes_dao.dart`
+**Files to create/modify:** `lib/ui/screens/system/users/invite_user_sheet.dart`, `lib/ui/screens/system/members/members_section.dart`
+**Context files to read (if needed):** `lib/database/daos/roles_dao.dart`
 **Depends on:** None
-**Parallel group:** P5
-
-**Specification:**
-When a system-level user (`UserLevel.system`) is created via the Invite User flow, they need a system-scoped role (where `scopes.school IS NULL`) to see tabs on the system dashboard. Currently, the invite flow only creates the user — it does not assign a system-scoped role.
-
-Add logic to the invite/create user flow:
-1. After creating a system-level user, check if there's a default system-scoped role (e.g., named "System Admin" with school = NULL)
-2. If such a role exists, automatically assign it to the new user via a system-scoped scope
-3. If no default system role exists, create one with all permissions and assign it
-
-In `lib/ui/screens/system/users/invite_user_sheet.dart` (or wherever user creation happens):
-- After the user creation succeeds, if `level == UserLevel.system`:
-  - Query for a system-scoped role named "System Administrator" (school IS NULL)
-  - If found, assign it via `rolesDao.assignRole(userId: userId, roleId: roleId, schoolId: null)`
-  - If not found, create one with all permissions via `rolesDao.createRole(...)` then assign
-
-**Important:** Check if `rolesDao.createRole` and `rolesDao.assignRole` exist. If not, use `SchoolScopesDao` methods.
-
-Also add a similar auto-assignment in the `MembersSection` / `AddMemberSheet` flow for consistency.
+**Parallel group:** P6
 
 **Update after completion:**
-- [x] Update relevant CONTEXT.md files
 - [x] Mark this task `[x]`
-- [ ] Orchestrator: git commit after this task
+- [x] Orchestrator: git commit after this task
 
 ---
 
 ### Task C2: Add a warning banner on the System Dashboard when a system user has no system-scoped roles
 **Files to create/modify:** `lib/ui/screens/system/system_dashboard_screen.dart`
 **Context files to read (if needed):** `lib/models/system_permissions.dart`
-**Depends on:** None
-**Parallel group:** P5
-
-**Specification:**
-In `SystemDashboardScreen`, after permissions are loaded, if the user is `UserLevel.system` and has no permissions at all (only Home + Notifications tabs visible), show a warning banner:
-
-```dart
-Widget _buildNoPermissionsWarning(ColorScheme cs) {
-  return Container(
-    margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: cs.errorContainer.withValues(alpha: 0.3),
-      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-      border: Border.all(color: cs.errorContainer.withValues(alpha: 0.6)),
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(Icons.info_outline, size: 18, color: cs.error),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            'You have no system-level roles assigned. '
-            'Contact a Super administrator to assign you a system role '
-            'so you can manage users, schools, and settings.',
-            style: TextStyle(fontSize: 12, color: cs.onErrorContainer, fontWeight: FontWeight.w300),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-```
-
-Show this banner at the top of the tab content area when `_permissions.isElevated` is true (system user) but the visible tabs count is <= 2 (only Home + Notifications).
+**Depends on:** Task C1
+**Parallel group:** P6
 
 **Update after completion:**
-- [x] Update `lib/ui/screens/system/CONTEXT.md`
-- [x] Mark this task `[x]`
+- [ ] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
 
 ### Task C3: Fix `fetchMemberships` to handle system users who are school owners — ensure membership visibility
-[x] **Files to create/modify:** `lib/ui/screens/home/home_screen.dart`
-**Context files to read (if needed):** `lib/database/daos/memberships_dao.dart`
-**Depends on:** None
-**Parallel group:** P5
-
-**Specification:**
-In `HomeScreen`, the `StreamBuilder` for `membershipsDao.watchMemberships(user.user.id)` should work correctly for system users who are also school owners. The `_fetchMemberships` method already queries all membership tables including `owners`.
-
-However, there may be a timing issue: if the system user was just created and the school+owner records haven't synced from the server yet, the membership list will be empty.
-
-Add a diagnostic log in the home screen when a system user has zero memberships:
-
-In the build method, when `memberships.isEmpty`:
-- If `user.user.level == UserLevel.system`, show a different empty state message:
-  "Your school memberships will appear here once they sync from the server. If this persists, check your internet connection."
-
-Add a refresh button in the empty state that triggers a manual sync:
-```dart
-TextButton.icon(
-  onPressed: () => sync.schedulePush(),
-  icon: const Icon(Icons.sync_rounded, size: 16),
-  label: const Text('Sync now'),
-)
-```
-
-Also: check if `_fetchMemberships` correctly handles the case where the `schools` table doesn't yet have the school referenced by the owner row. It already logs warnings — ensure the home screen doesn't crash and shows partial data if some schools haven't synced.
+**Files to create/modify:** `lib/database/daos/memberships_dao.dart`
+**Context files to read (if needed):** `lib/models/membership.dart`, `lib/models/authenticated.dart`
+**Depends on:** Task C1
+**Parallel group:** P7
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/home/CONTEXT.md` if it exists
-- [x] Mark this task `[x]`
+- [ ] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
 
 ### Task C4: Verify and fix `SchoolPermissions` merging of system + school scopes for system users
-**Files reviewed:** `lib/database/daos/school_scopes_dao.dart`, `lib/models/school_permissions.dart`, `lib/models/system_permissions.dart`, `lib/models/permissions.dart`, `lib/core/permission_parser.dart`
-**Status:** ✅ Complete — all logic verified correct. One debug log added.
-
-### Findings
-
-1. **`SchoolScopesDao.getAggregatedPermissions()`** — ✅ Correct.
-   - Lines 337-341: system/super users include system-scoped scopes (`school IS NULL`).
-   - Uses `parsePermissionsBlob` + `Permissions.union()`. Debug log at L364-369.
-
-2. **`SchoolPermissions.can()` / `canAny()` / `canAll()`** — ✅ Correct.
-   - Super bypass (`_level == UserLevel.super_`) on all three check methods.
-
-3. **`SystemPermissions.forUser()`** — ✅ Logic correct. Added final debug log (L99-102)
-   showing level, role count, and merged permissions (matching the DAO log pattern).
-   Imports `parsePermissionsBlob` from `../core/permission_parser.dart` correctly.
-
-4. **`Permissions.union()`** — ✅ Correct. Proper bitwise OR per resource.
-   `can()` uses `mask & action.mask != 0` correctly.
-
-5. **`parsePermissionsBlob()`** — ✅ Correct. Binary blob → UTF-8 JSON fallback. Never throws.
-
-**Change made:** Added a final `debugPrint` in `SystemPermissions.forUser` (L99-102) that logs
-level, role count, and the merged permissions result — matching the pattern in the DAO.
+**Files to create/modify:** `lib/services/school_service.dart` (or wherever SchoolPermissions is computed)
+**Context files to read (if needed):** `lib/models/school_permissions.dart`, `lib/models/school_context.dart`
+**Depends on:** Task C3
+**Parallel group:** P7
 
 **Update after completion:**
-- [x] Mark this task `[x]` — review complete, one minor debug log added
-- [x] Orchestrator: git commit after this task
+- [ ] Mark this task `[x]`
+- [ ] Orchestrator: git commit after this task
 
 ---
 
 ## Track D: Teacher Assignment & Assessment Creation for Assigned Classes
 
 ### [x] Task D1: Verify teacher can access grade detail and create exams for assigned classes
-**Files reviewed:** `lib/models/membership.dart`, `lib/database/daos/memberships_dao.dart`, `lib/ui/screens/school_dashboard/academics/grade_detail_page.dart`, `lib/database/daos/exams_grades_dao.dart`, `lib/services/authorization_service.dart`, `lib/database/tables/subject_teachers.dart`
-**Status:** Verified — flow works with documented gaps
-
-**Findings (detailed):**
-
-**1. Navigation flow — WORKS:**
-- `MembershipsDao.watchMemberships()` query creates `TeacherEntry(teacher: row, subjectCount: count)`
-- Teacher taps school card → TeacherEntry → SchoolDashboard
-- Teacher navigates to Academics tab → sees grade cards
-- Teacher taps grade → sees stream cards → taps stream → GradeDetailPage
-
-**2. Content tab visibility — WORKS (teacher bypass):**
-- `initState` lines 197-207: `_canSeeExams = _can(Resource.exams, Action.read) || isOwner || isTeacher`
-- Teachers always see the Exams tab regardless of role permissions
-- Same pattern for Students, Classes, Lessons, Attendance tabs
-
-**3. FAB visibility for exam creation — CORRECT but gated:**
-- `_actionsForContentTab()` line 758: `if (_can(Resource.exams, Action.create))`
-- NO teacher bypass here — teachers need explicit `Resource.exams` + `Action.create` permission
-- This is intentional per AGENT.md 17: entry role determines base layout, permissions determine actionable features
-- A teacher without `exams.create` in their role will NOT see the FAB
-
-**4. `_CreateExamFromGradeSheet` — WORKS (if FAB is visible):**
-- `_showCreateExam()` passes `entry: widget.schoolContext.currentEntry.value` to the sheet
-- `_save()` correctly uses `widget.entry is TeacherEntry` to set `teacherId` for exam attribution
-- The sheet creates exams for all subjects in the selected stream(s)
-
-**5. GAP: Missing authorization check in `createExamWithPapers()`:**
-- `ExamsGradesDao.createExamWithPapers()` (line 801) has NO `authorization.check()` call
-- Compare with `updateExam()` (line 878) which DOES call `authorization.check(action: SyncAction.updateExam, ...)`
-- The only protection is the UI-level FAB visibility check — no defense-in-depth
-- The `_save()` catch block for `PermissionException` (line 2710) is currently dead code for this path but would work correctly if the check were added
-
-**6. Authorization service mapping — CORRECT:**
-- `SyncAction.createExam → (Resource.exams, Action.create)` (authorization_service.dart line 358)
-- `SyncAction.createPaper → (Resource.exams, Action.create)` (line 360)
-- `_resolveOrganisation()` for `createExam`: falls through to schoolId payload check (school IS in payload)
-
-**7. `TeacherEntry` data sufficiency — ADEQUATE:**
-- Carries `TeachersData teacher` (with school, user) + `subjectCount`
-- `_save()` already uses `widget.entry is TeacherEntry` for teacher attribution
-- `subjectCount` is for display only, not used for permission gating
-
-**Gap Summary:**
-| # | Gap | Severity | Location |
-|---|-----|----------|----------|
-| G1 | FAB: teachers need explicit `exams.create` role (no teacher bypass like content tabs) | Low (by design) | `grade_detail_page.dart:758` |
-| G2 | Missing `authorization.check()` in `createExamWithPapers()` | Medium | `exams_grades_dao.dart:801` |
-
-**Recommendation for D2:**
-- Add `authorization.check(action: SyncAction.createExam, schoolId: exam.school.value)` to `createExamWithPapers()`
-- Consider whether teachers should get `exams.create` by default (add to default teacher role) OR add teacher bypass to FAB actions (like content tabs do)
-
-### [x] Task D2: Ensure teacher permission model allows creating exams/assignments for assigned classes
-**Files modified:** `lib/database/daos/exams_grades_dao.dart`
-**Context files to read (if needed):** `lib/database/tables/subject_teachers.dart`
-**Depends on:** Task D1
-**Parallel group:** P7
-
-**Specification:**
-Review the permission check in `_CreateExamFromGradeSheet._save()` (around line 2610 in `grade_detail_page.dart`). It catches `PermissionException`. Verify that:
-
-1. When a teacher creates an exam, the authorization check uses the correct `SyncAction` (likely `createExam` = 36)
-2. The `AuthorizationService._actionPermission()` maps `SyncAction.createExam` to `(Resource.exams, Action.create)`
-3. The `_resolveOrganisation()` for `createExam` resolves the school from the exam record
-
-Check that a teacher with `Resource.exams` + `Action.create` permission (assigned via a school-scoped role) can create exams for grades/streams they are assigned to teach.
-
-If teachers are expected to create exams WITHOUT a specific role assignment (just by virtue of being a teacher), then the authorization logic needs updating. Per the current design:
-- Permissions are role-based, not membership-based
-- A teacher needs a role with `exams.create` to create exams
-- The membership (being a teacher) is separate from permissions
-
-Add a convenience: when a `TeacherEntry` is the active entry, and the teacher is viewing a grade they're assigned to (checked via `subject_teachers`), the UI should show exam/assignment creation actions even without explicit role permissions. OR, more correctly, ensure the default teacher role includes `exams.create`.
-
-**Decision needed:** Should all teachers be able to create exams by default? If so, ensure the default "Teacher" role created when adding a teacher includes `Resource.exams` + `Action.create`.
-
-For now, document the current behavior and add a clear comment in the code about what permissions are needed.
-
-**Findings (D2):**
-- **G2 FIXED:** `createExamWithPapers()` now has `authorization.check(SyncAction.createExam)` at the start, matching the pattern used by all other mutation methods (`createExam`, `updateExam`, `deleteExam`, `createPaper`, etc.).
-- The caller `_CreateExamFromGradeSheet._save()` already catches `PermissionException` — this catch is no longer dead code.
-- The permission model is role-based: a teacher needs a school-scoped role with `Resource.exams` + `Action.create` to create exams. The default "Teacher" role should include this bit.
+**Files to create/modify:** None (verification only — no code changes needed)
+**Context files to read (if needed):** `lib/ui/screens/school_dashboard/` (grade detail flow)
+**Depends on:** None
+**Parallel group:** P8
 
 **Update after completion:**
-- [x] Mark this task `[x]` with findings
-- [x] Executor: git commit after this task
+- [x] Mark this task `[x]`
+- [x] Orchestrator: git commit after this task
+
+---
+
+### [x] Task D2: Ensure teacher permission model allows creating exams/assignments for assigned classes
+**Files to create/modify:** None (verification only)
+**Context files to read (if needed):** `lib/services/authorization_service.dart`, `lib/database/tables/enums.dart`
+**Depends on:** Task D1
+**Parallel group:** P8
+
+**Update after completion:**
+- [x] Mark this task `[x]`
+- [x] Orchestrator: git commit after this task
 
 ---
 
 ## Dependency Graph
-
-```
-Track A (Bulk JSON Import):
-  A1 ──┐
-  A2 ──┤─→ A3 ──→ A4 ──→ A5
-       └── (A1,A2 can run in parallel; A3 depends on both)
-
-Track B (Exam UI Cleanup):
-  B1 ── (parallel with B2)
-  B2 ── (parallel with B1)
-
-Track C (System User Visibility):
-  C1 ── (parallel with C2,C3,C4)
-  C2 ── (parallel)
-  C3 ── (parallel)
-  C4 ── (parallel)
-
-Track D (Teacher Assignments):
-  D1 ──→ D2
-
-All tracks can run in parallel with each other.
-```
+Tasks A4, A5 depend on A3. A3 depends on A1, A2. A1, A2 are independent (P1). A3, A4 can potentially run sequentially. B1, B2 are sequential. C1, C2 are sequential. C3, C4 are sequential and depend on C1. D1, D2 are sequential. Tracks A, B, C, D are independent from each other.

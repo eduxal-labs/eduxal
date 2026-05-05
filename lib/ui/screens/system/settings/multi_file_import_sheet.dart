@@ -26,13 +26,16 @@ class MultiFileImportSheet extends StatefulWidget {
   const MultiFileImportSheet({
     super.key,
     required this.subjectName,
-    required this.subjectId,
+    this.subjectId,
     required this.curriculum,
     this.onImported,
   });
 
   final String subjectName;
-  final int subjectId;
+
+  /// When null, the import will auto-detect the subject from JSON file content
+  /// and create it via [CatalogDao] if it doesn't exist.
+  final int? subjectId;
   final CurriculumType curriculum;
 
   /// Called after a successful (or partial-success) import so the caller can
@@ -117,11 +120,15 @@ class _MultiFileImportSheetState extends State<MultiFileImportSheet> {
     final validFiles = _parsedFiles.where((f) => f.isValid).toList();
     if (validFiles.isEmpty) return;
 
+    final isAutoDetect = widget.subjectId == null || widget.subjectId! < 0;
+    final accountId = cache.currentUser?.user.id ?? '';
+
     debugPrint(
       '[SystemImportUI] starting system-wide multi-file import '
       'subject=${widget.subjectName} subjectId=${widget.subjectId} '
       'curriculum=$_curriculumLabel validFiles=${validFiles.length} '
-      'invalidFiles=$_invalidCount school=none',
+      'invalidFiles=$_invalidCount autoDetect=$isAutoDetect '
+      'accountId=$accountId school=none',
     );
 
     setState(() {
@@ -141,35 +148,60 @@ class _MultiFileImportSheetState extends State<MultiFileImportSheet> {
       debugPrint(
         '[SystemImportUI] importing file ${i + 1}/${validFiles.length}: '
         'file=${parsed.fileName} topic=${parsed.topic} '
-        'questions=${parsed.questionCount} images=${parsed.totalImageRefs} '
+        'subject=${parsed.subject} questions=${parsed.questionCount} '
+        'images=${parsed.totalImageRefs} autoDetect=$isAutoDetect '
         'school=none',
       );
 
       setState(() {
         _currentFileIndex = i;
-        _currentPhase = 'importing';
-        _currentDetail = 'Preparing system-wide import…';
+        _currentPhase = isAutoDetect ? 'resolving' : 'importing';
+        _currentDetail = isAutoDetect
+            ? 'Resolving subject "${parsed.subject}"...'
+            : 'Preparing system-wide import...';
         _currentProgress = 0.0;
       });
 
-      final result = await qbService.importFileWithImages(
-        parsed: parsed,
-        accessToken: token,
-        onProgress: (phase, detail, progress) {
-          debugPrint(
-            '[SystemImportUI] progress file=${parsed.fileName} '
-            'topic=${parsed.topic} phase=$phase progress=${progress.toStringAsFixed(2)} '
-            'detail=$detail school=none',
-          );
-          if (mounted) {
-            setState(() {
-              _currentPhase = phase;
-              _currentDetail = detail;
-              _currentProgress = progress;
-            });
-          }
-        },
-      );
+      final FileImportResult result;
+      if (isAutoDetect) {
+        result = await qbService.importQuestionsFromParsedFile(
+          parsed: parsed,
+          accountId: accountId,
+          onProgress: (phase, detail, progress) {
+            debugPrint(
+              '[SystemImportUI] progress file=${parsed.fileName} '
+              'topic=${parsed.topic} phase=$phase progress=${progress.toStringAsFixed(2)} '
+              'detail=$detail autoDetect=true school=none',
+            );
+            if (mounted) {
+              setState(() {
+                _currentPhase = phase;
+                _currentDetail = detail;
+                _currentProgress = progress;
+              });
+            }
+          },
+        );
+      } else {
+        result = await qbService.importFileWithImages(
+          parsed: parsed,
+          accessToken: token,
+          onProgress: (phase, detail, progress) {
+            debugPrint(
+              '[SystemImportUI] progress file=${parsed.fileName} '
+              'topic=${parsed.topic} phase=$phase progress=${progress.toStringAsFixed(2)} '
+              'detail=$detail school=none',
+            );
+            if (mounted) {
+              setState(() {
+                _currentPhase = phase;
+                _currentDetail = detail;
+                _currentProgress = progress;
+              });
+            }
+          },
+        );
+      }
 
       debugPrint(
         '[SystemImportUI] completed file=${parsed.fileName} topic=${parsed.topic} '
@@ -279,6 +311,16 @@ class _MultiFileImportSheetState extends State<MultiFileImportSheet> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
+    final isAutoDetect = widget.subjectId == null || widget.subjectId! < 0;
+
+    // In auto-detect mode, show "Auto-detect" or the subject from the first valid parsed file.
+    final displaySubject = isAutoDetect
+        ? (_parsedFiles.isNotEmpty
+              ? _parsedFiles.first.subject.isNotEmpty
+                    ? _parsedFiles.first.subject
+                    : 'Auto-detect'
+              : 'Auto-detect')
+        : widget.subjectName;
 
     return EduSheet(
       title: 'Bulk Import Questions',
@@ -294,7 +336,7 @@ class _MultiFileImportSheetState extends State<MultiFileImportSheet> {
           children: [
             // ── Subtitle ─────────────────────────────────────────────
             Text(
-              '${widget.subjectName} · $_curriculumLabel',
+              '$displaySubject · $_curriculumLabel${isAutoDetect ? ' (auto)' : ''}',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w300,

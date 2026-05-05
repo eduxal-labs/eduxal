@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:grpc/grpc.dart';
 
+import '../client.dart';
+import '../database/tables/curriculum_subjects.dart';
 import '../models/marking_status.dart' as models;
 import '../models/paper_generation.dart' as models;
 import '../models/question.dart' as models;
@@ -787,6 +789,130 @@ class QuestionBankService {
   // ---------------------------------------------------------------------------
   // File Import Orchestrator
   // ---------------------------------------------------------------------------
+
+  /// Imports questions from a parsed JSON file, auto-creating subject and topic
+  /// records as needed via [CatalogDao], then uploading questions via gRPC.
+  ///
+  /// This is the client-side orchestration entry point for the bulk JSON import
+  /// flow. It resolves subject/topic locally, injects `topic_id` into the JSON
+  /// payload, then delegates to [importFileWithImages] for the actual upload.
+  ///
+  /// Returns a [FileImportResult] summarising the outcome.
+  Future<FileImportResult> importQuestionsFromParsedFile({
+    required ParsedImportFile parsed,
+    required String accountId,
+    ImportProgressCallback? onProgress,
+  }) async {
+    assert(parsed.isValid && parsed.cleanedJson != null);
+
+    // 1. Resolve curriculum type from string
+    final curriculum = parsed.curriculum == '844'
+        ? CurriculumType.eightFourFour
+        : CurriculumType.cbc;
+
+    // 2. Find or create subject
+    onProgress?.call(
+      'resolving',
+      'Finding/creating subject "${parsed.subject}"...',
+      0.0,
+    );
+    final int subjectId;
+    try {
+      subjectId = await catalogDao.findOrCreateSubject(
+        name: parsed.subject,
+        curriculum: curriculum,
+        accountId: accountId,
+      );
+    } catch (e) {
+      return FileImportResult(
+        fileName: parsed.fileName,
+        topic: parsed.topic,
+        questionsCreated: 0,
+        questionsErrored: parsed.questionCount,
+        imagesUploaded: 0,
+        imagesFailed: 0,
+        imagesSkipped: parsed.missingImages.length,
+        errors: ['Failed to resolve subject: $e'],
+      );
+    }
+
+    // 3. Find or create topic
+    onProgress?.call(
+      'resolving',
+      'Finding/creating topic "${parsed.topic}"...',
+      0.1,
+    );
+    final int topicId;
+    try {
+      topicId = await catalogDao.findOrCreateTopic(
+        subjectId: subjectId,
+        grade: parsed.grade,
+        name: parsed.topic,
+        accountId: accountId,
+      );
+    } catch (e) {
+      return FileImportResult(
+        fileName: parsed.fileName,
+        topic: parsed.topic,
+        questionsCreated: 0,
+        questionsErrored: parsed.questionCount,
+        imagesUploaded: 0,
+        imagesFailed: 0,
+        imagesSkipped: parsed.missingImages.length,
+        errors: ['Failed to resolve topic: $e'],
+      );
+    }
+
+    onProgress?.call(
+      'resolving',
+      'Subject and topic resolved (subjectId=$subjectId, topicId=$topicId).',
+      0.15,
+    );
+
+    // 4. Inject topic_id into each question in the cleaned JSON
+    onProgress?.call('importing', 'Preparing payload...', 0.2);
+    final cleanedParsed =
+        jsonDecode(parsed.cleanedJson!) as Map<String, dynamic>;
+    final questions = cleanedParsed['questions'] as List<dynamic>;
+    for (final q in questions) {
+      if (q is Map<String, dynamic>) {
+        q['topic_id'] = topicId;
+      }
+    }
+    final injectedJson = jsonEncode(cleanedParsed);
+
+    // 5. Build a modified ParsedImportFile with the updated JSON and delegate
+    //    to the existing importFileWithImages for upload orchestration.
+    final modified = ParsedImportFile(
+      filePath: parsed.filePath,
+      fileName: parsed.fileName,
+      subject: parsed.subject,
+      curriculum: parsed.curriculum,
+      grade: parsed.grade,
+      rawGrade: parsed.rawGrade,
+      topic: parsed.topic,
+      questionCount: parsed.questionCount,
+      questionsWithImages: parsed.questionsWithImages,
+      totalImageRefs: parsed.totalImageRefs,
+      imagesFound: parsed.imagesFound,
+      missingImages: parsed.missingImages,
+      validationErrors: parsed.validationErrors,
+      cleanedJson: injectedJson,
+      imagePathMap: parsed.imagePathMap,
+      questionImageMap: parsed.questionImageMap,
+    );
+
+    return importFileWithImages(
+      parsed: modified,
+      accessToken: accessToken,
+      onProgress: onProgress != null
+          ? (phase, detail, progress) {
+              // Map progress from 0.3–1.0 range into the remaining portion
+              onProgress(phase, detail, 0.2 + progress * 0.8);
+            }
+          : null,
+    );
+  }
 
   /// Imports a single parsed file: bulk-imports questions, then uploads images.
   ///
