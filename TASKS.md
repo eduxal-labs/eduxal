@@ -618,8 +618,8 @@ level, role count, and the merged permissions result — matching the pattern in
 - Add `authorization.check(action: SyncAction.createExam, schoolId: exam.school.value)` to `createExamWithPapers()`
 - Consider whether teachers should get `exams.create` by default (add to default teacher role) OR add teacher bypass to FAB actions (like content tabs do)
 
-### Task D2: Ensure teacher permission model allows creating exams/assignments for assigned classes
-**Files to create/modify:** `lib/services/authorization_service.dart` (review), `lib/ui/screens/school_dashboard/academics/grade_detail_page.dart` (review)
+### [x] Task D2: Ensure teacher permission model allows creating exams/assignments for assigned classes
+**Files modified:** `lib/database/daos/exams_grades_dao.dart`
 **Context files to read (if needed):** `lib/database/tables/subject_teachers.dart`
 **Depends on:** Task D1
 **Parallel group:** P7
@@ -644,9 +644,14 @@ Add a convenience: when a `TeacherEntry` is the active entry, and the teacher is
 
 For now, document the current behavior and add a clear comment in the code about what permissions are needed.
 
+**Findings (D2):**
+- **G2 FIXED:** `createExamWithPapers()` now has `authorization.check(SyncAction.createExam)` at the start, matching the pattern used by all other mutation methods (`createExam`, `updateExam`, `deleteExam`, `createPaper`, etc.).
+- The caller `_CreateExamFromGradeSheet._save()` already catches `PermissionException` — this catch is no longer dead code.
+- The permission model is role-based: a teacher needs a school-scoped role with `Resource.exams` + `Action.create` to create exams. The default "Teacher" role should include this bit.
+
 **Update after completion:**
 - [x] Mark this task `[x]` with findings
-- [ ] Orchestrator: git commit after this task (only if changes made)
+- [x] Executor: git commit after this task
 
 ---
 

@@ -805,6 +805,12 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required List<PapersCompanion> paperRows,
     required String accountId,
   }) async {
+    final _authResult = await authorization.check(
+      action: SyncAction.createExam,
+      schoolId: exam.school.value,
+      recordId: null,
+    );
+    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
