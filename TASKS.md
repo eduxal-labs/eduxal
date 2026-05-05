@@ -490,8 +490,8 @@ Widget _buildNoPermissionsWarning(ColorScheme cs) {
 Show this banner at the top of the tab content area when `_permissions.isElevated` is true (system user) but the visible tabs count is <= 2 (only Home + Notifications).
 
 **Update after completion:**
-- [ ] Update `lib/ui/screens/system/CONTEXT.md`
-- [ ] Mark this task `[x]`
+- [x] Update `lib/ui/screens/system/CONTEXT.md`
+- [x] Mark this task `[x]`
 - [ ] Orchestrator: git commit after this task
 
 ---
