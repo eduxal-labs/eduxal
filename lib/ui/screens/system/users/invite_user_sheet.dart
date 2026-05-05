@@ -217,6 +217,11 @@ class _InviteUserSheetState extends State<InviteUserSheet> {
         accountId: accountId,
       );
 
+      // Auto-assign a system-scoped role for newly invited system-level users.
+      if (_selectedLevel == UserLevel.system) {
+        await rolesDao.ensureSystemAdminRole(userId: id, accountId: accountId);
+      }
+
       // If an image was picked, save it to the local cache for the new user.
       if (_pickedImage != null) {
         final bytes = await _pickedImage!.readAsBytes();

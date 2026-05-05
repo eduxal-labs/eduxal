@@ -235,6 +235,7 @@ Each DAO extends `DatabaseAccessor<AppDatabase>` and is annotated with `@DriftAc
 - `insertRole(...)`, `updateRole(...)`, `deleteRole(...)`
 - `watchSystemScopes(String userId) → Stream<List<ScopesData>>` — System-level scopes.
 - **Sync payload encoding (Task A3):** `createRole()` and `updateRole()` now convert the local JSON text (`roles.permissions` column) to binary blob format via `parsePermissions()` → `Permissions(map).toBlob()` before setting `payload.permissions`. The local DB text column still stores JSON; only the protobuf sync payload uses the binary blob format per AGENT.md §17a.
+- `ensureSystemAdminRole({userId, accountId})` — **Task C1.** Best-effort method that ensures a system-level user has at least one system-scoped role. Checks existing assignments first (no-op if already assigned), then looks for a "System Administrator" role, creates one with all applicable permissions for every Resource if missing, and assigns it. Errors are silently caught.
 
 ### `SchoolScopesDao`
 - `watchSchoolRoles(String schoolId) → Stream<List<RolesData>>` — Roles scoped to a school.
@@ -384,7 +385,9 @@ Other DAOs are created locally where needed (e.g. inside service classes or scre
 - **`logs_dao.dart`** — `markFailed` and `retryLog` changed from `return customStatement(...)` to `await customStatement(...); db.notifyUpdates({TableUpdate('logs')})` so that `watchFailedLogs` and `watchFailedLogCount` streams re-emit on status changes (BUG-008 pattern). `_revertCreate` now collects all touched data table names into a `Set<String> touchedTables` and calls `db.notifyUpdates(touchedTables.map(...).toSet())` after the switch block, ensuring phantom rows are cleared from the UI. The `createPaper` case now includes all 6 PK columns `(school, exam, subject, paper, grade, stream)` using dynamic condition building with `IS NULL` for absent nullable fields, preventing accidental cross-grade/stream deletion (BUG-001 prevention).
 
 ## Last Updated
-Task A2 — `catalog_dao.dart`: Added `findOrCreateSubject` and `findOrCreateTopic` methods (finds existing by natural key or creates new). Also added full `CatalogDao` section to this context file.
+Task C1 — `roles_dao.dart`: Added `ensureSystemAdminRole` method (best-effort, auto-assigns system-scoped "System Administrator" role).
+
+Previous: Task A2 — `catalog_dao.dart`: Added `findOrCreateSubject` and `findOrCreateTopic` methods (finds existing by natural key or creates new). Also added full `CatalogDao` section to this context file.
 
 Previous: Task G8 — `users_dao.dart`: Changed `watchSystemMembers()` filter from `level = system` to `level = system OR level = super_` so that Super users remain visible in the Members tab after promotion.
 

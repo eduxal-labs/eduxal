@@ -564,43 +564,59 @@ level, role count, and the merged permissions result — matching the pattern in
 
 ## Track D: Teacher Assignment & Assessment Creation for Assigned Classes
 
-### Task D1: Add `SubjectTeacherEntry` membership role for teachers entering their assigned grade/stream
-**Files to create/modify:** `lib/models/membership.dart`
-**Context files to read (if needed):** `lib/database/daos/memberships_dao.dart`
-**Depends on:** None
-**Parallel group:** P6
+### [x] Task D1: Verify teacher can access grade detail and create exams for assigned classes
+**Files reviewed:** `lib/models/membership.dart`, `lib/database/daos/memberships_dao.dart`, `lib/ui/screens/school_dashboard/academics/grade_detail_page.dart`, `lib/database/daos/exams_grades_dao.dart`, `lib/services/authorization_service.dart`, `lib/database/tables/subject_teachers.dart`
+**Status:** Verified — flow works with documented gaps
 
-**Specification:**
-A teacher who is assigned to teach a subject for a specific grade/stream should be able to navigate to that grade/stream and create assignments/assessments. Currently, the membership model only has a `TeacherEntry` at the school level. The teacher needs a way to see their assigned subjects by grade/stream.
+**Findings (detailed):**
 
-Verify that the existing `TeacherEntry` already carries enough information. The `SchoolDashboardScreen` receives a `MembershipEntry`. When the entry is a `TeacherEntry`, the teacher should be able to access the grade detail page for grades they teach.
+**1. Navigation flow — WORKS:**
+- `MembershipsDao.watchMemberships()` query creates `TeacherEntry(teacher: row, subjectCount: count)`
+- Teacher taps school card → TeacherEntry → SchoolDashboard
+- Teacher navigates to Academics tab → sees grade cards
+- Teacher taps grade → sees stream cards → taps stream → GradeDetailPage
 
-The `subject_teachers` table links `teacher → (grade, stream, subject)`. When a teacher navigates to a grade they're assigned to, the UI should show subject-specific actions (create assignment, create assessment).
+**2. Content tab visibility — WORKS (teacher bypass):**
+- `initState` lines 197-207: `_canSeeExams = _can(Resource.exams, Action.read) || isOwner || isTeacher`
+- Teachers always see the Exams tab regardless of role permissions
+- Same pattern for Students, Classes, Lessons, Attendance tabs
 
-Add a helper method to `MembershipEntry`:
-```dart
-// On TeacherEntry:
-/// Returns the list of (grade, stream, subjectId) tuples this teacher is assigned to.
-/// Must be queried separately — not stored in the entry itself.
-```
+**3. FAB visibility for exam creation — CORRECT but gated:**
+- `_actionsForContentTab()` line 758: `if (_can(Resource.exams, Action.create))`
+- NO teacher bypass here — teachers need explicit `Resource.exams` + `Action.create` permission
+- This is intentional per AGENT.md 17: entry role determines base layout, permissions determine actionable features
+- A teacher without `exams.create` in their role will NOT see the FAB
 
-Actually, the simpler approach: ensure the `_CreateExamFromGradeSheet` (or equivalent assignment/assessment creation UI) is accessible to teachers when they view a grade they're assigned to. The permission check should use `SchoolPermissions` with the `Resource.classes` + `Action.create` permission.
+**4. `_CreateExamFromGradeSheet` — WORKS (if FAB is visible):**
+- `_showCreateExam()` passes `entry: widget.schoolContext.currentEntry.value` to the sheet
+- `_save()` correctly uses `widget.entry is TeacherEntry` to set `teacherId` for exam attribution
+- The sheet creates exams for all subjects in the selected stream(s)
 
-Verify this works by tracing the flow:
-1. Teacher taps a school card → TeacherEntry → navigates to SchoolDashboard
-2. Teacher navigates to Academics tab → sees grade cards
-3. Teacher taps a grade → sees stream cards → taps a stream → GradeDetailPage
-4. In GradeDetailPage, the FAB or action buttons should allow creating exams/assignments
+**5. GAP: Missing authorization check in `createExamWithPapers()`:**
+- `ExamsGradesDao.createExamWithPapers()` (line 801) has NO `authorization.check()` call
+- Compare with `updateExam()` (line 878) which DOES call `authorization.check(action: SyncAction.updateExam, ...)`
+- The only protection is the UI-level FAB visibility check — no defense-in-depth
+- The `_save()` catch block for `PermissionException` (line 2710) is currently dead code for this path but would work correctly if the check were added
 
-The current `GradeDetailPage` already has a `_CreateExamFromGradeSheet`. After Task B1, this sheet will only create exams. For assignments/assessments, there should be separate creation flows.
+**6. Authorization service mapping — CORRECT:**
+- `SyncAction.createExam → (Resource.exams, Action.create)` (authorization_service.dart line 358)
+- `SyncAction.createPaper → (Resource.exams, Action.create)` (line 360)
+- `_resolveOrganisation()` for `createExam`: falls through to schoolId payload check (school IS in payload)
 
-For now, this task is a **verification task**: confirm the flow works end-to-end and document any gaps.
+**7. `TeacherEntry` data sufficiency — ADEQUATE:**
+- Carries `TeachersData teacher` (with school, user) + `subjectCount`
+- `_save()` already uses `widget.entry is TeacherEntry` for teacher attribution
+- `subjectCount` is for display only, not used for permission gating
 
-**Update after completion:**
-- [x] Mark this task `[x]` with notes on what was verified
-- [ ] Orchestrator: git commit after this task (only if changes made)
+**Gap Summary:**
+| # | Gap | Severity | Location |
+|---|-----|----------|----------|
+| G1 | FAB: teachers need explicit `exams.create` role (no teacher bypass like content tabs) | Low (by design) | `grade_detail_page.dart:758` |
+| G2 | Missing `authorization.check()` in `createExamWithPapers()` | Medium | `exams_grades_dao.dart:801` |
 
----
+**Recommendation for D2:**
+- Add `authorization.check(action: SyncAction.createExam, schoolId: exam.school.value)` to `createExamWithPapers()`
+- Consider whether teachers should get `exams.create` by default (add to default teacher role) OR add teacher bypass to FAB actions (like content tabs do)
 
 ### Task D2: Ensure teacher permission model allows creating exams/assignments for assigned classes
 **Files to create/modify:** `lib/services/authorization_service.dart` (review), `lib/ui/screens/school_dashboard/academics/grade_detail_page.dart` (review)

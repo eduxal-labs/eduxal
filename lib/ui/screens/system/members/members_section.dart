@@ -2110,6 +2110,11 @@ class _AddMemberSheetState extends State<AddMemberSheet> {
         UserLevel.system,
         accountId: accountId,
       );
+      // Auto-assign a system-scoped role for newly promoted system-level users.
+      await rolesDao.ensureSystemAdminRole(
+        userId: user.id,
+        accountId: accountId,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${user.name} added as system member')),

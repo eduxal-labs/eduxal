@@ -1,3 +1,4 @@
+import 'package:bson/bson.dart';
 import 'package:drift/drift.dart';
 
 import '../database.dart';
@@ -368,6 +369,84 @@ class RolesDao extends DatabaseAccessor<AppDatabase> with _$RolesDaoMixin {
           .go();
     });
     sync.schedulePush();
+  }
+
+  /// Ensures the given [userId] has at least one system-scoped role.
+  ///
+  /// If the user already has system-scoped roles (via
+  /// [getSystemRolesForUser]), this is a no-op. Otherwise, looks for a role
+  /// named "System Administrator" (where `school IS NULL`) and assigns it. If
+  /// no such role exists, creates one with all applicable permissions for
+  /// every [Resource] and then assigns it.
+  ///
+  /// This is a best-effort convenience method intended to be called after
+  /// user creation or promotion to [UserLevel.system]. Errors are silently
+  /// caught — role-assignment failure should not crash the parent flow.
+  ///
+  /// [accountId] is the currently active account's user id.
+  Future<void> ensureSystemAdminRole({
+    required String userId,
+    required String accountId,
+  }) async {
+    try {
+      // Check if user already has system roles.
+      final existing = await getSystemRolesForUser(userId);
+      if (existing.isNotEmpty) return;
+
+      // Find an existing "System Administrator" system-scoped role.
+      final allSystemRoles = await getSystemRoles();
+      Role? adminRole;
+      for (final r in allSystemRoles) {
+        if (r.name == 'System Administrator') {
+          adminRole = r;
+          break;
+        }
+      }
+
+      late final String roleId;
+      if (adminRole != null) {
+        roleId = adminRole.id;
+      } else {
+        // Create the "System Administrator" role with all applicable
+        // permissions for every resource.
+        roleId = ObjectId().oid;
+        final nowSeconds = BigInt.from(
+          DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        );
+
+        final allPermissionsMap = <Resource, int>{};
+        for (final resource in Resource.values) {
+          final actions = resource.applicableActions;
+          if (actions.isNotEmpty) {
+            var mask = 0;
+            for (final action in actions) {
+              mask |= action.mask;
+            }
+            allPermissionsMap[resource] = mask;
+          }
+        }
+        final perms = Permissions(allPermissionsMap);
+
+        await createRole(
+          RolesCompanion.insert(
+            id: roleId,
+            name: 'System Administrator',
+            permissions: perms.toBlob(),
+            created: nowSeconds,
+            updated: nowSeconds,
+          ),
+          accountId: accountId,
+        );
+      }
+
+      await assignUserToRole(
+        userId: userId,
+        roleId: roleId,
+        accountId: accountId,
+      );
+    } catch (_) {
+      // Best-effort only — don't crash the parent flow.
+    }
   }
 
   /// Deletes a role row and writes a log delete entry, both in a single
