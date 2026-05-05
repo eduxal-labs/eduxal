@@ -2555,9 +2555,7 @@ class _CreateExamFromGradeSheetState extends State<_CreateExamFromGradeSheet> {
   bool _saving = false;
 
   final _nameCtrl = TextEditingController();
-  ExamType _type = ExamType.exam;
   bool _allStreams = false;
-  bool _personalized = false;
   DateTime _startDate = DateTime.now();
   DateTime _endDate = DateTime.now().add(const Duration(days: 7));
 
@@ -2684,8 +2682,8 @@ class _CreateExamFromGradeSheetState extends State<_CreateExamFromGradeSheet> {
         year: Value(widget.year),
         term: Value(widget.term),
         name: Value(examName),
-        personalized: Value(_personalized),
-        type: Value(_type),
+        personalized: const Value(false),
+        type: const Value(ExamType.exam),
         start: Value(startDays),
         end: Value(endDays),
         teacher: Value(teacherId),
@@ -2818,22 +2816,6 @@ class _CreateExamFromGradeSheetState extends State<_CreateExamFromGradeSheet> {
                 ),
                 const SizedBox(height: 16),
 
-                // ── Type selector ────────────────────────────────────────
-                _ExamFieldLabel(label: 'Type', cs: cs),
-                const SizedBox(height: 6),
-                _ExamSegmentedRow<ExamType>(
-                  options: ExamType.values,
-                  selected: _type,
-                  labelOf: (t) => switch (t) {
-                    ExamType.exam => 'Exam',
-                    ExamType.assignment => 'Assignment',
-                    ExamType.assessment => 'Assessment',
-                  },
-                  onSelected: (t) => setState(() => _type = t),
-                  cs: cs,
-                ),
-                const SizedBox(height: 16),
-
                 // ── Stream scope ─────────────────────────────────────────
                 if (widget.allStreams.length > 1 && widget.stream != null) ...[
                   Row(
@@ -2857,42 +2839,6 @@ class _CreateExamFromGradeSheetState extends State<_CreateExamFromGradeSheet> {
                   ),
                   const SizedBox(height: 16),
                 ],
-
-                // ── Personalized toggle ──────────────────────────────────
-                Row(
-                  children: [
-                    SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: Checkbox(
-                        value: _personalized,
-                        onChanged: (v) =>
-                            setState(() => _personalized = v ?? false),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Personalized exam',
-                            style: TextStyle(fontSize: 13, color: cs.onSurface),
-                          ),
-                          Text(
-                            'Different questions per student',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
 
                 // ── Date range ───────────────────────────────────────────
                 Row(

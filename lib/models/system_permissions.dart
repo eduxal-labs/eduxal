@@ -94,6 +94,11 @@ class SystemPermissions {
       }
     }
 
+    debugPrint(
+      '[SystemPermissions] forUser: level=${level.name} → '
+      '${roles.length} roles parsed → $merged',
+    );
+
     return SystemPermissions._(level: level, permissions: merged);
   }
 

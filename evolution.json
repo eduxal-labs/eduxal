@@ -1,0 +1,3161 @@
+{
+  "subject": "Biology",
+  "curriculum": "844",
+  "grade": 4,
+  "topic": "Evolution",
+  "questions": [
+    {
+      "marks": 1,
+      "rubric": [
+        {
+          "criterion": "Evolution is the gradual/slow development of organisms from pre-existing simple organisms over a long period of time; Accept: The process by which different kinds of living organisms developed and diversified from earlier forms during the history of the earth.",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "Evolution is the development of organisms from pre-existing simple organisms over a long period of time."
+      },
+      "images": [],
+      "body": "Define the term evolution.",
+      "body_format": "plain",
+      "type": "definition",
+      "difficulty": 1,
+      "cognitive_level": "recall",
+      "stimulus": null,
+      "max_marks": 1,
+      "answer_space_type": "lines",
+      "answer_lines": 3
+    },
+    {
+      "marks": 1,
+      "rubric": [
+        {
+          "criterion": "A fossil is the remains/traces/impressions of organisms that lived in ancient/prehistoric times, preserved in sedimentary rocks or other media.",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "Fossils are the remains or traces of organisms that lived in ancient times, usually found preserved in sedimentary rocks."
+      },
+      "images": [],
+      "body": "Define the term 'fossil'.",
+      "body_format": "plain",
+      "type": "definition",
+      "difficulty": 1,
+      "cognitive_level": "recall",
+      "stimulus": null,
+      "max_marks": 1,
+      "answer_space_type": "lines",
+      "answer_lines": 3
+    },
+    {
+      "marks": 1,
+      "rubric": [
+        {
+          "criterion": "Paleontology is the study/science of fossils; Accept: The study of the remains of organisms that lived in ancient times.",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "Paleontology is the study of fossils, which are the remains of organisms that lived in ancient times."
+      },
+      "images": [],
+      "body": "What is paleontology?",
+      "body_format": "plain",
+      "type": "explanation",
+      "difficulty": 1,
+      "cognitive_level": "comprehension",
+      "stimulus": null,
+      "max_marks": 1,
+      "answer_space_type": "lines",
+      "answer_lines": 3
+    },
+    {
+      "marks": 2,
+      "rubric": [
+        {
+          "criterion": "Natural selection is the process by which organisms with favourable traits/variations are better adapted to the environment and survive to reproduce;",
+          "marks": 1
+        },
+        {
+          "criterion": "While those with unfavourable traits/variations are eliminated/die out/fail to reproduce, passing favourable characteristics to the next generation.",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "Natural selection is the process by which organisms that possess favourable variations are better adapted to the environment, survive and reproduce, passing those traits to the next generation, while organisms with unfavourable traits are eliminated."
+      },
+      "images": [],
+      "body": "Define the term natural selection.",
+      "body_format": "plain",
+      "type": "definition",
+      "difficulty": 2,
+      "cognitive_level": "recall",
+      "stimulus": null,
+      "max_marks": 2,
+      "answer_space_type": "lines",
+      "answer_lines": 6
+    },
+    {
+      "marks": 3,
+      "rubric": [],
+      "example_answer": null,
+      "images": [],
+      "body": "State the meaning of each of the following terms as used in evolution.",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 2,
+      "cognitive_level": "application",
+      "stimulus": null,
+      "max_marks": 3,
+      "parts": [
+        {
+          "label": "a",
+          "body": "Homologous structures.",
+          "marks": 1,
+          "max_marks": 1,
+          "answer_space_type": "lines",
+          "answer_lines": 5,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Homologous structures are organs/structures that have the same embryonic origin/basic structural plan but are modified to perform different functions in different organisms;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Homologous structures are organs that share the same embryonic origin and basic structural plan but have been modified to perform different functions in different organisms, e.g. the forelimbs of vertebrates."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "b",
+          "body": "Analogous structures.",
+          "marks": 1,
+          "max_marks": 1,
+          "answer_space_type": "lines",
+          "answer_lines": 4,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Analogous structures are organs/structures that have different embryonic origins/different basic structures but are modified to perform the same/similar function;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Analogous structures are organs with different embryonic origins but have evolved to perform the same function, e.g. wings of birds and wings of insects."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "c",
+          "body": "Vestigial structures.",
+          "marks": 1,
+          "max_marks": 1,
+          "answer_space_type": "lines",
+          "answer_lines": 5,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Vestigial structures are organs/structures that are greatly reduced in size and have ceased to function/are non-functional in the organism but were functional in ancestral forms;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Vestigial structures are organs that are greatly reduced in size and no longer serve a useful function in the organism, but were functional in ancestral forms, e.g. the human appendix."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 2,
+      "rubric": [
+        {
+          "criterion": "Convergent evolution is the process by which unrelated/distantly related organisms independently evolve similar features/analogous structures due to adapting to similar environments/conditions;",
+          "marks": 1
+        },
+        {
+          "criterion": "Valid example: Wings of birds and wings of insects; Wings of bats and wings of butterflies; Streamlined body shape of fish and dolphins; Eyes of octopus and eyes of mammals. Accept any other scientifically valid example of analogous structures.",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "Convergent evolution is the process by which unrelated organisms independently evolve similar structures or features because they adapt to similar environments. For example, the wings of birds and the wings of insects have different embryonic origins but both serve the function of flight."
+      },
+      "images": [],
+      "body": "Define convergent evolution and give one example.",
+      "body_format": "plain",
+      "type": "definition",
+      "difficulty": 2,
+      "cognitive_level": "recall",
+      "stimulus": null,
+      "max_marks": 2,
+      "answer_space_type": "lines",
+      "answer_lines": 7
+    },
+    {
+      "marks": 2,
+      "rubric": [
+        {
+          "criterion": "Divergent evolution is the process by which organisms that share a common ancestor evolve different structures/features to adapt to different environments/modes of life; Accept: Adaptive radiation.",
+          "marks": 1
+        },
+        {
+          "criterion": "Valid example: The pentadactyl forelimb modified into a wing in bats, flipper in whales, digging limb in moles, and arm in humans; Darwin's finches with different beak shapes. Accept any other scientifically valid example of homologous structures.",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "Divergent evolution is the process by which organisms with a common ancestor evolve along different lines to adapt to different environments, resulting in homologous structures. For example, the vertebrate pentadactyl forelimb has been modified into a wing in bats, a flipper in whales, and a hand in humans."
+      },
+      "images": [],
+      "body": "Define divergent evolution and give one example.",
+      "body_format": "plain",
+      "type": "definition",
+      "difficulty": 2,
+      "cognitive_level": "recall",
+      "stimulus": null,
+      "max_marks": 2,
+      "answer_space_type": "lines",
+      "answer_lines": 7
+    },
+    {
+      "marks": 1,
+      "rubric": [
+        {
+          "criterion": "Polymorphism is the existence/occurrence of two or more distinct forms/phenotypes within a species/population;",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "Polymorphism is the existence of two or more distinct forms within a species, such as the speckled white and melanic dark forms of the peppered moth (Biston betularia)."
+      },
+      "images": [],
+      "body": "What is meant by the term polymorphism as used in evolution?",
+      "body_format": "plain",
+      "type": "explanation",
+      "difficulty": 1,
+      "cognitive_level": "comprehension",
+      "stimulus": null,
+      "max_marks": 1,
+      "answer_space_type": "lines",
+      "answer_lines": 5
+    },
+    {
+      "marks": 5,
+      "rubric": [
+        {
+          "criterion": "Special creation \u2014 life was created by a supernatural being/God within a particular time",
+          "marks": 1
+        },
+        {
+          "criterion": "Spontaneous generation \u2014 life originated from non-living matter all at once",
+          "marks": 1
+        },
+        {
+          "criterion": "Steady state theory \u2014 life has no origin, it has always existed",
+          "marks": 1
+        },
+        {
+          "criterion": "Cosmozoan/Panspermia theory \u2014 life on earth originated from elsewhere/outer space",
+          "marks": 1
+        },
+        {
+          "criterion": "Biochemical/Chemical evolution \u2014 life originated according to chemical and physical laws from simple inorganic molecules",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "1. Special creation \u2014 life was created by a supernatural being (God) within a particular time.\n2. Spontaneous generation \u2014 life originated from non-living matter all at once.\n3. Steady state theory \u2014 life has no origin; it has always existed.\n4. Cosmozoan (Panspermia) theory \u2014 life on earth originated from outer space.\n5. Biochemical (chemical) evolution \u2014 life originated according to chemical and physical laws from simple inorganic molecules."
+      },
+      "images": [],
+      "body": "State five current concepts on the origin of life.",
+      "body_format": "plain",
+      "type": "definition",
+      "difficulty": 3,
+      "cognitive_level": "recall",
+      "stimulus": null,
+      "max_marks": 5,
+      "answer_space_type": "lines",
+      "answer_lines": 10
+    },
+    {
+      "marks": 3,
+      "rubric": [
+        {
+          "criterion": "Petrification/mineralization \u2014 replacement of organic material by minerals turning it into rock",
+          "marks": 1
+        },
+        {
+          "criterion": "Preservation of whole organisms \u2014 entire organisms preserved in amber/resin, ice, tar, or peat bogs",
+          "marks": 1
+        },
+        {
+          "criterion": "Moulds and casts \u2014 impressions of organisms left in sedimentary rock, which may later be filled with minerals to form casts",
+          "marks": 1
+        },
+        {
+          "criterion": "Carbonization/carbon films \u2014 organic material is reduced to a thin carbon film preserving the outline of the organism",
+          "marks": 1
+        },
+        {
+          "criterion": "Preservation of hard parts \u2014 bones, teeth, shells, and exoskeletons resist decay and are preserved in sedimentary rock",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "1. Petrification (mineralization) \u2014 organic material is gradually replaced by minerals, turning the remains into rock.\n2. Preservation of whole organisms \u2014 entire organisms are preserved in amber, ice, or tar.\n3. Formation of moulds and casts \u2014 impressions of organisms are left in sedimentary rock; the hollow impression (mould) may later be filled with minerals to form a cast."
+      },
+      "images": [],
+      "body": "State three methods by which fossils are formed.",
+      "body_format": "plain",
+      "type": "definition",
+      "difficulty": 2,
+      "cognitive_level": "recall",
+      "stimulus": null,
+      "max_marks": 3,
+      "answer_space_type": "lines",
+      "answer_lines": 9
+    },
+    {
+      "marks": 3,
+      "rubric": [
+        {
+          "criterion": "Soft-bodied organisms rarely fossilize/only partial preservation of hard parts is usually possible because soft parts decay",
+          "marks": 1
+        },
+        {
+          "criterion": "Fossil records are therefore incomplete/there are gaps/missing links in the fossil record",
+          "marks": 1
+        },
+        {
+          "criterion": "Distortion \u2014 parts of organisms may have become flattened or deformed during sedimentation",
+          "marks": 1
+        },
+        {
+          "criterion": "Subsequent geological activities (e.g. erosion, earthquakes, volcanic eruptions, faulting, uplifting) may have destroyed some fossils",
+          "marks": 1
+        },
+        {
+          "criterion": "Some organisms lived in environments not conducive to fossil formation",
+          "marks": 1
+        },
+        {
+          "criterion": "Dating of fossils may be inaccurate",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "1. Only partial preservation is usually possible because soft body parts decay, leaving the fossil record incomplete.\n2. Distortion may occur \u2014 parts of organisms might have become flattened during sedimentation, giving an inaccurate picture of the organism.\n3. Subsequent geological activities such as erosion, earthquakes, faulting, and volcanic eruptions may have destroyed some fossils."
+      },
+      "images": [],
+      "body": "State three limitations of fossil records as evidence of evolution.",
+      "body_format": "plain",
+      "type": "definition",
+      "difficulty": 2,
+      "cognitive_level": "recall",
+      "stimulus": null,
+      "max_marks": 3,
+      "answer_space_type": "lines",
+      "answer_lines": 8
+    },
+    {
+      "marks": 5,
+      "rubric": [
+        {
+          "criterion": "Fossil records/paleontology",
+          "marks": 1
+        },
+        {
+          "criterion": "Geographical distribution/continental drift",
+          "marks": 1
+        },
+        {
+          "criterion": "Comparative embryology",
+          "marks": 1
+        },
+        {
+          "criterion": "Comparative anatomy (homologous structures, analogous structures, vestigial structures)",
+          "marks": 1
+        },
+        {
+          "criterion": "Cell biology (similar cell organelles)",
+          "marks": 1
+        },
+        {
+          "criterion": "Biochemistry (similar blood pigments, proteins, DNA)",
+          "marks": 1
+        },
+        {
+          "criterion": "Comparative serology",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "1. Fossil records (paleontology)\n2. Geographical distribution (continental drift)\n3. Comparative embryology\n4. Comparative anatomy\n5. Cell biology and biochemistry"
+      },
+      "images": [],
+      "body": "Name five types of evidence for organic evolution.",
+      "body_format": "plain",
+      "type": "definition",
+      "difficulty": 3,
+      "cognitive_level": "recall",
+      "stimulus": null,
+      "max_marks": 5,
+      "answer_space_type": "lines",
+      "answer_lines": 3
+    },
+    {
+      "marks": 3,
+      "rubric": [
+        {
+          "criterion": "Visceral clefts/gill slits/pharyngeal clefts",
+          "marks": 1
+        },
+        {
+          "criterion": "Segmental muscle blocks/myotomes",
+          "marks": 1
+        },
+        {
+          "criterion": "A single circulation system",
+          "marks": 1
+        },
+        {
+          "criterion": "Tail/tail bud",
+          "marks": 1
+        },
+        {
+          "criterion": "Similar body plan/shape in early stages",
+          "marks": 1
+        },
+        {
+          "criterion": "Notochord",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "1. Visceral clefts (gill slits) are present in embryos of fish, amphibians, birds, and mammals.\n2. Segmental muscle blocks (myotomes) are found in the embryos of all vertebrates.\n3. A single circulation system is present in early embryonic stages of all vertebrates."
+      },
+      "images": [],
+      "body": "Name three features found in embryos of different vertebrates that suggest a common ancestry.",
+      "body_format": "plain",
+      "type": "definition",
+      "difficulty": 2,
+      "cognitive_level": "recall",
+      "stimulus": null,
+      "max_marks": 3,
+      "answer_space_type": "lines",
+      "answer_lines": 7
+    },
+    {
+      "marks": 4,
+      "rubric": [
+        {
+          "criterion": "All eukaryotic cells have membrane-bound nuclei",
+          "marks": 1
+        },
+        {
+          "criterion": "All eukaryotic cells have mitochondria",
+          "marks": 1
+        },
+        {
+          "criterion": "All eukaryotic cells have ribosomes",
+          "marks": 1
+        },
+        {
+          "criterion": "All eukaryotic cells have Golgi bodies/apparatus",
+          "marks": 1
+        },
+        {
+          "criterion": "All green plants have chloroplasts and cellulose cell walls, indicating common ancestry",
+          "marks": 1
+        },
+        {
+          "criterion": "Similar blood pigments (e.g. haemoglobin) found in different animal groups such as vertebrates and annelids",
+          "marks": 1
+        },
+        {
+          "criterion": "All organisms use DNA as genetic material",
+          "marks": 1
+        },
+        {
+          "criterion": "All organisms use ATP as energy currency",
+          "marks": 1
+        },
+        {
+          "criterion": "Similar enzymes and metabolic pathways across different organisms",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "1. All eukaryotic cells have membrane-bound nuclei, suggesting common ancestry.\n2. All eukaryotic cells contain mitochondria for energy production.\n3. All eukaryotic cells have ribosomes for protein synthesis.\n4. All green plants have chloroplasts and cellulose cell walls, indicating they share a common ancestor."
+      },
+      "images": [],
+      "body": "State four similarities in cell biology that suggest common ancestry among organisms.",
+      "body_format": "plain",
+      "type": "definition",
+      "difficulty": 3,
+      "cognitive_level": "recall",
+      "stimulus": null,
+      "max_marks": 4,
+      "answer_space_type": "lines",
+      "answer_lines": 7
+    },
+    {
+      "marks": 3,
+      "rubric": [
+        {
+          "criterion": "All present-day continents were originally joined as one large landmass called Pangaea;",
+          "marks": 1
+        },
+        {
+          "criterion": "The continents drifted apart/split, leading to geographical isolation of populations of organisms;",
+          "marks": 1
+        },
+        {
+          "criterion": "The isolated populations were subjected to different environmental conditions and underwent evolution along different lines/adaptive radiation, leading to the emergence of new/different species in different continents;",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "About 250 million years ago, all present-day continents existed as a single large landmass called Pangaea. Over time, the continents drifted apart, causing populations of organisms to become geographically isolated from each other. These isolated populations were exposed to different environmental conditions and evolved along different evolutionary paths, leading to the emergence of new species unique to each continent. For example, pouched mammals such as kangaroos are found almost exclusively in Australia."
+      },
+      "images": [],
+      "body": "Explain how continental drift provides evidence for organic evolution.",
+      "body_format": "plain",
+      "type": "explanation",
+      "difficulty": 2,
+      "cognitive_level": "comprehension",
+      "stimulus": null,
+      "max_marks": 3,
+      "answer_space_type": "lines",
+      "answer_lines": 11
+    },
+    {
+      "marks": 3,
+      "rubric": [
+        {
+          "criterion": "Lamarck proposed that characteristics acquired through use and disuse of body parts during an organism's lifetime could be inherited by offspring;",
+          "marks": 1
+        },
+        {
+          "criterion": "Acquired characteristics are caused by environmental effects on the body (somatic cells) and do not alter genes/gametes/DNA;",
+          "marks": 1
+        },
+        {
+          "criterion": "Only characteristics determined by genes can be inherited/passed to offspring; therefore acquired characteristics are not heritable. Example: Cutting tails of mice for many generations does not produce tailless offspring;",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "Lamarck's theory proposed that organisms could acquire new characteristics through the use and disuse of body parts and pass these acquired traits to their offspring. This has been disproved because acquired characteristics are effects produced by the environment on somatic (body) cells and do not alter the genes in the reproductive cells (gametes). Only characteristics determined by genes can be inherited. For example, August Weismann cut the tails of mice for many generations, but the offspring were always born with tails, demonstrating that acquired characteristics are not heritable."
+      },
+      "images": [],
+      "body": "Explain why Lamarck's theory of evolution has been rejected by modern scientists.",
+      "body_format": "plain",
+      "type": "explanation",
+      "difficulty": 2,
+      "cognitive_level": "comprehension",
+      "stimulus": null,
+      "max_marks": 3,
+      "answer_space_type": "lines",
+      "answer_lines": 13
+    },
+    {
+      "marks": 4,
+      "rubric": [
+        {
+          "criterion": "The peppered moth exists in two forms: speckled white (normal) and melanic/dark form;",
+          "marks": 1
+        },
+        {
+          "criterion": "Industrialization caused pollution \u2014 smoke and soot darkened tree trunks, killing lichens;",
+          "marks": 1
+        },
+        {
+          "criterion": "The dark/melanic form was better camouflaged on soot-darkened tree trunks and was less visible to predators/birds, so it survived and reproduced more, increasing in number;",
+          "marks": 1
+        },
+        {
+          "criterion": "The speckled white form was more conspicuous/visible on dark trunks and was easily preyed upon, so its numbers decreased in industrial areas; In non-polluted areas the speckled form remained dominant as it was camouflaged by lichen-covered trunks;",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "The peppered moth (Biston betularia) exists in two distinct forms: a speckled white form and a dark melanic form. Before industrialization, tree trunks were covered with lichens, and the speckled white form was well camouflaged, so it survived predation. With industrialization, smoke and soot darkened the tree trunks, destroying the lichens. The dark melanic form became better camouflaged against the dark trunks and was less visible to predatory birds, leading to its increased survival and reproduction. Meanwhile, the speckled white form became conspicuous on the dark trunks and was easily preyed upon, decreasing in number in industrial areas. In non-polluted areas, the speckled form remained dominant because it was still camouflaged by lichen-covered trunks."
+      },
+      "images": [],
+      "body": "Explain how industrial melanism in the peppered moth (Biston betularia) demonstrates natural selection.",
+      "body_format": "plain",
+      "type": "explanation",
+      "difficulty": 3,
+      "cognitive_level": "comprehension",
+      "stimulus": null,
+      "max_marks": 4,
+      "answer_space_type": "lines",
+      "answer_lines": 17
+    },
+    {
+      "marks": 3,
+      "rubric": [
+        {
+          "criterion": "Within a population of bacteria, there is genetic variation/some individuals may have mutations that confer resistance to a drug/antibiotic;",
+          "marks": 1
+        },
+        {
+          "criterion": "When the antibiotic/drug is applied, susceptible/non-resistant bacteria are killed, while resistant ones survive (natural selection/survival of the fittest);",
+          "marks": 1
+        },
+        {
+          "criterion": "The resistant bacteria reproduce and pass the resistance trait/genes to their offspring, forming a population that is predominantly resistant to the drug;",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "Within a population of bacteria, natural genetic variation exists, and some individuals may carry mutations that make them resistant to a particular antibiotic. When the antibiotic is administered, it kills the susceptible bacteria, but the resistant ones survive. These resistant bacteria then reproduce and pass the resistance genes to their offspring. Over time, the entire population becomes predominantly resistant to the drug. This is natural selection in action \u2014 the environment (presence of the drug) selects for individuals with favourable traits (drug resistance)."
+      },
+      "images": [],
+      "body": "Explain how drug resistance in bacteria is an example of natural selection.",
+      "body_format": "plain",
+      "type": "explanation",
+      "difficulty": 2,
+      "cognitive_level": "comprehension",
+      "stimulus": null,
+      "max_marks": 3,
+      "answer_space_type": "lines",
+      "answer_lines": 12
+    },
+    {
+      "marks": 3,
+      "rubric": [
+        {
+          "criterion": "Sexual reproduction causes genetic variation through: crossing over during prophase I of meiosis \u2014 exchange of genetic material between homologous chromosomes;",
+          "marks": 1
+        },
+        {
+          "criterion": "Independent assortment of chromosomes during meiosis \u2014 random orientation of homologous chromosome pairs at metaphase I leads to different combinations of chromosomes in gametes;",
+          "marks": 1
+        },
+        {
+          "criterion": "Random fertilization \u2014 any male gamete can fuse with any female gamete, creating unique combinations of genes; These variations accumulate over generations and, if populations become isolated, may eventually lead to the formation of new species;",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "Sexual reproduction contributes to evolution by generating genetic variation through three mechanisms: (1) Crossing over during prophase I of meiosis, where homologous chromosomes exchange genetic material, creating new allele combinations. (2) Independent assortment, where homologous chromosome pairs orient randomly at metaphase I, producing gametes with different chromosome combinations. (3) Random fertilization, where any sperm can fuse with any ovum, further increasing genetic diversity. These variations provide the raw material upon which natural selection acts. Over time, favourable variations accumulate and, if populations are isolated, may lead to the formation of new species."
+      },
+      "images": [],
+      "body": "Explain how sexual reproduction contributes to the evolution of new species.",
+      "body_format": "plain",
+      "type": "explanation",
+      "difficulty": 2,
+      "cognitive_level": "comprehension",
+      "stimulus": null,
+      "max_marks": 3,
+      "answer_space_type": "lines",
+      "answer_lines": 14
+    },
+    {
+      "marks": 3,
+      "rubric": [
+        {
+          "criterion": "A physical barrier (e.g. mountain range, river, ocean, desert) separates a population into two or more groups that cannot interbreed;",
+          "marks": 1
+        },
+        {
+          "criterion": "The separated populations are exposed to different environmental conditions and accumulate different genetic variations/mutations over time;",
+          "marks": 1
+        },
+        {
+          "criterion": "Over a long period, the populations become so genetically different that they can no longer interbreed even if brought together, forming new species (speciation);",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "Geographical isolation occurs when a physical barrier such as a mountain range, river, or ocean separates a population into two or more groups that cannot interbreed. Each isolated population is subjected to different environmental conditions and accumulates different genetic variations through mutation, natural selection, and genetic drift. Over a long period of time, the populations become so genetically distinct that they can no longer interbreed successfully, even if the physical barrier is removed. At this point, they have become separate species \u2014 a process called speciation."
+      },
+      "images": [],
+      "body": "Explain the role of geographical isolation in speciation.",
+      "body_format": "plain",
+      "type": "data_response",
+      "difficulty": 2,
+      "cognitive_level": "analysis",
+      "stimulus": null,
+      "max_marks": 3,
+      "answer_space_type": "lines",
+      "answer_lines": 13
+    },
+    {
+      "marks": 4,
+      "rubric": [
+        {
+          "criterion": "Homologous structures have the same embryonic origin/same basic structural plan;",
+          "marks": 1
+        },
+        {
+          "criterion": "But are modified to perform different functions; Example: Forelimb of a human (grasping) and wing of a bat (flying); or flipper of a whale (swimming) and wing of a bird (flying); Accept any valid example of structures with common origin but different functions;",
+          "marks": 1
+        },
+        {
+          "criterion": "Analogous structures have different embryonic origins/different basic structural plans;",
+          "marks": 1
+        },
+        {
+          "criterion": "But are modified to perform the same/similar function; Example: Wing of a bird (has bones and feathers) and wing of an insect (membranous, no bones); or eye of an octopus and eye of a mammal; Accept any valid example of structures with different origins but same function;",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "Homologous structures have the same embryonic origin and basic structural plan but have been modified to perform different functions. For example, the forelimb of a human is used for grasping while the wing of a bat is used for flying, yet both share the same bone arrangement (humerus, radius, ulna, carpals, metacarpals, phalanges).\n\nAnalogous structures have different embryonic origins and different basic structures but perform the same function. For example, the wing of a bird is made of bones covered with feathers, while the wing of an insect is membranous with no bones, yet both are used for flying."
+      },
+      "images": [],
+      "body": "Distinguish between homologous and analogous structures. Give one example of each.",
+      "body_format": "plain",
+      "type": "explanation",
+      "difficulty": 3,
+      "cognitive_level": "comprehension",
+      "stimulus": null,
+      "max_marks": 4,
+      "answer_space_type": "lines",
+      "answer_lines": 15
+    },
+    {
+      "marks": 2,
+      "rubric": [
+        {
+          "criterion": "Convergent evolution is the development of similar features/analogous structures in unrelated organisms due to adaptation to similar environments.",
+          "marks": 1
+        },
+        {
+          "criterion": "while divergent evolution is the development of different features/homologous structures from a common ancestor due to adaptation to different environments.",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "Convergent evolution occurs when unrelated organisms independently evolve similar structures (analogous structures) because they adapt to similar environmental conditions, e.g. wings of birds and wings of insects. Divergent evolution occurs when organisms that share a common ancestor evolve different structures (homologous structures) because they adapt to different environments, e.g. the pentadactyl forelimb modified into a wing in bats, a flipper in whales, and a hand in humans."
+      },
+      "images": [],
+      "body": "Distinguish between convergent evolution and divergent evolution.",
+      "body_format": "plain",
+      "type": "explanation",
+      "difficulty": 2,
+      "cognitive_level": "comprehension",
+      "stimulus": null,
+      "max_marks": 2,
+      "answer_space_type": "lines",
+      "answer_lines": 10
+    },
+    {
+      "marks": 3,
+      "rubric": [
+        {
+          "criterion": "Lamarck proposed that evolution occurs through use and disuse of body parts, while Darwin proposed that evolution occurs through natural selection acting on existing variations",
+          "marks": 1
+        },
+        {
+          "criterion": "Lamarck stated that acquired characteristics can be inherited, while Darwin stated that only inherited/genetic variations are passed to offspring",
+          "marks": 1
+        },
+        {
+          "criterion": "Lamarck suggested that organisms change in response to the environment during their lifetime, while Darwin suggested that the environment selects individuals with pre-existing favourable variations",
+          "marks": 1
+        },
+        {
+          "criterion": "Lamarck's theory has been disproved, while Darwin's theory is widely accepted and supported by evidence",
+          "marks": 1
+        },
+        {
+          "criterion": "Lamarck believed organisms purposefully adapt, while Darwin believed variations arise randomly and are selected by the environment",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "1. Lamarck proposed that evolution occurs through use and disuse of body parts, while Darwin proposed that evolution occurs through natural selection acting on pre-existing genetic variations.\n2. Lamarck stated that characteristics acquired during an organism's lifetime can be inherited by offspring, while Darwin stated that only inherited (genetic) variations are passed to the next generation.\n3. Lamarck suggested that organisms change deliberately in response to environmental demands, while Darwin suggested that variations arise randomly and the environment merely selects the most favourable ones."
+      },
+      "images": [],
+      "body": "State three differences between Lamarck's theory and Darwin's theory of evolution.",
+      "body_format": "plain",
+      "type": "definition",
+      "difficulty": 2,
+      "cognitive_level": "recall",
+      "stimulus": null,
+      "max_marks": 3,
+      "answer_space_type": "lines",
+      "answer_lines": 13
+    },
+    {
+      "marks": 2,
+      "rubric": [
+        {
+          "criterion": "In natural selection, the environment/nature selects organisms with favourable variations for survival and reproduction.",
+          "marks": 1
+        },
+        {
+          "criterion": "while in artificial selection, humans deliberately select organisms with desirable traits/characteristics for breeding.",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "In natural selection, the environment acts as the selecting agent \u2014 organisms with traits that are best suited to their environment survive and reproduce. In artificial selection, humans act as the selecting agent \u2014 they deliberately choose organisms with desirable characteristics (e.g. high milk yield in cattle, large fruit size in crops) and breed them to produce offspring with those preferred traits."
+      },
+      "images": [],
+      "body": "Distinguish between natural selection and artificial selection.",
+      "body_format": "plain",
+      "type": "explanation",
+      "difficulty": 2,
+      "cognitive_level": "comprehension",
+      "stimulus": null,
+      "max_marks": 2,
+      "answer_space_type": "lines",
+      "answer_lines": 9
+    },
+    {
+      "marks": 6,
+      "rubric": [
+        {
+          "criterion": "The early atmosphere was different from today's \u2014 it had less/no free oxygen, more carbon (IV) oxide, hydrogen, ammonia, methane, and water vapour; There was no ozone layer;",
+          "marks": 1
+        },
+        {
+          "criterion": "High solar/ultraviolet energy, lightning, and volcanic heat reached the earth's surface and provided energy;",
+          "marks": 1
+        },
+        {
+          "criterion": "This energy drove chemical reactions that combined simple inorganic molecules (hydrogen, carbon dioxide, nitrogen, water) to form simple organic compounds such as amino acids, sugars, nucleic acids, and hydrocarbons;",
+          "marks": 1
+        },
+        {
+          "criterion": "The organic compounds accumulated in the primitive oceans/seas (primordial soup); Amino acids polymerised to form proteins;",
+          "marks": 1
+        },
+        {
+          "criterion": "Proteins and lipids coalesced to form a 'cell membrane' that enclosed organic compounds, forming a primitive cell; The primitive cell fed heterotrophically on surrounding organic molecules in water;",
+          "marks": 1
+        },
+        {
+          "criterion": "From these primitive cells, autotrophs similar to blue-green algae evolved; They produced oxygen through photosynthesis; As oxygen accumulated, the ozone layer formed, blocking ultraviolet radiation and allowing the evolution of present-day organisms;",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "The biochemical evolution theory proposes that life arose from non-living matter through natural chemical processes. The early earth's atmosphere was very different from today \u2014 it contained little or no free oxygen, but had abundant carbon dioxide, hydrogen, ammonia, methane, and water vapour. There was no ozone layer, so intense ultraviolet radiation from the sun reached the earth's surface. This high energy, together with lightning and volcanic heat, drove chemical reactions that combined simple inorganic molecules to form organic compounds such as amino acids, sugars, nucleic acids, and hydrocarbons. These organic molecules accumulated in the primitive oceans, forming a 'primordial soup.' Amino acids polymerised to form proteins, which coalesced with lipids to form primitive membranes enclosing collections of organic molecules \u2014 forming the first primitive cells. These cells were heterotrophic, feeding on surrounding organic molecules. Over time, autotrophic organisms similar to blue-green algae evolved and began producing oxygen through photosynthesis. The accumulating oxygen led to the formation of the ozone layer, which blocked harmful ultraviolet radiation and allowed the evolution of more complex organisms."
+      },
+      "images": [],
+      "body": "Describe the biochemical evolution (chemical evolution) theory of the origin of life.",
+      "body_format": "plain",
+      "type": "explanation",
+      "difficulty": 4,
+      "cognitive_level": "comprehension",
+      "stimulus": null,
+      "max_marks": 6,
+      "answer_space_type": "lines",
+      "answer_lines": 25
+    },
+    {
+      "marks": 3,
+      "rubric": [
+        {
+          "criterion": "Special creation states that life/the world and all living things were created by a supernatural being/God;",
+          "marks": 1
+        },
+        {
+          "criterion": "Creation occurred within a specific/particular period of time (e.g. six days as recorded in the Old Testament/Genesis); some hold the six days literally while others believe they represent thousands of years;",
+          "marks": 1
+        },
+        {
+          "criterion": "According to this theory, the earth and all organisms were created mature/in their present form; Similarities in structure and function among organisms denote the stamp of a 'common Designer'; Evidence for this view comes from faith and observations of life;",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "The theory of special creation, recorded in the Old Testament (Genesis 1:1\u201326), states that God (a supernatural being) created the world and all living things within six days. Some interpret the six days literally, while others believe they represent much longer periods. According to this theory, the earth and all organisms were created in their present mature form. Similarities in structure and function among living organisms are attributed to a 'common Designer.' Evidence for this view comes from faith and from observations of the complexity and order found in nature."
+      },
+      "images": [],
+      "body": "Describe the theory of special creation as an explanation for the origin of life.",
+      "body_format": "plain",
+      "type": "explanation",
+      "difficulty": 2,
+      "cognitive_level": "comprehension",
+      "stimulus": null,
+      "max_marks": 3,
+      "answer_space_type": "lines",
+      "answer_lines": 13
+    },
+    {
+      "marks": 5,
+      "rubric": [
+        {
+          "criterion": "Modern humans evolved from ape-like creatures that existed about 25 million years ago; These evolved into the first upright, tool-using hominid \u2014 Australopithecus afarensis, with a cranial capacity of about 400\u2013500 cc;",
+          "marks": 1
+        },
+        {
+          "criterion": "Australopithecus evolved into Homo habilis ('handy man'), who had a larger brain and was capable of making simple stone tools;",
+          "marks": 1
+        },
+        {
+          "criterion": "Homo habilis evolved into Homo erectus ('upright man'), who had a larger cranial capacity, used fire, made more advanced tools, and was fully bipedal;",
+          "marks": 1
+        },
+        {
+          "criterion": "Homo erectus evolved into Homo sapiens (modern humans), with a cranial capacity of 1350\u20131450 cc; Homo sapiens has a highly developed brain, is more intelligent, and has advanced language and culture;",
+          "marks": 1
+        },
+        {
+          "criterion": "Key features in human evolution include: bipedal posture/walking upright on two legs; omnivorous diet; opposable thumb for grasping and tool use; increased brain size and intelligence; development of speech/language;",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "Modern humans (Homo sapiens) evolved from ape-like creatures over approximately 25 million years. The earliest known hominid ancestors were Australopithecus afarensis, which were upright, tool-using creatures with a cranial capacity of about 400\u2013500 cc. These evolved into Homo habilis ('handy man'), who had a larger brain and made simple stone tools. Homo habilis gave rise to Homo erectus ('upright man'), who had an even larger cranial capacity, used fire, made more advanced tools, and was fully bipedal. Finally, Homo erectus evolved into Homo sapiens (modern humans), with a cranial capacity of 1350\u20131450 cc. Key features that developed during human evolution include: bipedal posture (walking upright on two legs), an omnivorous diet, opposable thumbs for precise grasping and tool use, greatly increased brain size enabling higher intelligence and reasoning, and the development of speech and language."
+      },
+      "images": [],
+      "body": "Describe the evolution of modern humans (Homo sapiens) from ape-like ancestors.",
+      "body_format": "plain",
+      "type": "explanation",
+      "difficulty": 3,
+      "cognitive_level": "comprehension",
+      "stimulus": null,
+      "max_marks": 5,
+      "answer_space_type": "lines",
+      "answer_lines": 20
+    },
+    {
+      "marks": 4,
+      "rubric": [
+        {
+          "criterion": "The population of a given species tends to remain fairly constant/stable over a long period of time",
+          "marks": 1
+        },
+        {
+          "criterion": "More offspring are produced than can possibly survive to adulthood",
+          "marks": 1
+        },
+        {
+          "criterion": "The number of young ones produced is more than the number of adults",
+          "marks": 1
+        },
+        {
+          "criterion": "There is variation within a population \u2014 all members of the same species are not alike/identical",
+          "marks": 1
+        },
+        {
+          "criterion": "Individuals compete for limited resources such as food, space, and mates (struggle for existence)",
+          "marks": 1
+        },
+        {
+          "criterion": "Some variations are more favourable than others in a given environment",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "1. The population of a given species tends to remain relatively constant over a long period of time, despite many offspring being produced.\n2. More offspring are produced than can possibly survive to adulthood.\n3. There is variation within any population \u2014 not all members of the same species are identical.\n4. There is a struggle for existence \u2014 individuals compete for limited resources such as food, space, and mates."
+      },
+      "images": [],
+      "body": "State four observations Darwin made that led to his theory of natural selection.",
+      "body_format": "plain",
+      "type": "definition",
+      "difficulty": 3,
+      "cognitive_level": "recall",
+      "stimulus": null,
+      "max_marks": 4,
+      "answer_space_type": "lines",
+      "answer_lines": 10
+    },
+    {
+      "marks": 4,
+      "rubric": [
+        {
+          "criterion": "The pentadactyl limb is a five-digit/five-fingered limb found in vertebrates.",
+          "marks": 1
+        },
+        {
+          "criterion": "It consists of five sets of bones: a single upper bone (humerus in forelimb / femur in hind limb), two lower bones (radius and ulna in forelimb / tibia and fibula in hind limb), small wrist/ankle bones (carpals/tarsals), palm/foot bones (metacarpals/metatarsals), and digit bones (phalanges).",
+          "marks": 1
+        },
+        {
+          "criterion": "Although the basic bone plan is the same across different vertebrates, the limb has been modified for different functions in different species \u2014 e.g. a wing in bats (flight), a flipper in whales (swimming), a digging limb in moles (burrowing), a hand in humans (grasping); These modifications are homologous structures;",
+          "marks": 1
+        },
+        {
+          "criterion": "The common basic structure indicates that these vertebrates evolved from a common ancestor (divergent evolution/adaptive radiation), providing evidence for evolution;",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "The pentadactyl limb is a five-digit limb found in all vertebrate classes. It has a common structural plan consisting of five sets of bones: a single upper bone (humerus or femur), two lower bones (radius and ulna, or tibia and fibula), small wrist or ankle bones (carpals or tarsals), palm or foot bones (metacarpals or metatarsals), and digit bones (phalanges). Although this basic bone arrangement is the same across different vertebrates, the limb has been modified for different modes of life \u2014 for example, it forms a wing in bats for flight, a flipper in whales for swimming, a digging limb in moles for burrowing, and a hand in humans for grasping. These are homologous structures. The common basic structure suggests that all these vertebrates descended from a common ancestor and have undergone divergent evolution, providing strong evidence for organic evolution."
+      },
+      "images": [],
+      "body": "Describe the pentadactyl limb and explain how it provides evidence for evolution.",
+      "body_format": "plain",
+      "type": "explanation",
+      "difficulty": 3,
+      "cognitive_level": "comprehension",
+      "stimulus": null,
+      "max_marks": 4,
+      "answer_space_type": "lines",
+      "answer_lines": 21
+    },
+    {
+      "marks": 3,
+      "rubric": [
+        {
+          "criterion": "Blood pigments are conjugated proteins with a metal/prosthetic group;",
+          "marks": 1
+        },
+        {
+          "criterion": "Similar pigments are found in different animal groups \u2014 e.g. haemoglobin is found in all vertebrates and also in annelids (earthworms);",
+          "marks": 1
+        },
+        {
+          "criterion": "The presence of similar blood pigments in different animal groups suggests that these organisms share a common ancestor/origin;",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "Blood pigments are conjugated proteins containing a metallic prosthetic group. Similar blood pigments are found across different animal groups \u2014 for instance, haemoglobin is the oxygen-carrying pigment found not only in all vertebrates but also in some invertebrates like earthworms (annelids). The presence of the same type of blood pigment in such widely different organisms suggests that they share a common evolutionary ancestor, providing biochemical evidence for evolution."
+      },
+      "images": [],
+      "body": "Explain how the study of blood pigments provides evidence for evolution.",
+      "body_format": "plain",
+      "type": "explanation",
+      "difficulty": 2,
+      "cognitive_level": "comprehension",
+      "stimulus": null,
+      "max_marks": 3,
+      "answer_space_type": "lines",
+      "answer_lines": 10
+    },
+    {
+      "marks": 5,
+      "rubric": [],
+      "example_answer": null,
+      "images": [],
+      "body": "A farmer has been using the same type of pesticide to control a particular pest on his crops for several years. Recently, the farmer noticed that the pesticide is no longer effective against the pest.",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 3,
+      "cognitive_level": "application",
+      "stimulus": null,
+      "max_marks": 5,
+      "parts": [
+        {
+          "label": "a",
+          "body": "Using your knowledge of evolution, explain the likely reason for this observation.",
+          "marks": 3,
+          "max_marks": 3,
+          "answer_space_type": "lines",
+          "answer_lines": 12,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Within the pest population, natural genetic variation exists; some individuals carry mutations/genes that confer resistance to the pesticide;",
+              "marks": 1
+            },
+            {
+              "criterion": "When the pesticide is applied repeatedly, susceptible pests are killed but resistant individuals survive (natural selection/survival of the fittest);",
+              "marks": 1
+            },
+            {
+              "criterion": "The resistant individuals reproduce and pass the resistance genes to offspring; over time/generations, the population becomes predominantly resistant to the pesticide;",
+              "marks": 1
+            },
+            {
+              "criterion": "Use integrated pest management (IPM) \u2014 combine chemical, biological, and cultural control methods",
+              "marks": 1
+            },
+            {
+              "criterion": "Use biological control methods (e.g. introducing natural predators of the pest)",
+              "marks": 1
+            },
+            {
+              "criterion": "Practice crop rotation to disrupt the pest's life cycle",
+              "marks": 1
+            },
+            {
+              "criterion": "Use higher/recommended dosages as prescribed",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Within the pest population, there was natural genetic variation, and some individuals carried genes that conferred resistance to the pesticide. When the same pesticide was applied repeatedly over several years, the susceptible pests were killed, but the resistant ones survived (natural selection). These resistant individuals reproduced and passed the resistance genes to their offspring. Over successive generations, the proportion of resistant individuals in the population increased until the majority of the pest population became resistant to the pesticide."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "b",
+          "body": "Suggest two measures the farmer can take to address this problem.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 7,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Any 2 of the following measures (1 mark each, max 2 marks): Use a different type of pesticide/alternate between different pesticides to prevent resistance building up",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "The farmer can: (i) Switch to a different type of pesticide or alternate between different pesticides to prevent resistance from building up. (ii) Use integrated pest management, combining chemical control with biological control methods such as introducing natural predators of the pest."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 4,
+      "rubric": [],
+      "example_answer": null,
+      "images": [],
+      "body": "Volcanic islands that form in the middle of the ocean often have unique species of plants and animals not found anywhere else in the world.",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 3,
+      "cognitive_level": "application",
+      "stimulus": null,
+      "max_marks": 4,
+      "parts": [
+        {
+          "label": "a",
+          "body": "Using your knowledge of evolution, explain why these islands have unique species.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 12,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Organisms that colonise the island become geographically/reproductively isolated from the mainland population;",
+              "marks": 1
+            },
+            {
+              "criterion": "The island environment exerts different selection pressures from the mainland; Over time, the isolated population accumulates different genetic variations/mutations/adaptations;",
+              "marks": 1
+            },
+            {
+              "criterion": "After many generations, the island population becomes so genetically different that it can no longer interbreed with the mainland population, forming a new/unique species;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "When a few organisms first colonise a volcanic island, they become geographically isolated from the mainland population by the surrounding ocean. The island environment presents different selection pressures (e.g. different food sources, predators, and climate). Over many generations, the island population accumulates genetic changes through mutation and natural selection that make it increasingly different from the mainland population. Eventually, the island organisms become so genetically distinct that they can no longer interbreed with mainland organisms, forming unique species found nowhere else."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "b",
+          "body": "Name the type of evolution that leads to the formation of many different species from a common ancestor in a new environment.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 1,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Adaptive radiation / Divergent evolution;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Adaptive radiation (divergent evolution)."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 4,
+      "rubric": [],
+      "example_answer": null,
+      "images": [],
+      "body": "A doctor prescribes a full course of antibiotics to a patient suffering from a bacterial infection and emphasises the importance of completing the entire dosage.",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 3,
+      "cognitive_level": "application",
+      "stimulus": null,
+      "max_marks": 4,
+      "parts": [
+        {
+          "label": "a",
+          "body": "Explain why it is important for the patient to complete the full course of antibiotics.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 7,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "The full course ensures that all/most of the pathogenic bacteria are killed/destroyed, including those that are slightly more resistant and take longer to die;",
+              "marks": 1
+            },
+            {
+              "criterion": "If the course is not completed, some bacteria (the more resistant ones) may survive;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Completing the full course of antibiotics is essential because it ensures that all the pathogenic bacteria, including those that are slightly more resistant and take longer to die, are destroyed. If the course is not completed, the more resistant bacteria may survive."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "b",
+          "body": "Explain the evolutionary consequences of not completing the full course.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 8,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "The surviving resistant bacteria reproduce and pass the resistance genes/traits to their offspring through natural selection;",
+              "marks": 1
+            },
+            {
+              "criterion": "Over time, a population of antibiotic-resistant bacteria develops that is difficult to treat/control; This makes the disease harder to cure and may require stronger/different antibiotics;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "If the patient stops taking antibiotics early, the surviving resistant bacteria will reproduce and pass their resistance genes to their offspring. Through natural selection, the resistant trait spreads through the population. Over time, this leads to the evolution of antibiotic-resistant strains of bacteria that are extremely difficult to treat, requiring stronger or completely different antibiotics."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 4,
+      "rubric": [],
+      "example_answer": null,
+      "images": [],
+      "body": "Two unrelated species of plants found on different continents were observed to have remarkably similar flower structures, despite being genetically unrelated.",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 3,
+      "cognitive_level": "application",
+      "stimulus": null,
+      "max_marks": 4,
+      "parts": [
+        {
+          "label": "a",
+          "body": "Name the type of evolution that explains this observation.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 1,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Convergent evolution;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Convergent evolution."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "b",
+          "body": "State the type of structures represented by these similar flowers.",
+          "marks": 1,
+          "max_marks": 1,
+          "answer_space_type": "lines",
+          "answer_lines": 1,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Analogous structures;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Analogous structures."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "c",
+          "body": "Explain why these unrelated plants developed similar flower structures.",
+          "marks": 1,
+          "max_marks": 1,
+          "answer_space_type": "lines",
+          "answer_lines": 11,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "The two unrelated plant species were exposed to similar environmental conditions/selection pressures (e.g. similar pollinators, climate);",
+              "marks": 1
+            },
+            {
+              "criterion": "Natural selection favoured similar adaptations in both species independently, leading to the development of similar flower structures despite different ancestry;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Although the two plant species are genetically unrelated and found on different continents, they were exposed to similar environmental conditions and selection pressures, such as similar types of pollinators (e.g. similar species of insects or birds). Natural selection independently favoured similar flower structures in both species because those structures were most effective for pollination in their respective environments. Over time, both species evolved remarkably similar flowers despite having different ancestors."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 5,
+      "rubric": [],
+      "example_answer": null,
+      "images": [],
+      "body": "(a) State three conclusions Darwin made based on his observations of living organisms.",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 3,
+      "cognitive_level": "application",
+      "stimulus": null,
+      "max_marks": 5,
+      "parts": [
+        {
+          "label": "b",
+          "body": "Explain the phrase 'survival of the fittest' as used by Darwin.",
+          "marks": 5,
+          "max_marks": 5,
+          "answer_space_type": "lines",
+          "answer_lines": 7,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "'Survival of the fittest' means that in a population, those individuals that possess the most favourable/best-adapted traits/variations for a given environment survive the competition/struggle for existence;",
+              "marks": 1
+            },
+            {
+              "criterion": "They reproduce and pass these favourable traits/genes to the next generation, while less adapted individuals die off/are eliminated;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "'Survival of the fittest' means that in a given environment, those organisms possessing traits best suited for survival are the ones that compete successfully for resources, survive, reproduce, and pass their advantageous genes to the next generation, while less adapted organisms are gradually eliminated from the population."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 6,
+      "rubric": [],
+      "example_answer": null,
+      "images": [],
+      "body": "(a) Name the evidence of evolution illustrated by the comparison of early embryos of a fish, a bird, and a human, which appear almost identical in their earliest developmental stages.",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 4,
+      "cognitive_level": "application",
+      "stimulus": null,
+      "max_marks": 6,
+      "parts": [
+        {
+          "label": "b",
+          "body": "State three similarities observed in early embryos of vertebrates that suggest common ancestry.",
+          "marks": 3,
+          "max_marks": 3,
+          "answer_space_type": "lines",
+          "answer_lines": 7,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Any 3 of the following similarities (1 mark each, max 3 marks): Visceral clefts/gill slits/pharyngeal clefts are present",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Three similarities observed in early vertebrate embryos:\n1. Visceral clefts (gill slits) are present in embryos of fish, birds, and mammals.\n2. Segmental muscle blocks (myotomes) are present in all vertebrate embryos.\n3. All vertebrate embryos possess a tail or tail bud in their early stages."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "c",
+          "body": "Explain how comparative embryology supports the theory of evolution.",
+          "marks": 3,
+          "max_marks": 3,
+          "answer_space_type": "lines",
+          "answer_lines": 9,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "The striking similarity of early embryos of different vertebrate classes indicates that these organisms share a common ancestor;",
+              "marks": 1
+            },
+            {
+              "criterion": "As development proceeds, the embryos diverge and develop specialised features for their different modes of life, showing that they have evolved along different lines from the common ancestor (divergent evolution);",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "The remarkable similarity of early embryos across different vertebrate classes \u2014 fish, amphibians, reptiles, birds, and mammals \u2014 strongly suggests that these organisms descended from a common ancestor. As development proceeds beyond the early stages, the embryos diverge and develop the specialised features characteristic of their respective classes, reflecting the fact that they have evolved along different evolutionary paths from their shared ancestor."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 7,
+      "rubric": [],
+      "example_answer": null,
+      "images": [],
+      "body": "(a) Describe Lamarck's theory of evolution.",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 4,
+      "cognitive_level": "application",
+      "stimulus": null,
+      "max_marks": 7,
+      "parts": [
+        {
+          "label": "b",
+          "body": "Using a named example, explain why Lamarck's theory is not accepted today.",
+          "marks": 4,
+          "max_marks": 4,
+          "answer_space_type": "lines",
+          "answer_lines": 15,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Named example: e.g. Lamarck suggested that the giraffe's long neck resulted from successive generations of giraffes stretching their necks to reach high leaves, and this acquired longer neck was inherited; OR August Weismann cut tails of mice for many generations but offspring always had tails; OR blacksmiths develop strong arms but their children are born with normal arms;",
+              "marks": 1
+            },
+            {
+              "criterion": "Explanation of why rejected: Acquired characteristics affect somatic/body cells only and do not alter genes/DNA in the gametes/reproductive cells.",
+              "marks": 1
+            },
+            {
+              "criterion": "only genetic/heritable characteristics can be passed to the next generation.",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "For example, Lamarck suggested that the giraffe's long neck evolved because successive generations of giraffes stretched their necks to reach leaves high up in trees, and this acquired characteristic of a longer neck was passed to offspring. This is not accepted today because acquired characteristics only affect body (somatic) cells and do not alter the genes in the reproductive cells (gametes). Since only genetic information carried in gametes is passed to offspring, acquired characteristics cannot be inherited. August Weismann demonstrated this by cutting the tails of mice for many generations, yet all offspring were always born with normal tails."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "c",
+          "body": "Name the scientist who proposed the theory of evolution by natural selection.",
+          "marks": 3,
+          "max_marks": 3,
+          "answer_space_type": "lines",
+          "answer_lines": 1,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Charles Darwin;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Charles Darwin."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 7,
+      "rubric": [],
+      "example_answer": null,
+      "images": [],
+      "body": "(a) Define the term 'speciation'.",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 4,
+      "cognitive_level": "application",
+      "stimulus": null,
+      "max_marks": 7,
+      "parts": [
+        {
+          "label": "b",
+          "body": "State four isolation mechanisms that can lead to speciation.",
+          "marks": 4,
+          "max_marks": 4,
+          "answer_space_type": "lines",
+          "answer_lines": 9,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Any 4 of the following isolation mechanisms (1 mark each, max 4 marks): Geographical/physical isolation \u2014 physical barriers (mountains, rivers, oceans, deserts) separate populations",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Four isolation mechanisms that can lead to speciation:\n1. Geographical isolation \u2014 physical barriers such as mountains, rivers, or oceans separate populations.\n2. Ecological isolation \u2014 populations occupy different habitats within the same geographical area.\n3. Temporal (seasonal) isolation \u2014 populations breed or flower at different times of the year.\n4. Behavioural (ethological) isolation \u2014 differences in courtship behaviour or mating rituals prevent interbreeding."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "c",
+          "body": "Explain how reproductive isolation contributes to the formation of new species.",
+          "marks": 3,
+          "max_marks": 3,
+          "answer_space_type": "lines",
+          "answer_lines": 9,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Reproductive isolation prevents gene flow/exchange of genetic material between populations.",
+              "marks": 1
+            },
+            {
+              "criterion": "Each population accumulates its own unique genetic variations/mutations independently.",
+              "marks": 1
+            },
+            {
+              "criterion": "Over time, the populations become so genetically different that they can no longer interbreed even if brought together, forming separate species.",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Reproductive isolation prevents the exchange of genes (gene flow) between populations. Each isolated population independently accumulates its own unique genetic variations through mutation and natural selection. Over many generations, the two populations become so genetically different that even if they come into contact again, they are unable to interbreed and produce fertile offspring. At this point, they have become separate species."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 7,
+      "rubric": [],
+      "example_answer": null,
+      "images": [],
+      "body": "(a) What is meant by 'artificial selection'?",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 4,
+      "cognitive_level": "application",
+      "stimulus": null,
+      "max_marks": 7,
+      "parts": [
+        {
+          "label": "b",
+          "body": "Give two examples of artificial selection in plants and two examples in animals.",
+          "marks": 4,
+          "max_marks": 4,
+          "answer_space_type": "lines",
+          "answer_lines": 6,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Plant examples \u2014 Any 2 of the following (1 mark each, max 2 marks): Breeding crop plants for higher yield (e.g. maize, wheat, rice)",
+              "marks": 1
+            },
+            {
+              "criterion": "Animal examples \u2014 Any 2 of the following (1 mark each, max 2 marks): Breeding dairy cattle for higher milk yield (e.g. Friesian/Holstein)",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Examples in plants:\n1. Breeding maize varieties for higher grain yield.\n2. Developing disease-resistant varieties of wheat.\nExamples in animals:\n1. Breeding Friesian cattle for higher milk production.\n2. Breeding poultry for increased egg production."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "c",
+          "body": "Explain how artificial selection differs from natural selection in terms of the selecting agent and the speed of the process.",
+          "marks": 3,
+          "max_marks": 3,
+          "answer_space_type": "lines",
+          "answer_lines": 12,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "In artificial selection, humans are the selecting agent and choose traits based on human needs/preferences, while in natural selection, the environment/nature is the selecting agent and selects traits that improve survival and reproduction;",
+              "marks": 1
+            },
+            {
+              "criterion": "Artificial selection is generally faster because humans deliberately select and breed chosen individuals each generation, while natural selection is a much slower process occurring over many generations/long periods of time;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "In artificial selection, humans act as the selecting agent and choose traits based on human needs and preferences (e.g. productivity, appearance). In natural selection, the environment is the selecting agent and selects traits that enhance survival and reproductive success. Artificial selection is generally much faster than natural selection because humans actively choose which organisms breed each generation, producing noticeable changes within relatively few generations. Natural selection, on the other hand, is a very slow process that operates over thousands or millions of years."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 8,
+      "rubric": [],
+      "example_answer": null,
+      "images": [],
+      "body": "(a) Define the term 'comparative anatomy'.",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 4,
+      "cognitive_level": "application",
+      "stimulus": null,
+      "max_marks": 8,
+      "parts": [
+        {
+          "label": "b",
+          "body": "With reference to the vertebrate forelimb, describe how comparative anatomy provides evidence for evolution.",
+          "marks": 4,
+          "max_marks": 4,
+          "answer_space_type": "lines",
+          "answer_lines": 17,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "The vertebrate forelimb (pentadactyl limb) has the same basic bone plan across different vertebrate classes: a single upper arm bone (humerus), two lower arm bones (radius and ulna), wrist bones (carpals), palm bones (metacarpals), and finger bones (phalanges);",
+              "marks": 1
+            },
+            {
+              "criterion": "Despite this common plan, the forelimb is modified for different functions in different vertebrates \u2014 e.g. wing in birds/bats (flight), flipper in whales (swimming), leg in horses (running), hand in humans (grasping), digging limb in moles (burrowing);",
+              "marks": 1
+            },
+            {
+              "criterion": "These are homologous structures \u2014 they share a common embryonic origin but perform different functions; This indicates divergent evolution from a common ancestor;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "The vertebrate forelimb (pentadactyl limb) has the same basic structural plan across all vertebrate classes: a single upper arm bone (humerus), two lower arm bones (radius and ulna), wrist bones (carpals), palm bones (metacarpals), and finger bones (phalanges). Despite this common plan, the forelimb has been modified for different functions: it forms a wing in bats and birds for flight, a flipper in whales for swimming, a digging limb in moles for burrowing, and a hand in humans for grasping. These are homologous structures \u2014 they share a common embryonic origin but have been adapted for different functions. This strongly suggests that all these vertebrates descended from a common ancestor and have undergone divergent evolution."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "c",
+          "body": "State two examples of vestigial structures in humans and explain what they suggest about human evolution.",
+          "marks": 4,
+          "max_marks": 4,
+          "answer_space_type": "lines",
+          "answer_lines": 16,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Vestigial structure 1: The appendix \u2014 in humans it is a small, non-functional structure, but in herbivorous mammals it is a large, functional organ used in cellulose digestion (cecum);",
+              "marks": 1
+            },
+            {
+              "criterion": "Vestigial structure 2: Any 1 of the following \u2014 The coccyx/tailbone \u2014 a reduced tail bone structure",
+              "marks": 1
+            },
+            {
+              "criterion": "The presence of vestigial structures in humans suggests that humans share a common ancestor with other organisms in which these structures were fully functional.",
+              "marks": 1
+            },
+            {
+              "criterion": "Over evolutionary time, as these structures became unnecessary, they reduced in size but were not completely lost.",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Two vestigial structures in humans:\n1. The appendix \u2014 in humans, it is a small, mostly non-functional structure, but in herbivorous ancestors, it was part of a large cecum used for digesting cellulose.\n2. The coccyx (tailbone) \u2014 a small fused set of vertebrae at the base of the spine, which is a remnant of the tail found in ancestral primates and other mammals.\nThe presence of these vestigial structures suggests that humans share a common ancestor with other organisms in which these structures were fully functional. Through evolution, as these structures became unnecessary due to changes in lifestyle and diet, they reduced in size but were retained as evolutionary remnants."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 7,
+      "rubric": [],
+      "example_answer": null,
+      "images": [
+        {
+          "context": "question",
+          "filename": "/home/abdihakim/Documents/GITHUB/eduxal-labs/questions/form4/biology/illustrations/vertebrate-forelimbs-comparison.svg",
+          "caption": "Figure 1: Forelimbs of four vertebrates showing the same basic bone structure",
+          "description": "A diagram showing four vertebrate forelimbs side by side: a human arm, a whale flipper, a bat wing, and a horse leg. Each limb is drawn in outline with the bones visible inside. The bones are colour-coded or labelled consistently across all four limbs: a single upper bone (humerus) in one shade, two lower bones (radius and ulna) in another shade, small wrist bones (carpals) in a third shade, palm bones (metacarpals), and finger/toe bones (phalanges). Despite different overall shapes, the same bone elements are identifiable in each limb. Labels point to the key bones in at least one of the limbs."
+        },
+        {
+          "context": "stimulus",
+          "filename": "/home/adan/Desktop/Eduxal-labs/questions/form4/biology/illustrations/vertebrate-forelimbs-comparison.svg",
+          "caption": "Figure 1: Comparison of homologous structures in vertebrate forelimbs",
+          "description": "Diagram showing forelimbs of human, whale, bat, and horse."
+        }
+      ],
+      "body": "The diagram below shows the forelimbs of four different vertebrates: a human arm, a whale flipper, a bat wing, and a horse leg. All four limbs have the same basic bone structure.",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 4,
+      "cognitive_level": "application",
+      "stimulus": {
+        "type": "diagram",
+        "body": "",
+        "body_format": "plain",
+        "caption": "Figure 1: Comparative anatomy of vertebrate forelimbs"
+      },
+      "max_marks": 7,
+      "parts": [
+        {
+          "label": "a",
+          "body": "Name the type of structures illustrated by these forelimbs.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 1,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Homologous structures;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Homologous structures."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "b",
+          "body": "Name the type of evolution illustrated.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 1,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Divergent evolution / Adaptive radiation;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Divergent evolution (adaptive radiation)."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "c",
+          "body": "State the bone that corresponds to each of the following in the human arm: (i) the single upper bone, (ii) the two lower bones, (iii) the wrist bones.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 4,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "(i) Humerus;",
+              "marks": 1
+            },
+            {
+              "criterion": "(ii) Radius and ulna;",
+              "marks": 1
+            },
+            {
+              "criterion": "(iii) Carpals;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "(i) The single upper bone is the humerus.\n(ii) The two lower bones are the radius and ulna.\n(iii) The wrist bones are the carpals."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "d",
+          "body": "Explain what the similarity in bone arrangement suggests about the evolutionary relationship of these vertebrates.",
+          "marks": 1,
+          "max_marks": 1,
+          "answer_space_type": "lines",
+          "answer_lines": 12,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "The similarity in basic bone arrangement/plan across these different vertebrates indicates that they share a common ancestor/evolved from a common ancestor;",
+              "marks": 1
+            },
+            {
+              "criterion": "The different modifications of the same basic limb for different functions (grasping, swimming, flying, running) show that each species has adapted to a different environment/mode of life through divergent evolution;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "The fact that the human arm, whale flipper, bat wing, and horse leg all share the same basic arrangement of bones (humerus, radius, ulna, carpals, metacarpals, phalanges) despite serving very different functions indicates that these vertebrates descended from a common ancestor that possessed the pentadactyl limb. Over time, each species evolved different modifications of this limb to suit its particular mode of life \u2014 grasping in humans, swimming in whales, flying in bats, and running in horses \u2014 demonstrating divergent evolution."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 7,
+      "rubric": [],
+      "example_answer": null,
+      "images": [],
+      "body": "The peppered moth (Biston betularia) exists in two forms: a light speckled form and a dark melanic form. Before the Industrial Revolution in England, the light form was predominant. After industrialization, the dark form became more common in polluted areas.",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 4,
+      "cognitive_level": "application",
+      "stimulus": null,
+      "max_marks": 7,
+      "parts": [
+        {
+          "label": "a",
+          "body": "Explain why the light form was predominant before industrialization.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 7,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Before industrialization, tree trunks were covered with lichens, giving them a light/pale colour.",
+              "marks": 1
+            },
+            {
+              "criterion": "The light speckled form was well camouflaged against lichen-covered tree trunks and was not easily detected/eaten by predatory birds.",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Before industrialization, tree trunks were covered with pale-coloured lichens. The light speckled form of the peppered moth was well camouflaged against these lichen-covered trunks and was therefore not easily seen by predatory birds. The dark form, being conspicuous against the pale trunks, was easily preyed upon."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "b",
+          "body": "Explain why the dark form increased in number in industrial areas.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 10,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Industrialization produced smoke and soot that darkened tree trunks and killed lichens.",
+              "marks": 1
+            },
+            {
+              "criterion": "The dark melanic form was better camouflaged against the dark/soot-covered tree trunks and was less visible to predators, so it survived and reproduced more (natural selection).",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "After industrialization, smoke and soot from factories darkened the tree trunks and killed the lichens. The dark melanic form was now well camouflaged against the soot-covered trunks and was less visible to predators, giving it a survival advantage. Through natural selection, the dark form survived and reproduced more, increasing in number, while the light form was now conspicuous and was easily preyed upon."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "c",
+          "body": "Predict what would happen to the moth populations if pollution controls were implemented and the tree trunks became lichen-covered again.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 9,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "If pollution was reduced and lichens regrew on tree trunks, the light speckled form would again be better camouflaged and would have a survival advantage.",
+              "marks": 1
+            },
+            {
+              "criterion": "The dark form would become more conspicuous/visible to predators on light lichen-covered trunks.",
+              "marks": 1
+            },
+            {
+              "criterion": "Over time, the light form would increase in number and the dark form would decrease in polluted areas.",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "If pollution controls were implemented and lichens returned to the tree trunks, the light speckled form would once again be better camouflaged and would gain a survival advantage. The dark form would become conspicuous on the light lichen-covered trunks and would be more easily preyed upon. Over time, the proportion of the light form would increase while the dark form would decrease."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "d",
+          "body": "Name the term used to describe the existence of these two distinct forms within one species.",
+          "marks": 1,
+          "max_marks": 1,
+          "answer_space_type": "lines",
+          "answer_lines": 1,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Polymorphism;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Polymorphism."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 8,
+      "rubric": [],
+      "example_answer": null,
+      "images": [],
+      "body": "(a) Explain the mechanism of evolution as described by Darwin's theory of natural selection.",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 4,
+      "cognitive_level": "application",
+      "stimulus": null,
+      "max_marks": 8,
+      "parts": [
+        {
+          "label": "b",
+          "body": "State how Darwin's theory was modified by the concept of genetics.",
+          "marks": 8,
+          "max_marks": 8,
+          "answer_space_type": "lines",
+          "answer_lines": 14,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Modern genetics explains that variations arise through mutations (random changes in DNA/genes), crossing over, independent assortment, and random fertilization during sexual reproduction;",
+              "marks": 1
+            },
+            {
+              "criterion": "Only genetic/heritable variations (determined by genes/alleles in gametes) can be passed to offspring and are therefore subject to natural selection; acquired characteristics are not heritable; The gene pool of a population changes over time as allele frequencies shift due to natural selection;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Darwin could not explain the source of variation or the mechanism of inheritance. Modern genetics has filled this gap: variations arise through mutations (random changes in DNA), crossing over during meiosis, independent assortment of chromosomes, and random fertilization. Crucially, only genetic (heritable) variations \u2014 those encoded in the DNA of gametes \u2014 can be passed to offspring and are therefore subject to natural selection. Acquired characteristics that only affect body cells cannot be inherited. Over time, natural selection changes the frequency of alleles in the gene pool of a population, driving evolutionary change."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 8,
+      "rubric": [],
+      "example_answer": null,
+      "images": [
+        {
+          "context": "question",
+          "filename": "/home/abdihakim/Documents/GITHUB/eduxal-labs/questions/form4/biology/illustrations/hominid-cranial-capacity-graph.svg",
+          "caption": "Figure 1: Cranial capacity of different hominids during human evolution",
+          "description": "A bar graph with the x-axis showing four hominid species in chronological order: Australopithecus afarensis, Homo habilis, Homo erectus, and Homo sapiens. The y-axis shows cranial capacity in cubic centimetres (cc), ranging from 0 to 1600. The bars show approximate values: Australopithecus afarensis at 450 cc, Homo habilis at 680 cc, Homo erectus at 950 cc, and Homo sapiens at 1400 cc. The bars increase progressively in height from left to right, illustrating the trend of increasing brain size during human evolution."
+        },
+        {
+          "context": "stimulus",
+          "filename": "/home/adan/Desktop/Eduxal-labs/questions/form4/biology/illustrations/hominid-cranial-capacity-graph.svg",
+          "caption": "Figure 1: Hominid cranial capacity graph",
+          "description": "A line graph showing the increase in cranial capacity (brain size) from Australopithecus through Homo habilis and Homo erectus to Homo sapiens."
+        }
+      ],
+      "body": "The graph below shows the cranial capacity (in cubic centimetres) of different hominids that existed at different periods during human evolution.",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 4,
+      "cognitive_level": "application",
+      "stimulus": {
+        "type": "graph",
+        "body": "",
+        "body_format": "plain",
+        "caption": "Figure 1: Trend in hominid cranial capacity over time"
+      },
+      "max_marks": 8,
+      "parts": [
+        {
+          "label": "a",
+          "body": "State the cranial capacity of Australopithecus afarensis.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 2,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "400\u2013500 cc;",
+              "marks": 1
+            },
+            {
+              "criterion": "Development of opposable thumb for grasping/tool use",
+              "marks": 1
+            },
+            {
+              "criterion": "Reduction in jaw/facial size and brow ridges",
+              "marks": 1
+            },
+            {
+              "criterion": "Change from herbivorous to omnivorous diet",
+              "marks": 1
+            },
+            {
+              "criterion": "Development of speech/language",
+              "marks": 1
+            },
+            {
+              "criterion": "Reduction in body hair",
+              "marks": 1
+            },
+            {
+              "criterion": "Flattening of the face",
+              "marks": 1
+            },
+            {
+              "criterion": "Change in dentition",
+              "marks": 1
+            },
+            {
+              "criterion": "Consistent use of correct terminology and cranial capacity values throughout;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "The cranial capacity of Australopithecus afarensis was approximately 400\u2013500 cc."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "b",
+          "body": "Name the hominid with the largest cranial capacity.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 2,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Homo sapiens;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Homo sapiens has the largest cranial capacity."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "c",
+          "body": "Describe the general trend in cranial capacity from Australopithecus afarensis to Homo sapiens.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 5,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "There is a general progressive/gradual increase in cranial capacity from Australopithecus afarensis (400\u2013500 cc) through Homo habilis and Homo erectus to Homo sapiens (1350\u20131450 cc);",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "There is a general progressive increase in cranial capacity from Australopithecus afarensis (400\u2013500 cc) through Homo habilis (about 600\u2013750 cc) and Homo erectus (about 800\u20131100 cc) to Homo sapiens (1350\u20131450 cc)."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "d",
+          "body": "Explain the significance of increasing cranial capacity in human evolution.",
+          "marks": 1,
+          "max_marks": 1,
+          "answer_space_type": "lines",
+          "answer_lines": 7,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Increasing cranial capacity indicates an increase in brain size, which is associated with greater intelligence;",
+              "marks": 1
+            },
+            {
+              "criterion": "Greater intelligence enabled: more advanced tool making and use; development of language and communication; complex social organisation; problem solving and planning; adaptation to diverse environments;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "The increasing cranial capacity reflects an increase in brain size, which is directly associated with greater intelligence. This enhanced intellectual capacity enabled hominids to develop more sophisticated tools, use fire, develop language and complex communication systems, organise socially, solve problems, and adapt to a wider range of environments."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "e",
+          "body": "Apart from increased cranial capacity, state two other features that changed during human evolution.",
+          "marks": 1,
+          "max_marks": 1,
+          "answer_space_type": "lines",
+          "answer_lines": 7,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Any 2 of the following features (1 mark each, max 2 marks): Development of bipedal posture/walking upright on two legs",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Two other features that changed during human evolution:\n1. Development of bipedal posture \u2014 the ability to walk upright on two legs, freeing the hands for tool use.\n2. Development of an opposable thumb \u2014 allowing precise grasping and manipulation of tools and objects."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 3,
+      "rubric": [],
+      "example_answer": null,
+      "images": [],
+      "body": "(a) Explain why the theory of spontaneous generation is no longer accepted.",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 2,
+      "cognitive_level": "application",
+      "stimulus": null,
+      "max_marks": 3,
+      "parts": [
+        {
+          "label": "b",
+          "body": "State one experiment that helped disprove the theory of spontaneous generation.",
+          "marks": 3,
+          "max_marks": 3,
+          "answer_space_type": "lines",
+          "answer_lines": 7,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Any 1 of the following experiments: Francesco Redi's experiment \u2014 showed that maggots on decaying meat came from eggs laid by flies, not from the meat itself (covered vs. uncovered jars)",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Louis Pasteur's experiment using swan-necked flasks helped disprove spontaneous generation. He boiled broth in flasks with S-shaped necks that allowed air in but trapped microorganisms. The broth remained sterile, proving that the microbes that previously contaminated broth came from the air, not from spontaneous generation."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 6,
+      "rubric": [],
+      "example_answer": null,
+      "images": [],
+      "body": "In a certain population of beetles, most individuals are green, providing camouflage in their grassy habitat. A few beetles carry a mutation that makes them brown. A new predator bird arrives in the area.",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 4,
+      "cognitive_level": "application",
+      "stimulus": null,
+      "max_marks": 6,
+      "parts": [
+        {
+          "label": "a",
+          "body": "Using Darwin's theory, predict which form of the beetle is more likely to survive in the grassy habitat. Give a reason.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 6,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "The green beetles are more likely to survive.",
+              "marks": 1
+            },
+            {
+              "criterion": "because they are better camouflaged in the grassy habitat and are less likely to be detected/eaten by the predatory birds.",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "The green beetles are more likely to survive in the grassy habitat because their green colour provides camouflage against the green grass, making them less visible to the predatory birds. The brown beetles would be conspicuous and more easily preyed upon."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "b",
+          "body": "If the habitat changed from grassland to bare brown soil due to drought, predict how the beetle population would change over several generations. Explain your answer.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 14,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "If the habitat changed to bare brown soil, the brown beetles would be better camouflaged against the brown background and would be less visible to predators;",
+              "marks": 1
+            },
+            {
+              "criterion": "The brown beetles would survive and reproduce more, passing the brown colouration genes to offspring; The green beetles would be conspicuous on brown soil, more easily preyed upon, and their numbers would decrease;",
+              "marks": 1
+            },
+            {
+              "criterion": "Over several generations, the frequency of brown beetles would increase while that of green beetles would decrease; The population would shift from predominantly green to predominantly brown;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "If the habitat changed to bare brown soil, the situation would reverse. The brown beetles would now be better camouflaged against the brown background and less likely to be spotted by predators. They would survive longer, reproduce more, and pass the brown colouration genes to their offspring. Meanwhile, the green beetles would be highly conspicuous on the brown soil and would be easily detected and eaten by predators. Over several generations, the proportion of brown beetles would steadily increase while the proportion of green beetles would decrease. The population would eventually be predominantly brown."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "c",
+          "body": "Name the evolutionary process illustrated in part (b).",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 1,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Natural selection;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Natural selection."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 7,
+      "rubric": [],
+      "example_answer": null,
+      "images": [],
+      "body": "Study the information in the table below showing the characteristics of four hominids in human evolution.\n\n| Hominid | Cranial Capacity (cc) | Posture | Tools | Diet |\n|---|---|---|---|---|\n| Australopithecus afarensis | 400\u2013500 | Semi-upright | None/crude stones | Herbivorous |\n| Homo habilis | 600\u2013750 | Upright | Simple stone tools | Omnivorous |\n| Homo erectus | 800\u20131100 | Fully upright | Advanced stone/bone tools, used fire | Omnivorous |\n| Homo sapiens | 1350\u20131450 | Fully upright | Sophisticated tools, technology | Omnivorous |",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 4,
+      "cognitive_level": "application",
+      "stimulus": null,
+      "max_marks": 7,
+      "parts": [
+        {
+          "label": "a",
+          "body": "Identify two trends observed in human evolution from the data in the table.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 6,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Any 2 of the following trends (1 mark each, max 2 marks): Progressive increase in cranial capacity/brain size from Australopithecus to Homo sapiens",
+              "marks": 1
+            },
+            {
+              "criterion": "Progression from semi-upright to fully upright/bipedal posture",
+              "marks": 1
+            },
+            {
+              "criterion": "Progression from no tools to increasingly sophisticated/complex tools",
+              "marks": 1
+            },
+            {
+              "criterion": "Change from herbivorous to omnivorous diet",
+              "marks": 1
+            },
+            {
+              "criterion": "Development from simple lifestyles to complex social organisation and technology",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Two trends observed:\n1. There is a progressive increase in cranial capacity from Australopithecus afarensis (400\u2013500 cc) to Homo sapiens (1350\u20131450 cc).\n2. There is a progression from no tools or crude stones to increasingly sophisticated tools and technology."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "b",
+          "body": "State the significance of the development of an omnivorous diet in human evolution.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 8,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "An omnivorous diet allowed hominids to exploit a wider range of food sources/resources.",
+              "marks": 1
+            },
+            {
+              "criterion": "This increased chances of survival, especially when specific food types became scarce.",
+              "marks": 1
+            },
+            {
+              "criterion": "It also allowed colonisation of diverse habitats/environments.",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "The development of an omnivorous diet was significant because it allowed hominids to exploit a much wider range of food sources, including both plant and animal matter. This greatly increased their chances of survival, especially during times when specific food types were scarce, and enabled them to colonise diverse habitats and environments."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "c",
+          "body": "Explain the advantage of an upright (bipedal) posture in human evolution.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 7,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Upright/bipedal posture freed the hands/forelimbs for other activities such as making and using tools, carrying food, and caring for young;",
+              "marks": 1
+            },
+            {
+              "criterion": "It also elevated the head, improving the visual field/ability to see predators and prey from a distance;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "The development of an upright (bipedal) posture was advantageous because it freed the hands for other activities such as making and using tools, carrying food, and defending against predators. It also elevated the head, providing a better visual field for spotting predators and prey from a distance."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "d",
+          "body": "Suggest why Homo sapiens has been more successful than earlier hominids.",
+          "marks": 1,
+          "max_marks": 1,
+          "answer_space_type": "lines",
+          "answer_lines": 8,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Homo sapiens has the largest brain/cranial capacity, enabling higher intelligence, advanced reasoning, problem solving, and creativity; This led to development of language, culture, sophisticated technology, agriculture, and complex social structures, giving Homo sapiens a superior ability to adapt to and modify the environment;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Homo sapiens has been more successful than earlier hominids because of its significantly larger brain, which enables higher intelligence, advanced reasoning, and creative problem-solving. This has led to the development of language, complex social structures, agriculture, and sophisticated technology, giving Homo sapiens an unparalleled ability to adapt to and modify virtually any environment on Earth."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 6,
+      "rubric": [],
+      "example_answer": null,
+      "images": [],
+      "body": "Explain how each of the following provides evidence for organic evolution.",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 4,
+      "cognitive_level": "application",
+      "stimulus": null,
+      "max_marks": 6,
+      "parts": [
+        {
+          "label": "a",
+          "body": "Fossil records.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 10,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Fossils show a record of organisms that lived in past geological periods.",
+              "marks": 1
+            },
+            {
+              "criterion": "By studying fossils in different layers of sedimentary rock, scientists can trace how organisms have changed over time from simpler to more complex forms.",
+              "marks": 1
+            },
+            {
+              "criterion": "Older/simpler fossils are found in deeper/lower layers while more recent/complex fossils are in upper layers.",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Fossil records provide direct evidence of organisms that lived in the past. Fossils found in sedimentary rocks show that organisms have changed over time, from simpler to more complex forms. Older fossils in deeper rock layers tend to be simpler, while more recent fossils in upper layers are more complex. This progression documents the gradual change in life forms over millions of years."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "b",
+          "body": "Comparative embryology.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 8,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Early embryos of different vertebrate classes (fish, amphibians, reptiles, birds, mammals) are remarkably similar in appearance.",
+              "marks": 1
+            },
+            {
+              "criterion": "Shared features include gill slits/visceral clefts, tail buds, segmental muscle blocks (myotomes), and a single circulation.",
+              "marks": 1
+            },
+            {
+              "criterion": "These similarities suggest that these organisms share a common ancestor from which they diverged.",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Comparative embryology reveals that the early embryos of different vertebrate classes \u2014 fish, amphibians, reptiles, birds, and mammals \u2014 are remarkably similar, sharing features such as visceral clefts (gill slits), segmental muscle blocks (myotomes), and a single circulation system. These striking similarities in early development strongly suggest that all vertebrates descended from a common ancestor."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "c",
+          "body": "Cell biology.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 7,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "All eukaryotic cells have common organelles such as membrane-bound nuclei, mitochondria, ribosomes, and Golgi bodies.",
+              "marks": 1
+            },
+            {
+              "criterion": "Green plants share chloroplasts and cellulose cell walls.",
+              "marks": 1
+            },
+            {
+              "criterion": "These cellular similarities across diverse organisms indicate a common origin/ancestry.",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Cell biology shows that all eukaryotic cells share common organelles including membrane-bound nuclei, mitochondria, ribosomes, and Golgi bodies. Similarly, all green plants possess chloroplasts and cellulose cell walls. These cellular similarities across vastly different organisms indicate that they share a common evolutionary origin."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 3,
+      "rubric": [
+        {
+          "criterion": "If there were no variations, all individuals would be identical/genetically alike and would respond to environmental changes in the same way;",
+          "marks": 1
+        },
+        {
+          "criterion": "If the environmental change was unfavourable, no individual would have an advantage over others/none would be better adapted;",
+          "marks": 1
+        },
+        {
+          "criterion": "The entire population could be wiped out/become extinct because there would be no individuals with favourable traits to survive and reproduce in the new conditions; Natural selection would have no variation to act upon;",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "If there were no variations in a population, all individuals would be genetically identical and would respond to environmental changes in exactly the same way. If the environment changed drastically in an unfavourable direction, no individual would have any advantage over the others \u2014 none would be better adapted to the new conditions. Consequently, the entire population could be wiped out and become extinct, because there would be no individuals with favourable traits that natural selection could act upon to ensure survival and reproduction in the changed environment. This illustrates why genetic variation is essential for the survival and evolution of species."
+      },
+      "images": [],
+      "body": "Explain what would happen to a population of organisms if there were no variations among the individuals and the environment changed drastically.",
+      "body_format": "plain",
+      "type": "explanation",
+      "difficulty": 2,
+      "cognitive_level": "comprehension",
+      "stimulus": null,
+      "max_marks": 3,
+      "answer_space_type": "lines",
+      "answer_lines": 15
+    },
+    {
+      "marks": 4,
+      "rubric": [
+        {
+          "criterion": "Homo sapiens has a much larger cranial capacity (1350\u20131450 cc) compared to Australopithecus (400\u2013500 cc)",
+          "marks": 1
+        },
+        {
+          "criterion": "Homo sapiens is fully bipedal/upright while Australopithecus was semi-upright",
+          "marks": 1
+        },
+        {
+          "criterion": "Homo sapiens has a flatter face/reduced jaw and brow ridges compared to the more prominent jaw and brow ridges of Australopithecus",
+          "marks": 1
+        },
+        {
+          "criterion": "Homo sapiens makes and uses sophisticated tools and technology while Australopithecus used no tools or only crude stones",
+          "marks": 1
+        },
+        {
+          "criterion": "Homo sapiens has a well-developed capacity for speech/language while Australopithecus had limited communication",
+          "marks": 1
+        },
+        {
+          "criterion": "Homo sapiens is omnivorous while Australopithecus was mainly herbivorous",
+          "marks": 1
+        },
+        {
+          "criterion": "Homo sapiens has a more complex social organisation and culture",
+          "marks": 1
+        },
+        {
+          "criterion": "Homo sapiens has an opposable thumb that is more refined for precise tool use",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "1. Homo sapiens has a much larger cranial capacity (1350\u20131450 cc) compared to Australopithecus afarensis (400\u2013500 cc), indicating greater brain size and intelligence.\n2. Homo sapiens is fully bipedal with a fully upright posture, while Australopithecus afarensis was only semi-upright.\n3. Homo sapiens makes and uses sophisticated tools and technology, while Australopithecus afarensis used no tools or only crude stones.\n4. Homo sapiens has a well-developed capacity for speech and language, while Australopithecus afarensis had very limited communication abilities."
+      },
+      "images": [],
+      "body": "State four ways in which Homo sapiens differs from Australopithecus afarensis.",
+      "body_format": "plain",
+      "type": "definition",
+      "difficulty": 3,
+      "cognitive_level": "recall",
+      "stimulus": null,
+      "max_marks": 4,
+      "answer_space_type": "lines",
+      "answer_lines": 12
+    },
+    {
+      "marks": 5,
+      "rubric": [],
+      "example_answer": null,
+      "images": [],
+      "body": "(a) State the meaning of the term 'gene pool'.",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 3,
+      "cognitive_level": "application",
+      "stimulus": null,
+      "max_marks": 5,
+      "parts": [
+        {
+          "label": "b",
+          "body": "Explain how mutations contribute to evolution.",
+          "marks": 3,
+          "max_marks": 3,
+          "answer_space_type": "lines",
+          "answer_lines": 12,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Mutations are random changes in the DNA/genes of an organism; They introduce new alleles/genetic variations into the population/gene pool;",
+              "marks": 1
+            },
+            {
+              "criterion": "If a mutation produces a favourable trait, the individual possessing it has a survival advantage through natural selection and passes the new allele to offspring; Over time, the frequency of the beneficial allele increases in the gene pool, leading to evolutionary change;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Mutations are random, spontaneous changes in the DNA sequence of an organism's genes. They introduce new alleles into the gene pool, increasing genetic variation within the population. If a mutation produces a trait that gives an individual a survival or reproductive advantage in its environment, natural selection will favour that individual. It will survive, reproduce, and pass the new allele to its offspring. Over successive generations, the frequency of the beneficial allele increases in the gene pool, driving evolutionary change."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "c",
+          "body": "Distinguish between a gene mutation and a chromosomal mutation.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 10,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "A gene mutation is a change in the nucleotide/base sequence of a single gene/DNA molecule.",
+              "marks": 1
+            },
+            {
+              "criterion": "while a chromosomal mutation involves a change in the structure or number of entire chromosomes (e.g. deletion, duplication, inversion, translocation, polyploidy).",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "A gene mutation is a change in the nucleotide (base) sequence within a single gene on a DNA molecule, such as a substitution, insertion, or deletion of one or a few bases. A chromosomal mutation involves a change in the structure or number of entire chromosomes, such as deletion of a chromosome segment, duplication, inversion, translocation, or changes in chromosome number (e.g. polyploidy)."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 8,
+      "rubric": [],
+      "example_answer": null,
+      "images": [],
+      "body": "(a) Explain the concept of 'survival of the fittest' using an example of organisms in a changing environment.",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 4,
+      "cognitive_level": "application",
+      "stimulus": null,
+      "max_marks": 8,
+      "parts": [
+        {
+          "label": "b",
+          "body": "A population of bacteria is exposed to an antibiotic. After several rounds of treatment, a strain of bacteria emerges that is completely resistant to the antibiotic.",
+          "marks": 4,
+          "max_marks": 4,
+          "answer_space_type": "lines",
+          "answer_lines": 8,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "(i) Within the original bacterial population, there was genetic variation; Some bacteria possessed mutations/genes conferring resistance to the antibiotic;",
+              "marks": 1
+            },
+            {
+              "criterion": "(i) When the antibiotic was applied, susceptible bacteria were killed but resistant ones survived (natural selection);",
+              "marks": 1
+            },
+            {
+              "criterion": "(i) The resistant bacteria reproduced and passed on resistance genes to offspring; After several rounds of treatment, virtually all surviving bacteria were resistant, forming a fully resistant strain;",
+              "marks": 1
+            },
+            {
+              "criterion": "(ii) Any 2 of the following precautions (1 mark each, max 2 marks): Always complete the full prescribed course of antibiotics",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "(ii) Two precautions to reduce antibiotic resistance:\n1. Always complete the full prescribed course of antibiotics to ensure all bacteria, including partially resistant ones, are killed.\n2. Only use antibiotics when prescribed by a qualified medical professional and never use them for viral infections, to avoid unnecessary exposure of bacteria to antibiotics."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "i",
+          "body": "Explain how this resistant strain evolved.\n(ii) State two precautions that can be taken to reduce the development of antibiotic resistance.",
+          "marks": 4,
+          "max_marks": 4,
+          "answer_space_type": "lines",
+          "answer_lines": 1,
+          "stimulus": null,
+          "rubric": [],
+          "example_answer": {
+            "format": "plain",
+            "content": ""
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 3,
+      "rubric": [],
+      "example_answer": null,
+      "images": [],
+      "body": "Give the meaning of the following terms as used in evolution.",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 2,
+      "cognitive_level": "application",
+      "stimulus": null,
+      "max_marks": 3,
+      "parts": [
+        {
+          "label": "a",
+          "body": "Adaptive radiation.",
+          "marks": 1,
+          "max_marks": 1,
+          "answer_space_type": "lines",
+          "answer_lines": 8,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Adaptive radiation is the evolution of many different species/forms from a common ancestor, each adapted to a different environment/mode of life/ecological niche; Accept: A form of divergent evolution where a single ancestral species diversifies into many species occupying different habitats;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Adaptive radiation is the evolution of many different species from a single common ancestor, each adapted to exploit a different environment or ecological niche. For example, Darwin's finches on the Gal\u00e1pagos Islands evolved from a single ancestral species into many species with different beak shapes adapted to different food sources."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "b",
+          "body": "Continuous variation.",
+          "marks": 1,
+          "max_marks": 1,
+          "answer_space_type": "lines",
+          "answer_lines": 7,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Continuous variation is variation in which there is a complete range of measurements/values from one extreme to another with no distinct categories; It is controlled by many genes (polygenic) and influenced by the environment; Examples: height, weight, skin colour;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Continuous variation is a type of variation where characteristics show a complete, unbroken range of values from one extreme to another with no distinct categories. It is controlled by many genes (polygenic inheritance) and is influenced by the environment. Examples include height, weight, and skin colour."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "c",
+          "body": "Discontinuous variation.",
+          "marks": 1,
+          "max_marks": 1,
+          "answer_space_type": "lines",
+          "answer_lines": 8,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Discontinuous variation is variation in which individuals fall into distinct/separate categories with no intermediates; It is usually controlled by one or a few genes and is not influenced by the environment; Examples: blood group, tongue rolling ability, sex;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Discontinuous variation is a type of variation where individuals fall into distinct, separate categories with no intermediate forms. It is usually controlled by one or a few genes and is largely unaffected by the environment. Examples include blood group (A, B, AB, O), ability to roll the tongue, and sex (male or female)."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 5,
+      "rubric": [],
+      "example_answer": null,
+      "images": [],
+      "body": "A population of moths in a forest includes individuals with light wings and individuals with dark wings. The forest has trees with light-coloured bark.",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 3,
+      "cognitive_level": "application",
+      "stimulus": null,
+      "max_marks": 5,
+      "parts": [
+        {
+          "label": "a",
+          "body": "Which wing colour gives a moth a survival advantage in this forest? Explain your answer.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 5,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Light-winged moths have a survival advantage; because they are camouflaged against the light-coloured bark and are less easily seen/detected by predatory birds;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "The light-winged moths have a survival advantage in this forest because their light colour camouflages them against the light-coloured bark of the trees, making them less visible to predatory birds."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "b",
+          "body": "A factory is built near the forest and over time, soot darkens the tree bark. Predict and explain the expected change in the proportion of light-winged and dark-winged moths after many generations.",
+          "marks": 2,
+          "max_marks": 2,
+          "answer_space_type": "lines",
+          "answer_lines": 12,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "After soot darkens the bark, dark-winged moths would be better camouflaged against the dark tree trunks and would gain a survival advantage; They would be less visible to predators, survive longer, reproduce more, and pass on their genes;",
+              "marks": 1
+            },
+            {
+              "criterion": "Light-winged moths would become conspicuous on dark bark and would be more easily preyed upon, decreasing in number;",
+              "marks": 1
+            },
+            {
+              "criterion": "Over many generations, the proportion of dark-winged moths would increase while the proportion of light-winged moths would decrease;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "After soot from the factory darkens the tree bark, the dark-winged moths would become better camouflaged against the dark trunks and would gain a survival advantage \u2014 they would be less easily detected by predators, survive longer, and reproduce more. In contrast, the light-winged moths would become conspicuous against the dark bark and would be easily spotted and preyed upon by birds. Over many generations, the proportion of dark-winged moths in the population would steadily increase, while the proportion of light-winged moths would decrease."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "c",
+          "body": "Name the specific example of natural selection in moths that this scenario is modelled on.",
+          "marks": 1,
+          "max_marks": 1,
+          "answer_space_type": "lines",
+          "answer_lines": 2,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Industrial melanism in the peppered moth (Biston betularia);",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Industrial melanism in the peppered moth (Biston betularia)."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 7,
+      "rubric": [],
+      "example_answer": null,
+      "images": [],
+      "body": "(a) Explain the importance of variation in the process of natural selection.",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 4,
+      "cognitive_level": "application",
+      "stimulus": null,
+      "max_marks": 7,
+      "parts": [
+        {
+          "label": "b",
+          "body": "State three sources of genetic variation in organisms.",
+          "marks": 4,
+          "max_marks": 4,
+          "answer_space_type": "lines",
+          "answer_lines": 9,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Any 3 of the following sources (1 mark each, max 3 marks): Mutation \u2014 random changes in DNA/genes introduce new alleles",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Three sources of genetic variation:\n1. Mutation \u2014 random, spontaneous changes in DNA introduce new alleles into the population.\n2. Crossing over \u2014 during prophase I of meiosis, homologous chromosomes exchange segments of genetic material, creating new allele combinations.\n3. Independent assortment \u2014 during meiosis, homologous chromosome pairs orient randomly at metaphase I, producing gametes with different combinations of chromosomes."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "c",
+          "body": "Explain why organisms produced by asexual reproduction are more vulnerable to environmental changes than those produced by sexual reproduction.",
+          "marks": 3,
+          "max_marks": 3,
+          "answer_space_type": "lines",
+          "answer_lines": 12,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Organisms produced by asexual reproduction are genetically identical/clones of the parent; They have little or no genetic variation;",
+              "marks": 1
+            },
+            {
+              "criterion": "If the environment changes unfavourably, all individuals are equally susceptible and the entire population could be wiped out/become extinct; In contrast, sexually reproducing organisms have greater genetic variation, increasing the probability that some individuals possess traits suited to the new conditions and will survive;",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Organisms produced by asexual reproduction are genetically identical clones of the parent organism, meaning they have little or no genetic variation. If the environment changes unfavourably (e.g. a new disease or drastic temperature change), all individuals are equally susceptible because none has an advantageous variation, and the entire population could be wiped out. In contrast, organisms produced by sexual reproduction have much greater genetic diversity, increasing the likelihood that some individuals will possess traits suited to the new conditions and will survive."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 3,
+      "rubric": [
+        {
+          "criterion": "The wings of a bird are made of bones covered with feathers, while the wings of an insect are thin membranous structures without bones; They have different embryonic origins/basic structures;",
+          "marks": 1
+        },
+        {
+          "criterion": "Despite their different structures and origins, both types of wings perform the same function of flight; They are therefore analogous structures;",
+          "marks": 1
+        },
+        {
+          "criterion": "This is an example of convergent evolution \u2014 the two unrelated organisms independently evolved similar structures for the same function due to similar environmental selection pressures (need for flight), supporting the theory that evolution occurs through adaptation to the environment;",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "The wing of a bird is a forelimb made of bones (humerus, radius, ulna, carpals, metacarpals, phalanges) covered with feathers, while the wing of an insect is a thin, membranous extension of the exoskeleton with no bones. Although these wings have completely different embryonic origins and structural compositions, they both serve the same function \u2014 flight. They are therefore analogous structures. This is an example of convergent evolution, where two unrelated organisms have independently evolved similar structures to adapt to similar environmental demands. This provides evidence for evolution by showing that natural selection can produce similar solutions to the same environmental challenge in completely different organisms."
+      },
+      "images": [],
+      "body": "Explain how comparative anatomy of wings of a bird and wings of an insect provides evidence for evolution.",
+      "body_format": "plain",
+      "type": "explanation",
+      "difficulty": 2,
+      "cognitive_level": "comprehension",
+      "stimulus": null,
+      "max_marks": 3,
+      "answer_space_type": "lines",
+      "answer_lines": 16
+    },
+    {
+      "marks": 3,
+      "rubric": [
+        {
+          "criterion": "Resistant mosquitoes possess genes/mutations that enable them to survive exposure to the insecticide;",
+          "marks": 1
+        },
+        {
+          "criterion": "When the insecticide is applied, resistant mosquitoes survive while susceptible ones are killed; The resistant ones reproduce and pass on the resistance genes to their offspring (natural selection);",
+          "marks": 1
+        },
+        {
+          "criterion": "Over successive generations, the population becomes predominantly resistant, and the insecticide is no longer effective in killing them; A different insecticide or control method must be used;",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "Resistant mosquitoes carry genes (often arising from mutations) that enable them to survive exposure to the insecticide. When the insecticide is applied, it kills the susceptible mosquitoes but the resistant ones survive. Through natural selection, the resistant mosquitoes reproduce and pass on their resistance genes to their offspring. Over successive generations, an increasing proportion of the mosquito population carries the resistance genes. Eventually, the population becomes predominantly resistant, and the insecticide can no longer effectively control them. At this point, a different insecticide or alternative control method must be employed."
+      },
+      "images": [],
+      "body": "Explain why mosquitoes that have developed resistance to a particular insecticide are difficult to control.",
+      "body_format": "plain",
+      "type": "explanation",
+      "difficulty": 2,
+      "cognitive_level": "comprehension",
+      "stimulus": null,
+      "max_marks": 3,
+      "answer_space_type": "lines",
+      "answer_lines": 13
+    },
+    {
+      "marks": 8,
+      "rubric": [],
+      "example_answer": null,
+      "images": [],
+      "body": "(a) State the role of isolation in evolution.",
+      "body_format": "plain",
+      "type": "structured",
+      "difficulty": 4,
+      "cognitive_level": "application",
+      "stimulus": null,
+      "max_marks": 8,
+      "parts": [
+        {
+          "label": "b",
+          "body": "Name four types of isolation mechanisms that prevent interbreeding between populations.",
+          "marks": 4,
+          "max_marks": 4,
+          "answer_space_type": "lines",
+          "answer_lines": 9,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Any 4 of the following types (1 mark each, max 4 marks): Geographical/physical isolation",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Four types of isolation mechanisms:\n1. Geographical (physical) isolation \u2014 physical barriers such as mountains, oceans, or deserts separate populations.\n2. Ecological (habitat) isolation \u2014 populations live in different habitats within the same geographical area.\n3. Temporal (seasonal) isolation \u2014 populations breed or are reproductively active at different times.\n4. Behavioural (ethological) isolation \u2014 differences in mating behaviours or courtship rituals prevent interbreeding."
+          },
+          "body_format": "plain"
+        },
+        {
+          "label": "c",
+          "body": "Explain why geographical isolation is considered one of the most important mechanisms leading to speciation.",
+          "marks": 4,
+          "max_marks": 4,
+          "answer_space_type": "lines",
+          "answer_lines": 14,
+          "stimulus": null,
+          "rubric": [
+            {
+              "criterion": "Geographical isolation is important because physical barriers (mountains, oceans, rivers, deserts) can completely prevent gene flow between large populations over very long periods of time;",
+              "marks": 1
+            },
+            {
+              "criterion": "The separated populations experience different environmental conditions and selection pressures; Over long periods, they accumulate sufficient genetic differences through natural selection and mutation to become reproductively incompatible, forming distinct species (allopatric speciation);",
+              "marks": 1
+            }
+          ],
+          "example_answer": {
+            "format": "plain",
+            "content": "Geographical isolation is considered one of the most important mechanisms leading to speciation because physical barriers such as mountain ranges, oceans, and deserts can completely block gene flow between large populations for millions of years. The separated populations experience entirely different environmental conditions and selection pressures. Over such long time periods, they independently accumulate sufficient genetic differences through natural selection, mutation, and genetic drift that they become reproductively incompatible even if the barrier is later removed. This process, called allopatric speciation, is thought to account for the majority of new species formation."
+          },
+          "body_format": "plain"
+        }
+      ],
+      "answer_space_type": "lines",
+      "answer_lines": 1
+    },
+    {
+      "marks": 2,
+      "rubric": [
+        {
+          "criterion": "Ability to rationalise/higher thinking capacity/advanced brain/higher intelligence",
+          "marks": 1
+        },
+        {
+          "criterion": "Ability to walk on two legs (bipedalism), freeing the hands for tool use",
+          "marks": 1
+        },
+        {
+          "criterion": "Ability to communicate through speech/language",
+          "marks": 1
+        },
+        {
+          "criterion": "Opposable thumbs for precise grasping and manipulation",
+          "marks": 1
+        },
+        {
+          "criterion": "Binocular/stereoscopic vision for depth perception",
+          "marks": 1
+        },
+        {
+          "criterion": "Ability to make and use sophisticated tools and technology",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "1. Humans have a highly developed brain with advanced thinking and reasoning capacity, enabling problem-solving, creativity, and complex social organisation.\n2. Humans have the ability to communicate through speech and language, allowing the transmission of knowledge across generations."
+      },
+      "images": [],
+      "body": "State two advantages that humans have gained over most other animals as a result of evolution.",
+      "body_format": "plain",
+      "type": "definition",
+      "difficulty": 2,
+      "cognitive_level": "recall",
+      "stimulus": null,
+      "max_marks": 2,
+      "answer_space_type": "lines",
+      "answer_lines": 6
+    },
+    {
+      "marks": 2,
+      "rubric": [
+        {
+          "criterion": "Similar blood pigments such as haemoglobin are found in widely different animal groups \u2014 e.g. haemoglobin is found in all vertebrates and also in annelids (earthworms);",
+          "marks": 1
+        },
+        {
+          "criterion": "The presence of the same type of conjugated protein/pigment in such diverse organisms indicates that they evolved from a common ancestor/have a common origin;",
+          "marks": 1
+        }
+      ],
+      "example_answer": {
+        "format": "plain",
+        "content": "Similar blood pigments, such as haemoglobin (a conjugated protein with an iron-containing prosthetic group), are found in widely different animal groups. For example, haemoglobin is present not only in all vertebrates (fish, amphibians, reptiles, birds, and mammals) but also in some invertebrates such as earthworms (annelids). The presence of the same type of oxygen-carrying pigment in such diverse organisms strongly suggests that these different animal groups share a common evolutionary ancestor."
+      },
+      "images": [],
+      "body": "Explain how the presence of similar blood pigments in different animal groups provides evidence for a common origin.",
+      "body_format": "plain",
+      "type": "explanation",
+      "difficulty": 2,
+      "cognitive_level": "comprehension",
+      "stimulus": null,
+      "max_marks": 2,
+      "answer_space_type": "lines",
+      "answer_lines": 11
+    }
+  ]
+}

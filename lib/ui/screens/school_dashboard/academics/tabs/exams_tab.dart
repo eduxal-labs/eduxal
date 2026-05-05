@@ -65,9 +65,6 @@ class _ExamsTabState extends State<ExamsTab>
   /// null = All types
   ExamType? _typeFilter;
 
-  /// null = All, true = Personalized only, false = Standard only
-  bool? _personalizedFilter;
-
   @override
   bool get wantKeepAlive => true;
 
@@ -136,10 +133,6 @@ class _ExamsTabState extends State<ExamsTab>
   List<ExamWithPapers> _applyFilters(List<ExamWithPapers> items) {
     return items.where((ep) {
       if (_typeFilter != null && ep.exam.type != _typeFilter) return false;
-      if (_personalizedFilter != null &&
-          ep.exam.personalized != _personalizedFilter) {
-        return false;
-      }
       return true;
     }).toList();
   }
@@ -231,37 +224,6 @@ class _ExamsTabState extends State<ExamsTab>
                   cs: cs,
                   onTap: () =>
                       setState(() => _typeFilter = ExamType.assessment),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 6),
-
-          // Personalized filter row
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _ExamFilterChip(
-                  label: 'All',
-                  selected: _personalizedFilter == null,
-                  cs: cs,
-                  onTap: () => setState(() => _personalizedFilter = null),
-                ),
-                const SizedBox(width: 6),
-                _ExamFilterChip(
-                  label: 'Personalized',
-                  selected: _personalizedFilter == true,
-                  cs: cs,
-                  onTap: () => setState(() => _personalizedFilter = true),
-                ),
-                const SizedBox(width: 6),
-                _ExamFilterChip(
-                  label: 'Standard',
-                  selected: _personalizedFilter == false,
-                  cs: cs,
-                  onTap: () => setState(() => _personalizedFilter = false),
                 ),
               ],
             ),

@@ -18,6 +18,9 @@ class ParsedImportFile {
   /// Grade number extracted from JSON.
   final int grade;
 
+  /// The raw grade number from the JSON file (before normalization).
+  final int rawGrade;
+
   /// Topic name extracted from JSON.
   final String topic;
 
@@ -60,6 +63,7 @@ class ParsedImportFile {
     required this.subject,
     required this.curriculum,
     required this.grade,
+    required this.rawGrade,
     required this.topic,
     required this.questionCount,
     required this.questionsWithImages,
@@ -136,6 +140,7 @@ ParsedImportFile parseImportFile(String filePath, String jsonContent) {
   String subject = '';
   String curriculum = '';
   int grade = 0;
+  int rawGradeVal = 0;
   String topic = '';
   int questionCount = 0;
   int questionsWithImages = 0;
@@ -181,13 +186,18 @@ ParsedImportFile parseImportFile(String filePath, String jsonContent) {
       errors.add('"grade" must be a positive integer.');
     } else {
       grade = rawGrade;
+      rawGradeVal = rawGrade;
     }
   } else if (rawGrade is double) {
     grade = rawGrade.toInt();
+    rawGradeVal = grade;
     if (grade <= 0) errors.add('"grade" must be a positive integer.');
   } else {
     errors.add('"grade" must be an integer.');
   }
+
+  // Normalize grade to DB-compatible value (e.g. Form 1→4 = 41→44 for 8-4-4).
+  grade = _normalizeGrade(curriculum, grade);
 
   final rawTopic = parsed['topic'];
   if (rawTopic == null || rawTopic is! String || rawTopic.trim().isEmpty) {

@@ -245,6 +245,11 @@ class _HomeScreenState extends State<HomeScreen>
                       final memberships = snapshot.data ?? [];
 
                       if (memberships.isEmpty) {
+                        final level = cache.currentUser?.user.level;
+                        if (level == UserLevel.system ||
+                            level == UserLevel.super_) {
+                          return _buildSystemUserEmptyState(theme, cs);
+                        }
                         return _buildEmptyState(theme, cs);
                       }
 
@@ -411,9 +416,6 @@ class _HomeScreenState extends State<HomeScreen>
   // ─────────────────────────────────────────────────────────────────────────
 
   Widget _buildEmptyState(ThemeData theme, ColorScheme cs) {
-    final level = cache.currentUser?.user.level;
-    final isPrivileged = level == UserLevel.system || level == UserLevel.super_;
-
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -427,7 +429,7 @@ class _HomeScreenState extends State<HomeScreen>
             ),
             const SizedBox(height: 16),
             Text(
-              isPrivileged ? 'No school memberships' : 'No schools yet',
+              'No schools yet',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
@@ -437,9 +439,7 @@ class _HomeScreenState extends State<HomeScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              isPrivileged
-                  ? 'You can manage all schools from the System Dashboard above.'
-                  : 'Schools will appear here once you\'re added by an administrator.',
+              'Schools will appear here once you\'re added by an administrator.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
@@ -448,6 +448,54 @@ class _HomeScreenState extends State<HomeScreen>
                 letterSpacing: 0.1,
                 height: 1.5,
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // System user empty state — shown when memberships haven't synced yet
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Widget _buildSystemUserEmptyState(ThemeData theme, ColorScheme cs) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.sync_rounded,
+              size: 36,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Waiting for sync',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Your school memberships will appear here once they sync from '
+              'the server. If this persists, check your internet connection.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w300,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 20),
+            TextButton.icon(
+              onPressed: () => sync.schedulePush(),
+              icon: const Icon(Icons.sync_rounded, size: 16),
+              label: const Text('Sync now'),
             ),
           ],
         ),
