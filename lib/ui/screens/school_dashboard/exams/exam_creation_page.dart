@@ -482,7 +482,6 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
                       setState(() => _papers.add(_PaperScheduleRow())),
                   onRemovePaper: (i) => setState(() {
                     _papers.removeAt(i);
-                    // Re-key errors after removal so indices stay correct.
                     final shifted = <int, String>{};
                     for (final e in _rowErrors.entries) {
                       if (e.key < i) shifted[e.key] = e.value;
@@ -529,14 +528,15 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
               ],
             ),
           ),
+          _BottomNavRow(
+            onBack: _back,
+            onNext: _next,
+            backLabel: _step == 1 ? 'Cancel' : 'Back',
+            nextLabel: _step == 5 ? 'Activate' : 'Next',
+          ),
         ],
       ),
-      bottomNavigationBar: _BottomNavRow(
-        onBack: _back,
-        onNext: _next,
-        backLabel: _step == 1 ? 'Cancel' : 'Back',
-        nextLabel: _step == 5 ? 'Activate' : 'Next',
-      ),
+      bottomNavigationBar: null,
     );
   }
 }
@@ -1706,6 +1706,7 @@ class _BottomNavRow extends StatelessWidget {
         ),
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           OutlinedButton(
             onPressed: onBack,
@@ -1722,7 +1723,6 @@ class _BottomNavRow extends StatelessWidget {
             ),
             child: Text(backLabel),
           ),
-          const Spacer(),
           FilledButton(
             onPressed: onNext,
             style: FilledButton.styleFrom(
