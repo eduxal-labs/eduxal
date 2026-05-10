@@ -347,7 +347,6 @@ class _MultiFileImportSheetState extends State<MultiFileImportSheet> {
             if (_completed) ..._buildResultsPhase(cs, isDark),
             if (!_completed) ..._buildSelectionPhase(cs, isDark),
           ],
-        ),
       ),
     );
   }
@@ -1158,6 +1157,7 @@ class _FileResultTileState extends State<_FileResultTile> {
               ),
             ],
           ],
+        ),
       ),
     );
   }
