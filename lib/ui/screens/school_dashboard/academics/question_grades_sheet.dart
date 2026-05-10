@@ -74,8 +74,7 @@ class _QuestionGradesSheetState extends State<QuestionGradesSheet> {
     // handle, title, keyboard padding) per BUG-010 convention.
     return EduSheet(
       title: 'Marking Breakdown — ${widget.studentName}',
-      child: Flexible(
-        child: FutureBuilder<Result<List<QuestionGradeDetail>, dynamic>>(
+      child: FutureBuilder<Result<List<QuestionGradeDetail>, dynamic>>(
           future: _future,
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) {
@@ -119,7 +118,6 @@ class _QuestionGradesSheetState extends State<QuestionGradesSheet> {
               ],
             );
           },
-        ),
       ),
     );
   }

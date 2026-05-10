@@ -324,8 +324,7 @@ class _MultiFileImportSheetState extends State<MultiFileImportSheet> {
 
     return EduSheet(
       title: 'Bulk Import Questions',
-      child: Flexible(
-        child: ListView(
+      child: ListView(
           padding: EdgeInsets.fromLTRB(
             16,
             0,
@@ -1159,7 +1158,6 @@ class _FileResultTileState extends State<_FileResultTile> {
               ),
             ],
           ],
-        ),
       ),
     );
   }
