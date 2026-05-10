@@ -250,14 +250,96 @@ class _ExamsListViewState extends State<ExamsListView> {
       widget.entry is OwnerEntry;
 
   Future<void> _showCreateExam(BuildContext context) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ExamCreationPage(
+    final w = MediaQuery.sizeOf(context).width;
+    if (w >= AppTheme.kMobileBreakpoint) {
+      await showDialog(
+        context: context,
+        barrierColor: Colors.black.withValues(alpha: 0.35),
+        builder: (_) => _ExamCreationDialog(
           schoolId: widget.schoolId,
           year: widget.year,
           term: widget.term,
           config: widget.config,
           entry: widget.entry,
+        ),
+      );
+    } else {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ExamCreationPage(
+            schoolId: widget.schoolId,
+            year: widget.year,
+            term: widget.term,
+            config: widget.config,
+            entry: widget.entry,
+          ),
+        ),
+      );
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Desktop dialog wrapper for exam creation
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ExamCreationDialog extends StatelessWidget {
+  const _ExamCreationDialog({
+    required this.schoolId,
+    required this.year,
+    required this.term,
+    required this.config,
+    required this.entry,
+  });
+
+  final String schoolId;
+  final int year;
+  final int term;
+  final SchoolConfig config;
+  final MembershipEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 680),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF18222E) : cs.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark
+                  ? const Color(0xFF2A3848)
+                  : cs.outlineVariant.withValues(alpha: 0.6),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.50 : 0.14),
+                blurRadius: isDark ? 40 : 24,
+                offset: const Offset(0, 10),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.22 : 0.05),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: ExamCreationPage(
+            schoolId: schoolId,
+            year: year,
+            term: term,
+            config: config,
+            entry: entry,
+          ),
         ),
       ),
     );

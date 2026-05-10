@@ -14,6 +14,8 @@ import '../../../../models/result.dart';
 import '../../../../models/school_config.dart';
 import '../../../../services/paper_service.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/date_range_picker.dart';
+import '../../../widgets/term_buttons.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Wizard-local enumerations and data classes
@@ -578,34 +580,40 @@ class _EventDetailsStepState extends State<_EventDetailsStep> {
     super.dispose();
   }
 
+  bool _calendarOpen = false;
+
   void _notify() => widget.onDraftChanged();
 
-  Future<void> _pickStartDate() async {
-    final d = widget.draft;
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: d.startDate ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2035),
-    );
-    if (picked == null || !mounted) return;
-    d.startDate = picked;
-    if (d.endDate != null && d.endDate!.isBefore(picked)) d.endDate = null;
-    _notify();
+  void _toggleCalendar() {
+    setState(() => _calendarOpen = !_calendarOpen);
   }
 
-  Future<void> _pickEndDate() async {
+  void _onDayTapped(DateTime day) {
     final d = widget.draft;
-    final first = d.startDate ?? DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: d.endDate ?? first,
-      firstDate: first,
-      lastDate: DateTime(2035),
-    );
-    if (picked == null || !mounted) return;
-    d.endDate = picked;
-    _notify();
+    final start = d.startDate;
+    final end = d.endDate;
+
+    if (start == null) {
+      // First tap — set start date.
+      d.startDate = day;
+      _notify();
+    } else if (end == null) {
+      if (day.isAfter(start)) {
+        // Second tap — set end date.
+        d.endDate = day;
+        _notify();
+        setState(() => _calendarOpen = false);
+      } else if (day.isBefore(start)) {
+        // Reset start.
+        d.startDate = day;
+        _notify();
+      }
+    } else {
+      // Both already set — reset and start over.
+      d.startDate = day;
+      d.endDate = null;
+      _notify();
+    }
   }
 
   InputDecoration _inputDec(ColorScheme cs, bool isDark, String? hint) {
@@ -697,24 +705,25 @@ class _EventDetailsStepState extends State<_EventDetailsStep> {
           ),
           const SizedBox(height: 16),
 
-          // ── Term ──────────────────────────────────────────────────────────
+          // ── Term (read-only, inherited from current school term) ─────────
           _fieldLabel('Term'),
-          SegmentedButton<int>(
-            segments: const [
-              ButtonSegment(value: 1, label: Text('Term 1')),
-              ButtonSegment(value: 2, label: Text('Term 2')),
-              ButtonSegment(value: 3, label: Text('Term 3')),
-            ],
-            selected: {d.term},
-            style: ButtonStyle(
-              textStyle: const WidgetStatePropertyAll(
-                TextStyle(fontWeight: FontWeight.w400, fontSize: 13),
-              ),
+          TermButton(
+            label: 'Term ${d.term}',
+            isSelected: true,
+            isDark: isDark,
+            cs: cs,
+            indigo: isDark ? AppTheme.brandIndigoDark : AppTheme.brandIndigo,
+            enabled: false,
+            onTap: () {},
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Using the current school term. Change it from the school page.',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.45),
             ),
-            onSelectionChanged: (s) {
-              d.term = s.first;
-              _notify();
-            },
           ),
           const SizedBox(height: 16),
 
@@ -746,43 +755,69 @@ class _EventDetailsStepState extends State<_EventDetailsStep> {
 
           // ── Date Range ────────────────────────────────────────────────────
           _fieldLabel('Date Range'),
-          Row(
-            children: [
-              Expanded(
-                child: _DateTile(
-                  label: d.startDate == null
-                      ? 'Start Date'
-                      : _fmtDate(d.startDate!),
-                  hasValue: d.startDate != null,
-                  onTap: _pickStartDate,
-                  cs: cs,
-                  isDark: isDark,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _DateTile(
-                  label: d.endDate == null ? 'End Date' : _fmtDate(d.endDate!),
-                  hasValue: d.endDate != null,
-                  onTap: _pickEndDate,
-                  cs: cs,
-                  isDark: isDark,
-                ),
-              ),
-            ],
+          DateRangeTrigger(
+            startDate: d.startDate,
+            endDate: d.endDate,
+            isOpen: _calendarOpen,
+            hasError: false,
+            enabled: true,
+            isDark: isDark,
+            cs: cs,
+            indigo: isDark ? AppTheme.brandIndigoDark : AppTheme.brandIndigo,
+            onTap: _toggleCalendar,
           ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: DateRangeCalendar(
+                startDate: d.startDate,
+                endDate: d.endDate,
+                onDayTapped: _onDayTapped,
+                isDark: isDark,
+                cs: cs,
+                indigo: isDark ? AppTheme.brandIndigoDark : AppTheme.brandIndigo,
+              ),
+            ),
+            crossFadeState: _calendarOpen
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 200),
+            sizeCurve: Curves.easeInOut,
+          ),
+          if (_calendarOpen && d.startDate != null && d.endDate == null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                'Now tap the end date',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w400,
+                  color: (isDark ? AppTheme.brandIndigoDark : AppTheme.brandIndigo)
+                      .withValues(alpha: 0.70),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _fieldLabel(String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 6),
-    child: Text(
-      text,
-      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-    ),
-  );
+  Widget _fieldLabel(String text) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text(
+        text.toUpperCase(),
+        style: TextStyle(
+          fontSize: 9.5,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.9,
+          color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+        ),
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1711,6 +1746,7 @@ class _BottomNavRow extends StatelessWidget {
           OutlinedButton(
             onPressed: onBack,
             style: OutlinedButton.styleFrom(
+              minimumSize: Size.zero,
               side: BorderSide(color: cs.outlineVariant, width: 0.8),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
@@ -1726,6 +1762,7 @@ class _BottomNavRow extends StatelessWidget {
           FilledButton(
             onPressed: onNext,
             style: FilledButton.styleFrom(
+              minimumSize: Size.zero,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
               ),
@@ -2027,64 +2064,6 @@ class _PickerTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Tappable date tile used in Step 1.
-class _DateTile extends StatelessWidget {
-  const _DateTile({
-    required this.label,
-    required this.hasValue,
-    required this.onTap,
-    required this.cs,
-    required this.isDark,
-  });
-
-  final String label;
-  final bool hasValue;
-  final VoidCallback onTap;
-  final ColorScheme cs;
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    final faded = cs.onSurface.withValues(alpha: 0.4);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppTheme.nestedBg(isDark, cs),
-          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-          border: Border.all(
-            color: AppTheme.borderColor(isDark, cs),
-            width: 0.8,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.calendar_today_outlined,
-              size: 15,
-              color: hasValue ? cs.primary : faded,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: hasValue ? FontWeight.w400 : FontWeight.w300,
-                  color: hasValue ? cs.onSurface : faded,
-                ),
-              ),
-            ),
-            Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: faded),
           ],
         ),
       ),
@@ -2444,8 +2423,10 @@ class _SyllabusCoverageStepState extends State<_SyllabusCoverageStep> {
       // Key by subject count so the controller is recreated if subjects change.
       key: ValueKey(subjectIds.length),
       length: subjectIds.length,
-      child: Column(
-        children: [
+      child: Padding(
+        padding: EdgeInsets.zero,
+        child: Column(
+          children: [
           // ── Tab strip ──────────────────────────────────────────────────────
           ColoredBox(
             color: AppTheme.modalBg(isDark, cs),
@@ -2475,6 +2456,7 @@ class _SyllabusCoverageStepState extends State<_SyllabusCoverageStep> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
