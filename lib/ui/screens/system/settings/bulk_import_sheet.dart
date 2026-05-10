@@ -195,19 +195,6 @@ class _BulkImportSheetState extends State<BulkImportSheet> {
           }
         }
 
-        // parts marks sum check
-        if (parts != null && parts.isNotEmpty) {
-          final partsSum = parts.fold<int>(
-            0,
-            (s, p) => s + (p['marks'] as int? ?? 0),
-          );
-          if (marks != null && partsSum != marks) {
-            errors.add(
-              '$prefix: Parts marks sum does not equal question marks',
-            );
-          }
-        }
-
         // max_marks check
         final maxMarks = q['max_marks'] as int?;
         if (maxMarks != null && marks != null && maxMarks > marks) {

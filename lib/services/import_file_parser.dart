@@ -437,7 +437,6 @@ ParsedImportFile parseImportFile(String filePath, String jsonContent) {
     if (parts != null && parts is! List) {
       errors.add('$prefix: "parts" must be an array if provided.');
     } else if (parts != null && parts is List) {
-      int partsSum = 0;
       for (var pi = 0; pi < parts.length; pi++) {
         final p = parts[pi];
         final pp = '$prefix, part[${pi + 1}]';
@@ -454,11 +453,7 @@ ParsedImportFile parseImportFile(String filePath, String jsonContent) {
           errors.add('$pp: missing or empty "body".');
         }
         final pMarks = p['marks'];
-        if (pMarks is int) {
-          partsSum += pMarks;
-        } else if (pMarks is double) {
-          partsSum += pMarks.toInt();
-        } else {
+        if (pMarks is! int && pMarks is! double) {
           errors.add('$pp: missing "marks".');
         }
         // Validate part rubric
@@ -467,7 +462,6 @@ ParsedImportFile parseImportFile(String filePath, String jsonContent) {
           if (pRubric is! List || pRubric.isEmpty) {
             errors.add('$pp: "rubric" must be a non-empty array if provided.');
           } else {
-            int pRubricSum = 0;
             for (var rj = 0; rj < pRubric.length; rj++) {
               final pr = pRubric[rj];
               if (pr is! Map<String, dynamic>) {
@@ -479,22 +473,12 @@ ParsedImportFile parseImportFile(String filePath, String jsonContent) {
                 errors.add('$pp, rubric[${rj + 1}]: missing "criterion".');
               }
               final prMarks = pr['marks'];
-              if (prMarks is int) {
-                pRubricSum += prMarks;
-              } else if (prMarks is double) {
-                pRubricSum += prMarks.toInt();
-              } else {
+              if (prMarks is! int && prMarks is! double) {
                 errors.add('$pp, rubric[${rj + 1}]: missing "marks".');
               }
             }
-            if (pMarks != null && pRubricSum > 0 && pRubricSum != (pMarks is int ? pMarks : (pMarks as double).toInt())) {
-              errors.add('$pp: rubric marks sum ($pRubricSum) ≠ part marks.');
-            }
           }
         }
-      }
-      if (marks != null && partsSum > 0 && partsSum != marks) {
-        errors.add('$prefix: parts marks sum ($partsSum) ≠ question marks ($marks).');
       }
     }
 
