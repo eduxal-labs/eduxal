@@ -245,6 +245,74 @@ class QuestionBankService {
   // Bulk Import
   // ---------------------------------------------------------------------------
 
+  // ---------------------------------------------------------------------------
+  // Field mapping helpers (string → proto int)
+  // ---------------------------------------------------------------------------
+
+  static int _mapQuestionType(String? type) => switch (type) {
+    'definition'    => 0,
+    'explanation'   => 1,
+    'short_answer'  => 1,  // mapped to explanation
+    'application'   => 1,  // mapped to explanation
+    'calculation'   => 2,
+    'structured'    => 3,
+    'experiment'    => 4,
+    'data_response' => 5,
+    'diagram'       => 6,
+    _               => 0,  // default to definition
+  };
+
+  static int _mapCognitiveLevel(String? level) {
+    final l = level?.toLowerCase() ?? '';
+    return switch (l) {
+      'recall'        => 0,
+      'comprehension' => 1,
+      'application'   => 2,
+      'analysis'      => 3,
+      'evaluation'    => 3,  // mapped to analysis
+      _               => 0,
+    };
+  }
+
+  static int _mapAnswerSpaceType(String? type) => switch (type) {
+    'lines'            => 0,
+    'lined'            => 0,  // same as lines
+    'plain_box'        => 1,
+    'diagram_box'      => 2,
+    'construction_box' => 3,
+    'grid_box'         => 4,
+    _                  => 0,
+  };
+
+  static int _mapBodyFormat(String? fmt) => switch (fmt) {
+    'tiptap' => 1,
+    _        => 0,  // plain, markdown, latex all default to plain
+  };
+
+  static String _normalizeExampleAnswer(dynamic ea) {
+    if (ea == null) return '';
+    if (ea is String) {
+      // Wrap plain string as JSON object
+      return jsonEncode({'format': 0, 'content': ea});
+    }
+    if (ea is Map) {
+      // Convert format field from string to int, then JSON-encode
+      final map = Map<String, dynamic>.from(ea);
+      if (map['format'] is String) {
+        map['format'] = _mapExampleAnswerFormat(map['format'] as String);
+      }
+      return jsonEncode(map);
+    }
+    return '';
+  }
+
+  static int _mapExampleAnswerFormat(String? fmt) => switch (fmt) {
+    'tiptap' => 1,
+    'svg'    => 2,
+    'image'  => 3,
+    _        => 0,  // plain
+  };
+
   /// Bulk import questions from JSON content.
   ///
   /// This endpoint is system-wide for question-bank imports. It does not send,
@@ -268,29 +336,95 @@ class QuestionBankService {
 
       final req = pb.BulkImportRequest();
       for (final q in rawList) {
-        final body = q['body'] as String? ?? q['text'] as String? ?? '';
-        final marks = q['marks'] as int? ?? 0;
+        final body = (q['body'] as String? ?? q['text'] as String? ?? '').trim();
+        final marks = (q['marks'] as num?)?.toInt() ?? 0;
         final topicId = q['topic_id'] as int? ?? 0;
 
         final protoQ = pb.CreateQuestionRequest()
           ..topicId = topicId
           ..body = body
-          ..marks = marks;
+          ..bodyFormat = _mapBodyFormat(q['body_format'] as String?)
+          ..type = _mapQuestionType(q['type'] as String?)
+          ..difficulty = (q['difficulty'] as num?)?.toInt() ?? 3
+          ..cognitiveLevel = _mapCognitiveLevel(q['cognitive_level'] as String?)
+          ..marks = marks
+          ..answerSpaceType = _mapAnswerSpaceType(q['answer_space_type'] as String?);
 
-        // Rubric criteria
-        final rubric = (q['rubric'] as List<dynamic>? ?? [])
-            .cast<Map<String, dynamic>>();
+        // Optional numeric fields
+        final maxMarks = q['max_marks'];
+        if (maxMarks is num) protoQ.maxMarks = maxMarks.toInt();
+
+        final answerLines = q['answer_lines'];
+        if (answerLines is num) protoQ.answerLines = answerLines.toInt();
+
+        final answerBoxH = q['answer_box_height_mm'];
+        if (answerBoxH is num) protoQ.answerBoxHeightMm = answerBoxH.toInt();
+
+        // Stimulus (JSON string or pass-through)
+        final stimulus = q['stimulus'];
+        if (stimulus is String && stimulus.isNotEmpty) {
+          protoQ.stimulus = stimulus;
+        } else if (stimulus is Map) {
+          protoQ.stimulus = jsonEncode(stimulus);
+        }
+
+        // Example answer — normalize to JSON string
+        final ea = _normalizeExampleAnswer(q['example_answer']);
+        if (ea.isNotEmpty) protoQ.exampleAnswer = ea;
+
+        // Rubric criteria (accept both "criterion" and "criteria" keys)
+        final rubric = (q['rubric'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
         for (final r in rubric) {
+          final criterion = (r['criterion'] as String? ?? r['criteria'] as String? ?? '');
           protoQ.rubric.add(
             pb.RubricCriterionInput()
-              ..criterion = (r['criterion'] as String? ?? '')
-              ..marks = (r['marks'] as int? ?? 0),
+              ..criterion = criterion
+              ..marks = (r['marks'] as num?)?.toInt() ?? 0,
           );
         }
 
-        // Example answer (string only in bulk import)
-        final ea = q['example_answer'];
-        if (ea is String && ea.isNotEmpty) protoQ.exampleAnswer = ea;
+        // Parts (structured questions)
+        final parts = (q['parts'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
+        for (final p in parts) {
+          final partInput = pb.QuestionPartInput()
+            ..label = (p['label'] as String? ?? '')
+            ..body = (p['body'] as String? ?? '')
+            ..bodyFormat = _mapBodyFormat(p['body_format'] as String?)
+            ..marks = (p['marks'] as num?)?.toInt() ?? 0
+            ..answerSpaceType = _mapAnswerSpaceType(p['answer_space_type'] as String?);
+
+          final pMaxMarks = p['max_marks'];
+          if (pMaxMarks is num) partInput.maxMarks = pMaxMarks.toInt();
+
+          final pAnswerLines = p['answer_lines'];
+          if (pAnswerLines is num) partInput.answerLines = pAnswerLines.toInt();
+
+          final pAnswerBoxH = p['answer_box_height_mm'];
+          if (pAnswerBoxH is num) partInput.answerBoxHeightMm = pAnswerBoxH.toInt();
+
+          final pStimulus = p['stimulus'];
+          if (pStimulus is String && pStimulus.isNotEmpty) {
+            partInput.stimulus = pStimulus;
+          } else if (pStimulus is Map) {
+            partInput.stimulus = jsonEncode(pStimulus);
+          }
+
+          final pEa = _normalizeExampleAnswer(p['example_answer']);
+          if (pEa.isNotEmpty) partInput.exampleAnswer = pEa;
+
+          // Part rubric
+          final pRubric = (p['rubric'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
+          for (final pr in pRubric) {
+            final prCriterion = (pr['criterion'] as String? ?? pr['criteria'] as String? ?? '');
+            partInput.rubric.add(
+              pb.RubricCriterionInput()
+                ..criterion = prCriterion
+                ..marks = (pr['marks'] as num?)?.toInt() ?? 0,
+            );
+          }
+
+          protoQ.parts.add(partInput);
+        }
 
         req.questions.add(protoQ);
       }

@@ -167,10 +167,11 @@ class _BulkImportSheetState extends State<BulkImportSheet> {
               errors.add('$prefix, rubric[${j + 1}]: not a JSON object.');
               continue;
             }
-            if (r['criterion'] == null ||
-                r['criterion'] is! String ||
-                (r['criterion'] as String).trim().isEmpty) {
-              errors.add('$prefix, rubric[${j + 1}]: missing "criterion".');
+            final rawCriterion = r['criterion'] ?? r['criteria'];
+            if (rawCriterion == null ||
+                rawCriterion is! String ||
+                rawCriterion.trim().isEmpty) {
+              errors.add('$prefix, rubric[${j + 1}]: missing "criterion" (or "criteria").');
             }
             final dynamic rMarks = r['marks'];
             if (rMarks == null) {

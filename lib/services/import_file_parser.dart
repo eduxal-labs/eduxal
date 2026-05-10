@@ -105,16 +105,31 @@ class MissingImage {
 ///   "topic": "Algebraic Expressions",
 ///   "questions": [
 ///     {
-///       "text": "...",
+///       "body": "Define the term...",
+///       "body_format": "plain",
+///       "type": "definition",
+///       "difficulty": 2,
+///       "cognitive_level": "recall",
 ///       "marks": 3,
+///       "max_marks": 3,
+///       "answer_space_type": "lines",
+///       "answer_lines": 4,
+///       "stimulus": null,
 ///       "rubric": [{"criterion": "...", "marks": 1}],
-///       "example_answer": "...",
-///       "images": [
+///       "example_answer": {"format": "plain", "content": "..."},
+///       "images": [{"context": "question", "filename": "/path/to/diagram.svg", "caption": "...", "description": "..."}],
+///       "parts": [
 ///         {
-///           "context": "question",
-///           "filename": "/absolute/path/to/illustrations/diagram.svg",
-///           "caption": "Figure 1: ...",
-///           "description": "..."
+///           "label": "a",
+///           "body": "Sub-question text",
+///           "body_format": "plain",
+///           "marks": 2,
+///           "max_marks": 2,
+///           "answer_space_type": "lines",
+///           "answer_lines": 3,
+///           "stimulus": null,
+///           "rubric": [{"criterion": "...", "marks": 1}],
+///           "example_answer": {"format": "plain", "content": "..."}
 ///         }
 ///       ]
 ///     }
@@ -124,7 +139,8 @@ class MissingImage {
 ///
 /// The parser:
 /// 1. Validates all required fields (subject, curriculum, grade, topic, questions).
-/// 2. Validates each question (text, marks > 0, rubric with marks sum check).
+/// 2. Validates each question (body (or "text" fallback), marks > 0, rubric with
+///    marks sum check).
 /// 3. For each image: extracts the absolute path from `filename`, checks the
 ///    file exists on disk, records missing files.
 /// 4. Produces a cleaned JSON string where `filename` values are replaced with
@@ -244,11 +260,10 @@ ParsedImportFile parseImportFile(String filePath, String jsonContent) {
       continue;
     }
 
-    // text
-    if (q['text'] == null ||
-        q['text'] is! String ||
-        (q['text'] as String).trim().isEmpty) {
-      errors.add('$prefix: missing or empty "text".');
+    // body (was "text" — backward compat: try "body" first, fall back to "text")
+    final rawBody = q['body'] ?? q['text'];
+    if (rawBody == null || rawBody is! String || rawBody.trim().isEmpty) {
+      errors.add('$prefix: missing or empty "body" (or "text").');
     }
 
     // marks
@@ -278,10 +293,11 @@ ParsedImportFile parseImportFile(String filePath, String jsonContent) {
           errors.add('$prefix, rubric[${j + 1}]: not a JSON object.');
           continue;
         }
-        if (r['criterion'] == null ||
-            r['criterion'] is! String ||
-            (r['criterion'] as String).trim().isEmpty) {
-          errors.add('$prefix, rubric[${j + 1}]: missing "criterion".');
+        final rawCriterion = r['criterion'] ?? r['criteria'];
+        if (rawCriterion == null ||
+            rawCriterion is! String ||
+            rawCriterion.trim().isEmpty) {
+          errors.add('$prefix, rubric[${j + 1}]: missing "criterion" (or "criteria").');
         }
         final rMarks = r['marks'];
         if (rMarks == null) {
@@ -358,6 +374,127 @@ ParsedImportFile parseImportFile(String filePath, String jsonContent) {
 
       if (basenames.isNotEmpty) {
         questionImageMap[i] = basenames;
+      }
+    }
+
+    // ── Optional rich fields ───────────────────────────────────────────
+    // body_format: optional, validate if present
+    final bodyFormat = q['body_format'];
+    if (bodyFormat != null && bodyFormat is! String) {
+      errors.add('$prefix: "body_format" must be a string if provided.');
+    }
+
+    // type: optional, validate if present
+    final qType = q['type'];
+    if (qType != null && qType is! String) {
+      errors.add('$prefix: "type" must be a string if provided.');
+    }
+
+    // difficulty: optional, validate if present
+    final difficulty = q['difficulty'];
+    if (difficulty != null && difficulty is! int && difficulty is! double) {
+      errors.add('$prefix: "difficulty" must be a number if provided.');
+    }
+
+    // cognitive_level: optional, validate if present
+    final cogLevel = q['cognitive_level'];
+    if (cogLevel != null && cogLevel is! String) {
+      errors.add('$prefix: "cognitive_level" must be a string if provided.');
+    }
+
+    // max_marks: optional, validate if present
+    final maxMarks = q['max_marks'];
+    if (maxMarks != null && maxMarks is! int && maxMarks is! double) {
+      errors.add('$prefix: "max_marks" must be a number if provided.');
+    } else if (maxMarks != null && marks != null && maxMarks is num && (maxMarks as num).toInt() > marks) {
+      errors.add('$prefix: "max_marks" (${(maxMarks as num).toInt()}) must be ≤ "marks" ($marks).');
+    }
+
+    // answer_space_type: optional, validate if present
+    final answerSpaceType = q['answer_space_type'];
+    if (answerSpaceType != null && answerSpaceType is! String) {
+      errors.add('$prefix: "answer_space_type" must be a string if provided.');
+    }
+
+    // answer_lines: optional, validate if present
+    final answerLines = q['answer_lines'];
+    if (answerLines != null && answerLines is! int && answerLines is! double) {
+      errors.add('$prefix: "answer_lines" must be a number if provided.');
+    }
+
+    // answer_box_height_mm: optional, validate if present
+    final answerBoxH = q['answer_box_height_mm'];
+    if (answerBoxH != null && answerBoxH is! int && answerBoxH is! double) {
+      errors.add('$prefix: "answer_box_height_mm" must be a number if provided.');
+    }
+
+    // stimulus: optional, accept any valid JSON
+    final stimulus = q['stimulus'];
+    // no validation needed — string or null, passed through as-is
+
+    // parts: optional, validate if present
+    final parts = q['parts'];
+    if (parts != null && parts is! List) {
+      errors.add('$prefix: "parts" must be an array if provided.');
+    } else if (parts != null && parts is List) {
+      int partsSum = 0;
+      for (var pi = 0; pi < parts.length; pi++) {
+        final p = parts[pi];
+        final pp = '$prefix, part[${pi + 1}]';
+        if (p is! Map<String, dynamic>) {
+          errors.add('$pp: not a JSON object.');
+          continue;
+        }
+        final pLabel = p['label'] as String?;
+        if (pLabel == null || pLabel.trim().isEmpty) {
+          errors.add('$pp: missing "label".');
+        }
+        final pBody = p['body'];
+        if (pBody == null || pBody is! String || pBody.trim().isEmpty) {
+          errors.add('$pp: missing or empty "body".');
+        }
+        final pMarks = p['marks'];
+        if (pMarks is int) {
+          partsSum += pMarks;
+        } else if (pMarks is double) {
+          partsSum += pMarks.toInt();
+        } else {
+          errors.add('$pp: missing "marks".');
+        }
+        // Validate part rubric
+        final pRubric = p['rubric'];
+        if (pRubric != null) {
+          if (pRubric is! List || pRubric.isEmpty) {
+            errors.add('$pp: "rubric" must be a non-empty array if provided.');
+          } else {
+            int pRubricSum = 0;
+            for (var rj = 0; rj < pRubric.length; rj++) {
+              final pr = pRubric[rj];
+              if (pr is! Map<String, dynamic>) {
+                errors.add('$pp, rubric[${rj + 1}]: not a JSON object.');
+                continue;
+              }
+              final prCriterion = pr['criterion'] ?? pr['criteria'];
+              if (prCriterion == null || prCriterion is! String || prCriterion.trim().isEmpty) {
+                errors.add('$pp, rubric[${rj + 1}]: missing "criterion".');
+              }
+              final prMarks = pr['marks'];
+              if (prMarks is int) {
+                pRubricSum += prMarks;
+              } else if (prMarks is double) {
+                pRubricSum += prMarks.toInt();
+              } else {
+                errors.add('$pp, rubric[${rj + 1}]: missing "marks".');
+              }
+            }
+            if (pMarks != null && pRubricSum > 0 && pRubricSum != (pMarks is int ? pMarks : (pMarks as double).toInt())) {
+              errors.add('$pp: rubric marks sum ($pRubricSum) ≠ part marks.');
+            }
+          }
+        }
+      }
+      if (marks != null && partsSum > 0 && partsSum != marks) {
+        errors.add('$prefix: parts marks sum ($partsSum) ≠ question marks ($marks).');
       }
     }
 

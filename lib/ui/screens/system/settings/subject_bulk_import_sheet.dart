@@ -197,11 +197,10 @@ class _SubjectBulkImportSheetState extends State<SubjectBulkImportSheet> {
           continue;
         }
 
-        // text
-        if (q['text'] == null ||
-            q['text'] is! String ||
-            (q['text'] as String).trim().isEmpty) {
-          errors.add('$prefix: missing or empty "text".');
+        // body (was "text" — backward compat: try "body" first, fall back to "text")
+        final rawBody = q['body'] ?? q['text'];
+        if (rawBody == null || rawBody is! String || rawBody.trim().isEmpty) {
+          errors.add('$prefix: missing or empty "body" (or "text").');
         }
 
         // marks
@@ -231,10 +230,11 @@ class _SubjectBulkImportSheetState extends State<SubjectBulkImportSheet> {
               errors.add('$prefix, rubric[${j + 1}]: not a JSON object.');
               continue;
             }
-            if (r['criterion'] == null ||
-                r['criterion'] is! String ||
-                (r['criterion'] as String).trim().isEmpty) {
-              errors.add('$prefix, rubric[${j + 1}]: missing "criterion".');
+            final rawCriterion = r['criterion'] ?? r['criteria'];
+            if (rawCriterion == null ||
+                rawCriterion is! String ||
+                rawCriterion.trim().isEmpty) {
+              errors.add('$prefix, rubric[${j + 1}]: missing "criterion" (or "criteria").');
             }
             final dynamic rMarks = r['marks'];
             if (rMarks == null) {
