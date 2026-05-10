@@ -235,12 +235,10 @@ class Question {
 class BulkImportResult {
   final int createdCount;
 
-  /// Server-assigned question IDs for the created questions.
-  /// Note: the updated proto no longer returns IDs — this will be empty.
+  /// Server-assigned question IDs for the created questions (not populated).
   final List<int> questionIds;
 
   /// Per-question server-side errors from the import (partial success).
-  /// Note: the updated proto no longer returns per-question errors — this will be empty.
   final List<ImportError> errors;
 
   const BulkImportResult({
@@ -249,20 +247,36 @@ class BulkImportResult {
     required this.errors,
   });
 
-  factory BulkImportResult.fromProto(pb.BulkImportResponse proto) =>
-      BulkImportResult(
-        // proto.created = number of questions successfully created
-        createdCount: proto.created,
-        // proto no longer returns IDs or per-question errors
-        questionIds: const [],
-        errors: const [],
-      );
+  factory BulkImportResult.fromProto(pb.BulkImportResponse proto) {
+    final importErrors = <ImportError>[];
+    for (final err in proto.errors) {
+      // Server errors are formatted as "Q{1-based idx}: {message}"
+      final match = RegExp(r'^Q(\d+):\s*(.*)').firstMatch(err);
+      if (match != null) {
+        final idx = int.tryParse(match.group(1)!) ?? importErrors.length;
+        importErrors.add(ImportError(
+          index: idx - 1, // convert to 0-based
+          message: match.group(2)!,
+        ));
+      } else {
+        importErrors.add(ImportError(
+          index: importErrors.length,
+          message: err,
+        ));
+      }
+    }
+    return BulkImportResult(
+      createdCount: proto.created,
+      questionIds: const [],
+      errors: importErrors,
+    );
+  }
 }
 
 /// A single error from a bulk import operation.
 class ImportError {
+  /// 0-based question index in the import batch.
   final int index;
   final String message;
   const ImportError({required this.index, required this.message});
-  // Note: fromProto factory removed — pb.ImportError no longer exists in the proto.
 }

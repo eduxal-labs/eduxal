@@ -766,13 +766,14 @@ const BulkImportResponse$json = {
   '2': [
     {'1': 'created', '3': 1, '4': 1, '5': 5, '10': 'created'},
     {'1': 'skipped', '3': 2, '4': 1, '5': 5, '10': 'skipped'},
+    {'1': 'errors', '3': 3, '4': 3, '5': 9, '10': 'errors'},
   ],
 };
 
 /// Descriptor for `BulkImportResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List bulkImportResponseDescriptor = $convert.base64Decode(
     'ChJCdWxrSW1wb3J0UmVzcG9uc2USGAoHY3JlYXRlZBgBIAEoBVIHY3JlYXRlZBIYCgdza2lwcG'
-    'VkGAIgASgFUgdza2lwcGVk');
+    'VkGAIgASgFUgdza2lwcGVkEhYKBmVycm9ycxgDIAMoCVIGZXJyb3Jz');
 
 @$core.Deprecated('Use imageUploadUrlsRequestDescriptor instead')
 const ImageUploadUrlsRequest$json = {

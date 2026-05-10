@@ -1758,10 +1758,12 @@ class BulkImportResponse extends $pb.GeneratedMessage {
   factory BulkImportResponse({
     $core.int? created,
     $core.int? skipped,
+    $core.Iterable<$core.String>? errors,
   }) {
     final result = create();
     if (created != null) result.created = created;
     if (skipped != null) result.skipped = skipped;
+    if (errors != null) result.errors.addAll(errors);
     return result;
   }
 
@@ -1780,6 +1782,7 @@ class BulkImportResponse extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aI(1, _omitFieldNames ? '' : 'created')
     ..aI(2, _omitFieldNames ? '' : 'skipped')
+    ..pPS(3, _omitFieldNames ? '' : 'errors')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1818,6 +1821,9 @@ class BulkImportResponse extends $pb.GeneratedMessage {
   $core.bool hasSkipped() => $_has(1);
   @$pb.TagNumber(2)
   void clearSkipped() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $pb.PbList<$core.String> get errors => $_getList(2);
 }
 
 class ImageUploadUrlsRequest extends $pb.GeneratedMessage {
