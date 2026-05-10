@@ -360,8 +360,7 @@ class _SubjectBulkImportSheetState extends State<SubjectBulkImportSheet> {
     // handle, title, keyboard padding) per BUG-010 convention.
     return EduSheet(
       title: 'Bulk Import',
-      child: Flexible(
-        child: ListView(
+      child: ListView(
           controller: _scrollCtrl,
           padding: EdgeInsets.fromLTRB(
             16,
@@ -472,7 +471,6 @@ class _SubjectBulkImportSheetState extends State<SubjectBulkImportSheet> {
               _ImportResults(result: _importResult!, cs: cs, isDark: isDark),
             ],
           ],
-        ),
       ),
     );
   }
