@@ -456,26 +456,22 @@ ParsedImportFile parseImportFile(String filePath, String jsonContent) {
         if (pMarks is! int && pMarks is! double) {
           errors.add('$pp: missing "marks".');
         }
-        // Validate part rubric
+        // Validate part rubric (optional — empty arrays are treated as absent)
         final pRubric = p['rubric'];
-        if (pRubric != null) {
-          if (pRubric is! List || pRubric.isEmpty) {
-            errors.add('$pp: "rubric" must be a non-empty array if provided.');
-          } else {
-            for (var rj = 0; rj < pRubric.length; rj++) {
-              final pr = pRubric[rj];
-              if (pr is! Map<String, dynamic>) {
-                errors.add('$pp, rubric[${rj + 1}]: not a JSON object.');
-                continue;
-              }
-              final prCriterion = pr['criterion'] ?? pr['criteria'];
-              if (prCriterion == null || prCriterion is! String || prCriterion.trim().isEmpty) {
-                errors.add('$pp, rubric[${rj + 1}]: missing "criterion".');
-              }
-              final prMarks = pr['marks'];
-              if (prMarks is! int && prMarks is! double) {
-                errors.add('$pp, rubric[${rj + 1}]: missing "marks".');
-              }
+        if (pRubric is List && pRubric.isNotEmpty) {
+          for (var rj = 0; rj < pRubric.length; rj++) {
+            final pr = pRubric[rj];
+            if (pr is! Map<String, dynamic>) {
+              errors.add('$pp, rubric[${rj + 1}]: not a JSON object.');
+              continue;
+            }
+            final prCriterion = pr['criterion'] ?? pr['criteria'];
+            if (prCriterion == null || prCriterion is! String || prCriterion.trim().isEmpty) {
+              errors.add('$pp, rubric[${rj + 1}]: missing "criterion".');
+            }
+            final prMarks = pr['marks'];
+            if (prMarks is! int && prMarks is! double) {
+              errors.add('$pp, rubric[${rj + 1}]: missing "marks".');
             }
           }
         }
