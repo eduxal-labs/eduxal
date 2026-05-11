@@ -17,6 +17,7 @@ import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_empty_state.dart';
 import '../../../widgets/edu_form_field.dart';
 import '../../../widgets/edu_sheet.dart';
+import '../../../widgets/edu_tab_bar.dart';
 import 'bulk_import_sheet.dart';
 import 'create_question_sheet.dart';
 import 'questions_list_page.dart';
@@ -49,13 +50,15 @@ class SubjectsSection extends StatefulWidget {
   State<SubjectsSection> createState() => _SubjectsSectionState();
 }
 
-class _SubjectsSectionState extends State<SubjectsSection> {
+class _SubjectsSectionState extends State<SubjectsSection>
+    with SingleTickerProviderStateMixin {
   String _search = '';
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
   int _selectedGrade = -1;
   CurriculumType? _lastCurriculum;
   Map<int, String> _subjectNames = {};
+  TabController? _gradeTabController;
 
   bool get _canCreate =>
       widget.permissions.can(Resource.subjects, Action.create);
@@ -95,6 +98,7 @@ class _SubjectsSectionState extends State<SubjectsSection> {
       final saved = map[key] as int?;
       if (saved != null && mounted) {
         setState(() => _selectedGrade = saved);
+        _syncGradeTabs();
       }
     } catch (_) {}
   }
@@ -119,10 +123,47 @@ class _SubjectsSectionState extends State<SubjectsSection> {
     super.initState();
     _selectedGrade = _defaultGrade(widget.curriculumNotifier.value);
     _loadGradePref();
+    _syncGradeTabs();
+  }
+
+  void _syncGradeTabs() {
+    final entries = _gradeEntries;
+    final selectedIndex = entries.indexWhere((e) => e.key == _selectedGrade);
+    final initialIndex = selectedIndex >= 0 ? selectedIndex : 0;
+
+    _gradeTabController?.removeListener(_onGradeTabChanged);
+    _gradeTabController?.dispose();
+    _gradeTabController = entries.length > 1
+        ? TabController(
+            length: entries.length,
+            vsync: this,
+            initialIndex: initialIndex,
+          )
+        : null;
+    _gradeTabController?.addListener(_onGradeTabChanged);
+
+    // If the grade isn't in the filtered list (e.g. persisted from another
+    // curriculum), fall back to the first entry.
+    if (selectedIndex < 0 && entries.isNotEmpty) {
+      _selectedGrade = entries[initialIndex].key;
+    }
+  }
+
+  void _onGradeTabChanged() {
+    final ctrl = _gradeTabController;
+    if (ctrl == null || ctrl.indexIsChanging) return;
+    final entries = _gradeEntries;
+    if (ctrl.index < 0 || ctrl.index >= entries.length) return;
+    final grade = entries[ctrl.index].key;
+    if (grade == _selectedGrade) return;
+    setState(() => _selectedGrade = grade);
+    _saveGradePref(grade);
   }
 
   @override
   void dispose() {
+    _gradeTabController?.removeListener(_onGradeTabChanged);
+    _gradeTabController?.dispose();
     _searchCtrl.dispose();
     _searchFocus.dispose();
     super.dispose();
@@ -149,6 +190,7 @@ class _SubjectsSectionState extends State<SubjectsSection> {
             _lastCurriculum != currentCurriculum) {
           _selectedGrade = _defaultGrade(currentCurriculum);
           _loadGradePref();
+          _syncGradeTabs();
         }
         _lastCurriculum = currentCurriculum;
 
@@ -184,46 +226,13 @@ class _SubjectsSectionState extends State<SubjectsSection> {
               ),
             ),
 
-            // ── Grade tabs (pill style, matching curriculum toggle) ────────
-            if (_gradeEntries.length > 1)
-              Padding(
-                padding:
-                    const EdgeInsets.only(left: 16, right: 8, bottom: 8),
-                child: SizedBox(
-                  height: 32,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? const Color(0xFF1E2A3A)
-                          : cs.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _gradeEntries.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 0),
-                      itemBuilder: (context, index) {
-                        final entry = _gradeEntries[index];
-                        final isSelected =
-                            _selectedGrade == entry.key;
-                        return _GradePill(
-                          label: entry.value,
-                          isSelected: isSelected,
-                          onTap: () {
-                            if (_selectedGrade == entry.key) return;
-                            setState(
-                              () => _selectedGrade = entry.key,
-                            );
-                            _saveGradePref(entry.key);
-                          },
-                          cs: cs,
-                          isDark: isDark,
-                        );
-                      },
-                    ),
-                  ),
-                ),
+            // ── Grade tabs ────────────────────────────────────────────────
+            if (_gradeTabController != null)
+              EduTabBar(
+                controller: _gradeTabController!,
+                tabs: _gradeEntries
+                    .map((e) => EduTab(label: e.value))
+                    .toList(),
               ),
 
             // ── Subject list ───────────────────────────────────────────────
@@ -1108,61 +1117,6 @@ class _TopicsPanelState extends State<_TopicsPanel> {
             const SizedBox(height: 4),
           ],
         ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Grade pill — toggle pill matching the curriculum toggle style
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _GradePill extends StatelessWidget {
-  const _GradePill({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-    required this.cs,
-    required this.isDark,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final ColorScheme cs;
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (isDark ? cs.surface : Colors.white)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 2,
-                    offset: const Offset(0, 1),
-                  ),
-                ]
-              : null,
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
-            color: isSelected ? cs.onSurface : cs.onSurfaceVariant,
-          ),
-        ),
       ),
     );
   }
