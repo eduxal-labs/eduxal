@@ -1708,9 +1708,17 @@ class DeleteQuestionResponse extends $pb.GeneratedMessage {
 class BulkImportRequest extends $pb.GeneratedMessage {
   factory BulkImportRequest({
     $core.Iterable<CreateQuestionRequest>? questions,
+    $core.String? subjectName,
+    $core.int? curriculum,
+    $core.int? grade,
+    $core.String? topicName,
   }) {
     final result = create();
     if (questions != null) result.questions.addAll(questions);
+    if (subjectName != null) result.subjectName = subjectName;
+    if (curriculum != null) result.curriculum = curriculum;
+    if (grade != null) result.grade = grade;
+    if (topicName != null) result.topicName = topicName;
     return result;
   }
 
@@ -1729,6 +1737,10 @@ class BulkImportRequest extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..pPM<CreateQuestionRequest>(1, _omitFieldNames ? '' : 'questions',
         subBuilder: CreateQuestionRequest.create)
+    ..aOS(2, _omitFieldNames ? '' : 'subjectName')
+    ..a<$core.int>(3, _omitFieldNames ? '' : 'curriculum', $pb.PbFieldType.O3)
+    ..a<$core.int>(4, _omitFieldNames ? '' : 'grade', $pb.PbFieldType.O3)
+    ..aOS(5, _omitFieldNames ? '' : 'topicName')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1752,6 +1764,42 @@ class BulkImportRequest extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(1)
   $pb.PbList<CreateQuestionRequest> get questions => $_getList(0);
+
+  @$pb.TagNumber(2)
+  $core.String get subjectName => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set subjectName($core.String v) { $_setString(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasSubjectName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSubjectName() => clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get curriculum => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set curriculum($core.int v) { $_setSignedInt32(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasCurriculum() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearCurriculum() => clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get grade => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set grade($core.int v) { $_setSignedInt32(3, v); }
+  @$pb.TagNumber(4)
+  $core.bool hasGrade() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearGrade() => clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get topicName => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set topicName($core.String v) { $_setString(4, v); }
+  @$pb.TagNumber(5)
+  $core.bool hasTopicName() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearTopicName() => clearField(5);
 }
 
 class BulkImportResponse extends $pb.GeneratedMessage {
