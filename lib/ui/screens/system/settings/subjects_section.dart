@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide Action;
 
 import '../../../../client.dart';
 import '../../../../models/result.dart';
+import '../../../../models/question.dart';
 import '../../../../database/database.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../models/school_config.dart';
@@ -48,12 +49,24 @@ class _SubjectsSectionState extends State<SubjectsSection> {
   String _search = '';
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
+  int _selectedGrade = -1;
+  Map<int, String> _subjectNames = {};
 
   bool get _canCreate =>
       widget.permissions.can(Resource.subjects, Action.create);
   bool get _canEdit => widget.permissions.can(Resource.subjects, Action.update);
   bool get _canDelete =>
       widget.permissions.can(Resource.subjects, Action.delete);
+
+  List<MapEntry<int, String>> get _gradeEntries {
+    final labels = gradeLabelsFor(widget.curriculumNotifier.value);
+    return labels.entries.where((e) {
+      if (widget.curriculumNotifier.value == CurriculumType.cbc && e.key <= 2) {
+        return false;
+      }
+      return true;
+    }).toList();
+  }
 
   @override
   void dispose() {
@@ -111,64 +124,243 @@ class _SubjectsSectionState extends State<SubjectsSection> {
               ),
             ),
 
-            // ── Subject list ───────────────────────────────────────────────
-            Expanded(
-              child: StreamBuilder<List<Subject>>(
-                stream: catalogDao.watchSubjectsByCurriculum(currentCurriculum),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const Center(
-                      child: Padding(
-                        padding: EdgeInsets.only(top: 48),
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 1.5),
-                        ),
-                      ),
-                    );
-                  }
-
-                  var subjects = snapshot.data!;
-                  if (_search.isNotEmpty) {
-                    final q = _search.toLowerCase();
-                    subjects = subjects
-                        .where((s) => s.name.toLowerCase().contains(q))
-                        .toList();
-                  }
-
-                  if (subjects.isEmpty) {
-                    return _EmptyState(
-                      curriculum: currentCurriculum,
-                      isFiltered: _search.isNotEmpty,
-                      cs: cs,
-                    );
-                  }
-
-                  return ListView.separated(
-                    padding: const EdgeInsets.only(bottom: 24, top: 2),
-                    itemCount: subjects.length,
-                    separatorBuilder: (_, __) =>
-                        AppTheme.tableRowDivider(isDark, cs),
-                    itemBuilder: (context, index) {
-                      final subject = subjects[index];
-                      return _SubjectTile(
-                        subject: subject,
-                        curriculum: currentCurriculum,
-                        canEdit: _canEdit,
-                        canDelete: _canDelete,
-                        canCreate: _canCreate,
+            // ── Grade tabs ─────────────────────────────────────────────────
+            if (_gradeEntries.length > 1)
+              Padding(
+                padding: const EdgeInsets.only(left: 16, right: 8, bottom: 6),
+                child: SizedBox(
+                  height: 30,
+                  child: Row(
+                    children: [
+                      _GradeChip(
+                        label: 'All',
+                        isSelected: _selectedGrade == -1,
+                        onTap: () => setState(() => _selectedGrade = -1),
                         cs: cs,
                         isDark: isDark,
-                        onEdit: () => _showEditSubject(context, subject),
-                        onDelete: () => _deleteSubject(context, subject),
-                      );
-                    },
-                  );
-                },
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _gradeEntries.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(width: 5),
+                          itemBuilder: (context, index) {
+                            final entry = _gradeEntries[index];
+                            final isActive = _selectedGrade == entry.key;
+                            return _GradeChip(
+                              label: entry.value,
+                              isSelected: isActive,
+                              onTap: () {
+                                setState(() {
+                                  _selectedGrade =
+                                      isActive ? -1 : entry.key;
+                                });
+                              },
+                              cs: cs,
+                              isDark: isDark,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
+
+            // ── Subject list ───────────────────────────────────────────────
+            Expanded(
+              child: _selectedGrade >= 0
+                  ? _buildGradeFilteredSubjects(currentCurriculum, cs, isDark)
+                  : _buildAllSubjects(currentCurriculum, cs, isDark),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  /// Builds the subject list filtered by the selected grade.
+  /// Uses [watchTopicsByCurriculum] to group topics by subject, then filters
+  /// to topics matching [_selectedGrade]. Only subjects with ≥1 topic in that
+  /// grade are shown. Subject names are resolved from a cached lookup map.
+  Widget _buildGradeFilteredSubjects(
+    CurriculumType curriculum,
+    ColorScheme cs,
+    bool isDark,
+  ) {
+    return StreamBuilder<List<Topic>>(
+      stream: catalogDao.watchTopicsByCurriculum(curriculum),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.only(top: 48),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 1.5),
+              ),
+            ),
+          );
+        }
+
+        final allTopics = snapshot.data!;
+
+        // Populate subject name cache for any new subject IDs
+        catalogDao.getSubjects().then((subjects) {
+          final map = <int, String>{};
+          for (final s in subjects) {
+            map[s.id] = s.name;
+          }
+          if (mounted) setState(() => _subjectNames = map);
+        });
+
+        // Group topics by subject, filtered to selected grade
+        final grouped = <int, List<Topic>>{};
+        for (final t in allTopics) {
+          if (t.grade != _selectedGrade) continue;
+          grouped.putIfAbsent(t.subject, () => []).add(t);
+        }
+
+        // Build sorted subject entries
+        final entries = grouped.entries.toList()
+          ..sort((a, b) {
+            final nameA =
+                _subjectNames[a.key]?.toLowerCase() ?? '';
+            final nameB =
+                _subjectNames[b.key]?.toLowerCase() ?? '';
+            return nameA.compareTo(nameB);
+          });
+
+        // Apply search filter
+        final filtered = _search.isEmpty
+            ? entries
+            : entries.where((e) {
+                final name = _subjectNames[e.key] ?? '';
+                return name.toLowerCase().contains(_search.toLowerCase());
+              }).toList();
+
+        if (filtered.isEmpty) {
+          return _EmptyState(
+            curriculum: curriculum,
+            isFiltered: _search.isNotEmpty || _selectedGrade >= 0,
+            cs: cs,
+          );
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.only(bottom: 24, top: 2),
+          itemCount: filtered.length,
+          separatorBuilder: (_, __) => AppTheme.tableRowDivider(isDark, cs),
+          itemBuilder: (context, index) {
+            final entry = filtered[index];
+            final subjectId = entry.key;
+            final topics = entry.value;
+            final subjectName =
+                _subjectNames[subjectId] ?? 'Subject #$subjectId';
+            return _SubjectTile(
+              subject: Subject(
+                id: subjectId,
+                name: subjectName,
+                curriculum: curriculum,
+                created: BigInt.zero,
+                updated: BigInt.zero,
+              ),
+              curriculum: curriculum,
+              canEdit: _canEdit,
+              canDelete: _canDelete,
+              canCreate: _canCreate,
+              cs: cs,
+              isDark: isDark,
+              selectedGrade: _selectedGrade,
+              topics: topics,
+              onEdit: () {
+                final s = Subject(
+                  id: subjectId,
+                  name: subjectName,
+                  curriculum: curriculum,
+                  created: BigInt.zero,
+                  updated: BigInt.zero,
+                );
+                _showEditSubject(context, s);
+              },
+              onDelete: () {
+                final s = Subject(
+                  id: subjectId,
+                  name: subjectName,
+                  curriculum: curriculum,
+                  created: BigInt.zero,
+                  updated: BigInt.zero,
+                );
+                _deleteSubject(context, s);
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// Builds the subject list showing ALL subjects (no grade filter).
+  /// Keeps the original per-subject grade selector behaviour.
+  Widget _buildAllSubjects(
+    CurriculumType curriculum,
+    ColorScheme cs,
+    bool isDark,
+  ) {
+    return StreamBuilder<List<Subject>>(
+      stream: catalogDao.watchSubjectsByCurriculum(curriculum),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.only(top: 48),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 1.5),
+              ),
+            ),
+          );
+        }
+
+        var subjects = snapshot.data!;
+        if (_search.isNotEmpty) {
+          final q = _search.toLowerCase();
+          subjects = subjects
+              .where((s) => s.name.toLowerCase().contains(q))
+              .toList();
+        }
+
+        if (subjects.isEmpty) {
+          return _EmptyState(
+            curriculum: curriculum,
+            isFiltered: _search.isNotEmpty,
+            cs: cs,
+          );
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.only(bottom: 24, top: 2),
+          itemCount: subjects.length,
+          separatorBuilder: (_, __) =>
+              AppTheme.tableRowDivider(isDark, cs),
+          itemBuilder: (context, index) {
+            final subject = subjects[index];
+            return _SubjectTile(
+              subject: subject,
+              curriculum: curriculum,
+              canEdit: _canEdit,
+              canDelete: _canDelete,
+              canCreate: _canCreate,
+              cs: cs,
+              isDark: isDark,
+              onEdit: () => _showEditSubject(context, subject),
+              onDelete: () => _deleteSubject(context, subject),
+            );
+          },
         );
       },
     );
@@ -379,6 +571,8 @@ class _SubjectTile extends StatefulWidget {
     required this.isDark,
     required this.onEdit,
     required this.onDelete,
+    this.selectedGrade = -1,
+    this.topics,
   });
 
   final Subject subject;
@@ -390,6 +584,8 @@ class _SubjectTile extends StatefulWidget {
   final bool isDark;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final int selectedGrade;
+  final List<Topic>? topics;
 
   @override
   State<_SubjectTile> createState() => _SubjectTileState();
@@ -591,15 +787,29 @@ class _SubjectTileState extends State<_SubjectTile>
         SizeTransition(
           sizeFactor: _expandAnim,
           axisAlignment: -1,
-          child: _TopicsPanel(
-            subject: subject,
-            curriculum: widget.curriculum,
-            canCreate: widget.canCreate,
-            canEdit: widget.canEdit,
-            canDelete: widget.canDelete,
-            cs: cs,
-            isDark: isDark,
-          ),
+          child: widget.selectedGrade >= 0 && widget.topics != null
+              ? _TopicList(
+                  subjectId: subject.id,
+                  subjectName: subject.name,
+                  grade: widget.selectedGrade,
+                  gradeLabel:
+                      gradeLabelsFor(widget.curriculum)[widget.selectedGrade] ??
+                          'Grade ${widget.selectedGrade}',
+                  canCreate: widget.canCreate,
+                  canEdit: widget.canEdit,
+                  canDelete: widget.canDelete,
+                  cs: cs,
+                  isDark: isDark,
+                )
+              : _TopicsPanel(
+                  subject: subject,
+                  curriculum: widget.curriculum,
+                  canCreate: widget.canCreate,
+                  canEdit: widget.canEdit,
+                  canDelete: widget.canDelete,
+                  cs: cs,
+                  isDark: isDark,
+                ),
         ),
       ],
     );
@@ -1458,33 +1668,48 @@ class _TopicExpandedContent extends StatefulWidget {
 }
 
 class _TopicExpandedContentState extends State<_TopicExpandedContent> {
-  late Future<int?> _questionCountFuture;
+  List<Question>? _questions;
+  int _total = 0;
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _questionCountFuture = _fetchQuestionCount();
+    _loadQuestions();
   }
 
   @override
   void didUpdateWidget(covariant _TopicExpandedContent oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.topic.id != widget.topic.id) {
-      _questionCountFuture = _fetchQuestionCount();
+      _loadQuestions();
     }
   }
 
-  Future<int?> _fetchQuestionCount() async {
+  Future<void> _loadQuestions() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     final result = await questionBankService.listQuestions(
       topicId: widget.topic.id,
       page: 0,
-      pageSize: 1,
+      pageSize: 200,
       accessToken: accessToken,
     );
-    return switch (result) {
-      Ok(value: final v) => v.$2,
-      Err() => null,
-    };
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      switch (result) {
+        case Ok(value: final v):
+          _questions = v.$1;
+          _total = v.$2;
+          _error = null;
+        case Err():
+          _error = 'Could not load questions';
+      }
+    });
   }
 
   @override
@@ -1494,7 +1719,7 @@ class _TopicExpandedContentState extends State<_TopicExpandedContent> {
 
     return Container(
       margin: const EdgeInsets.only(left: 28, right: 4, bottom: 6, top: 2),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
         color: isDark
             ? cs.surfaceContainerHighest.withValues(alpha: 0.15)
@@ -1509,60 +1734,7 @@ class _TopicExpandedContentState extends State<_TopicExpandedContent> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── Learning materials section ──────────────────────────────
-          Row(
-            children: [
-              Icon(
-                Icons.library_books_outlined,
-                size: 14,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.25),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  'Learning materials',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.40),
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.note_add_outlined,
-                  size: 20,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.15),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Notes coming soon',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w300,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.30),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          // ── Divider ────────────────────────────────────────────────
-          Container(
-            height: 0.5,
-            color: cs.outlineVariant.withValues(alpha: isDark ? 0.10 : 0.15),
-          ),
-          const SizedBox(height: 10),
-
-          // ── Questions section header ───────────────────────────────
+          // ── Questions header with actions ───────────────────────────
           Row(
             children: [
               Icon(
@@ -1579,46 +1751,7 @@ class _TopicExpandedContentState extends State<_TopicExpandedContent> {
                   color: cs.onSurface.withValues(alpha: 0.75),
                 ),
               ),
-              const SizedBox(width: 6),
-              // Question count badge
-              FutureBuilder<int?>(
-                future: _questionCountFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return SizedBox(
-                      width: 12,
-                      height: 12,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.5,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.25),
-                      ),
-                    );
-                  }
-                  final count = snapshot.data;
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 1,
-                    ),
-                    decoration: BoxDecoration(
-                      color: cs.primaryContainer.withValues(
-                        alpha: isDark ? 0.30 : 0.60,
-                      ),
-                      borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
-                    ),
-                    child: Text(
-                      count != null ? '$count' : '—',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: cs.onPrimaryContainer.withValues(alpha: 0.80),
-                      ),
-                    ),
-                  );
-                },
-              ),
               const Spacer(),
-              // Add question button (permission-gated)
               if (widget.canCreate)
                 _TinyAction(
                   icon: Icons.add_rounded,
@@ -1633,9 +1766,7 @@ class _TopicExpandedContentState extends State<_TopicExpandedContent> {
                         subjectName: widget.subjectName,
                         grade: widget.topic.grade,
                         onCreated: () {
-                          setState(() {
-                            _questionCountFuture = _fetchQuestionCount();
-                          });
+                          _loadQuestions();
                           widget.onQuestionCountChanged?.call();
                         },
                       ),
@@ -1644,7 +1775,6 @@ class _TopicExpandedContentState extends State<_TopicExpandedContent> {
                   cs: cs,
                 ),
               if (widget.canCreate) const SizedBox(width: 2),
-              // Import button
               _TinyAction(
                 icon: Icons.file_upload_outlined,
                 tooltip: 'Import questions',
@@ -1657,9 +1787,7 @@ class _TopicExpandedContentState extends State<_TopicExpandedContent> {
                       topicName: widget.topic.name,
                       subjectName: widget.subjectName,
                       onImported: () {
-                        setState(() {
-                          _questionCountFuture = _fetchQuestionCount();
-                        });
+                        _loadQuestions();
                         widget.onQuestionCountChanged?.call();
                       },
                     ),
@@ -1667,106 +1795,855 @@ class _TopicExpandedContentState extends State<_TopicExpandedContent> {
                 },
                 cs: cs,
               ),
+              const SizedBox(width: 2),
+              _TinyAction(
+                icon: Icons.open_in_full_rounded,
+                tooltip: 'Open full page',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => QuestionsListPage(
+                        topicId: widget.topic.id,
+                        topicName: widget.topic.name,
+                        subjectName: widget.subjectName,
+                        grade: widget.topic.grade,
+                        canEdit: widget.canEdit,
+                        canDelete: widget.canDelete,
+                        canCreate: widget.canCreate,
+                      ),
+                    ),
+                  );
+                },
+                cs: cs,
+              ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
 
-          // ── View all questions row ─────────────────────────────────
+          // ── Question list ───────────────────────────────────────────
+          if (_loading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 1.5),
+                ),
+              ),
+            )
+          else if (_error != null)
+            _QuestionErrorState(cs: cs, isDark: isDark)
+          else
+            _QuestionList(
+              questions: _questions!,
+              total: _total,
+              topic: widget.topic,
+              subjectName: widget.subjectName,
+              canEdit: widget.canEdit,
+              canDelete: widget.canDelete,
+              cs: cs,
+              isDark: isDark,
+              onChanged: () {
+                _loadQuestions();
+                widget.onQuestionCountChanged?.call();
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuestionErrorState extends StatelessWidget {
+  const _QuestionErrorState({required this.cs, required this.isDark});
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.cloud_off_outlined,
+              size: 18,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.2),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Could not load questions',
+              style: TextStyle(
+                fontSize: 11,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuestionList extends StatelessWidget {
+  const _QuestionList({
+    required this.questions,
+    required this.total,
+    required this.topic,
+    required this.subjectName,
+    required this.canEdit,
+    required this.canDelete,
+    required this.cs,
+    required this.isDark,
+    required this.onChanged,
+  });
+
+  final List<Question> questions;
+  final int total;
+  final Topic topic;
+  final String subjectName;
+  final bool canEdit;
+  final bool canDelete;
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    if (questions.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          child: Text(
+            'No questions yet',
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w300,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final shown = questions.length;
+    final hasMore = total > shown;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Showing $shown of $total question${total == 1 ? '' : 's'}',
+          style: TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w400,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+          ),
+        ),
+        const SizedBox(height: 6),
+        ...List.generate(questions.length, (i) {
+          return Padding(
+            padding: EdgeInsets.only(top: i > 0 ? 6 : 0),
+            child: _QuestionTile(
+              question: questions[i],
+              index: i,
+              topic: topic,
+              subjectName: subjectName,
+              canEdit: canEdit,
+              canDelete: canDelete,
+              cs: cs,
+              isDark: isDark,
+              onChanged: onChanged,
+            ),
+          );
+        }),
+        if (hasMore) ...[
+          const SizedBox(height: 8),
           GestureDetector(
             onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) => QuestionsListPage(
-                    topicId: widget.topic.id,
-                    topicName: widget.topic.name,
-                    subjectName: widget.subjectName,
-                    grade: widget.topic.grade,
-                    canEdit: widget.canEdit,
-                    canDelete: widget.canDelete,
-                    canCreate: widget.canCreate,
+                    topicId: topic.id,
+                    topicName: topic.name,
+                    subjectName: subjectName,
+                    grade: topic.grade,
+                    canEdit: canEdit,
+                    canDelete: canDelete,
+                    canCreate: true,
                   ),
                 ),
               );
             },
             child: MouseRegion(
               cursor: SystemMouseCursors.click,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.list_alt_rounded,
-                      size: 13,
-                      color: cs.primary.withValues(alpha: 0.50),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'View all questions',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w400,
-                        color: cs.primary.withValues(alpha: 0.70),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      size: 14,
-                      color: cs.primary.withValues(alpha: 0.40),
-                    ),
-                  ],
+              child: Text(
+                'View all $total questions →',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w400,
+                  color: cs.primary.withValues(alpha: 0.7),
                 ),
               ),
             ),
           ),
-
-          // ── Bulk import row ────────────────────────────────────────
-          GestureDetector(
-            onTap: () {
-              showEduSheet(
-                context: context,
-                maxWidth: 520,
-                builder: (_) => BulkImportSheet(
-                  topicId: widget.topic.id,
-                  topicName: widget.topic.name,
-                  subjectName: widget.subjectName,
-                  onImported: () {
-                    setState(() {
-                      _questionCountFuture = _fetchQuestionCount();
-                    });
-                    widget.onQuestionCountChanged?.call();
-                  },
-                ),
-              );
-            },
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.drive_folder_upload_outlined,
-                      size: 13,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.40),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Bulk import',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w400,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.55),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
         ],
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Question tile — expandable card with full question detail
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _QuestionTile extends StatefulWidget {
+  const _QuestionTile({
+    required this.question,
+    required this.index,
+    required this.topic,
+    required this.subjectName,
+    required this.canEdit,
+    required this.canDelete,
+    required this.cs,
+    required this.isDark,
+    required this.onChanged,
+  });
+
+  final Question question;
+  final int index;
+  final Topic topic;
+  final String subjectName;
+  final bool canEdit;
+  final bool canDelete;
+  final ColorScheme cs;
+  final bool isDark;
+  final VoidCallback onChanged;
+
+  @override
+  State<_QuestionTile> createState() => _QuestionTileState();
+}
+
+class _QuestionTileState extends State<_QuestionTile>
+    with SingleTickerProviderStateMixin {
+  bool _expanded = false;
+  late final AnimationController _expandCtrl;
+  late final Animation<double> _expandAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _expandCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _expandAnim = CurvedAnimation(
+      parent: _expandCtrl,
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
+  void dispose() {
+    _expandCtrl.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    setState(() {
+      _expanded = !_expanded;
+      if (_expanded) {
+        _expandCtrl.forward();
+      } else {
+        _expandCtrl.reverse();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final isDark = widget.isDark;
+    final q = widget.question;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark
+            ? cs.surfaceContainerHighest.withValues(alpha: 0.25)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.30),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.12 : 0.18),
+          width: 0.5,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Question header (always visible) ──────────────────────────
+          GestureDetector(
+            onTap: _toggle,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
+              child: Row(
+                children: [
+                  // Expand indicator
+                  AnimatedRotation(
+                    turns: _expanded ? 0.25 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.chevron_right_rounded,
+                      size: 15,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  // Question number
+                  Text(
+                    'Q${widget.index + 1}',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: cs.primary.withValues(alpha: 0.7),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Type badge
+                  if (q.type.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1.5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cs.tertiary.withValues(
+                          alpha: isDark ? 0.15 : 0.10,
+                        ),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        q.type,
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w500,
+                          color: cs.tertiary.withValues(
+                            alpha: isDark ? 0.7 : 0.55,
+                          ),
+                        ),
+                      ),
+                    ),
+                  const SizedBox(width: 6),
+                  // Marks badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 1.5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(
+                        alpha: isDark ? 0.12 : 0.08,
+                      ),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '${q.marks}m',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: cs.primary.withValues(
+                          alpha: isDark ? 0.7 : 0.6,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Difficulty dots
+                  if (q.difficulty > 0) ...[
+                    const SizedBox(width: 6),
+                    ...List.generate(
+                      q.difficulty.clamp(1, 5),
+                      (i) => Padding(
+                        padding: const EdgeInsets.only(right: 1),
+                        child: Icon(
+                          Icons.circle_rounded,
+                          size: 6,
+                          color: q.difficulty >= 4
+                              ? cs.error.withValues(alpha: 0.5)
+                              : q.difficulty >= 3
+                                  ? cs.tertiary.withValues(alpha: 0.55)
+                                  : cs.primary.withValues(alpha: 0.35),
+                        ),
+                      ),
+                    ),
+                  ],
+                  const Spacer(),
+                  // Body preview (truncated)
+                  Flexible(
+                    flex: 2,
+                    child: Text(
+                      q.body.length > 100
+                          ? '${q.body.substring(0, 100)}…'
+                          : q.body,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w300,
+                        color: cs.onSurface.withValues(alpha: 0.55),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                ],
+              ),
+            ),
+          ),
+          // ── Expanded detail ───────────────────────────────────────────
+          SizeTransition(
+            sizeFactor: _expandAnim,
+            axisAlignment: -1,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    height: 0.5,
+                    color: cs.outlineVariant.withValues(
+                      alpha: isDark ? 0.10 : 0.14,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  // Full body
+                  _DetailLabel(label: 'Question', cs: cs, isDark: isDark),
+                  const SizedBox(height: 4),
+                  Text(
+                    q.body,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurface.withValues(alpha: 0.85),
+                      height: 1.5,
+                    ),
+                  ),
+                  // Stimulus (if present)
+                  if (q.stimulus != null && q.stimulus!.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    _DetailLabel(
+                      label: 'Stimulus / Context',
+                      cs: cs,
+                      isDark: isDark,
+                    ),
+                    const SizedBox(height: 4),
+                    _StimulusPreview(stimulus: q.stimulus!, cs: cs, isDark: isDark),
+                  ],
+                  // Parts
+                  if (q.parts.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _DetailLabel(label: 'Parts', cs: cs, isDark: isDark),
+                    const SizedBox(height: 6),
+                    ...q.parts.map(
+                      (p) => _PartRow(part: p, cs: cs, isDark: isDark),
+                    ),
+                  ],
+                  // Rubric
+                  if (q.rubric.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _DetailLabel(label: 'Rubric', cs: cs, isDark: isDark),
+                    const SizedBox(height: 6),
+                    ...q.rubric.map(
+                      (r) => _RubricRow(criterion: r, cs: cs, isDark: isDark),
+                    ),
+                  ],
+                  // Meta row
+                  const SizedBox(height: 12),
+                  _DetailLabel(label: 'Meta', cs: cs, isDark: isDark),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      if (q.cognitiveLevel.isNotEmpty)
+                        _MetaChip(
+                          label: q.cognitiveLevel,
+                          icon: Icons.psychology_outlined,
+                          cs: cs,
+                          isDark: isDark,
+                        ),
+                      if (q.answerSpaceType.isNotEmpty)
+                        _MetaChip(
+                          label: q.answerSpaceType == 'lines'
+                              ? '${q.answerLines} lines'
+                              : q.answerSpaceType.replaceAll('_', ' '),
+                          icon: Icons.edit_note_outlined,
+                          cs: cs,
+                          isDark: isDark,
+                        ),
+                      if (q.maxMarks > 0)
+                        _MetaChip(
+                          label: 'Max ${q.maxMarks} marks',
+                          icon: Icons.grade_outlined,
+                          cs: cs,
+                          isDark: isDark,
+                        ),
+                    ],
+                  ),
+                  // Example answer
+                  if (q.exampleAnswer != null &&
+                      q.exampleAnswer.toString().isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    _DetailLabel(
+                      label: 'Example Answer',
+                      cs: cs,
+                      isDark: isDark,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      q.exampleAnswer.toString(),
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w300,
+                        fontStyle: FontStyle.italic,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                  // Images note
+                  if (q.images.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      '${q.images.length} image${q.images.length == 1 ? '' : 's'} attached',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w300,
+                        color: cs.primary.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ],
+                  // Actions row
+                  if (widget.canDelete) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        _TextAction(
+                          label: 'Delete',
+                          isDestructive: true,
+                          onTap: () async {
+                            final confirmed = await showEduConfirmDialog(
+                              context: context,
+                              title: 'Delete Question',
+                              message:
+                                  'Delete Q${widget.index + 1} permanently?',
+                              confirmLabel: 'Delete',
+                              isDestructive: true,
+                            );
+                            if (!confirmed) return;
+                            final result = await questionBankService
+                                .deleteQuestion(
+                                  id: q.id,
+                                  accessToken: accessToken,
+                                );
+                            if (!mounted) return;
+                            switch (result) {
+                              case Ok():
+                                widget.onChanged();
+                              case Err():
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Failed to delete question',
+                                    ),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                            }
+                          },
+                          cs: cs,
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Question detail helper widgets ──────────────────────────────────────────
+
+class _DetailLabel extends StatelessWidget {
+  const _DetailLabel({
+    required this.label,
+    required this.cs,
+    required this.isDark,
+  });
+  final String label;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: TextStyle(
+        fontSize: 10,
+        fontWeight: FontWeight.w600,
+        color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+        letterSpacing: 0.3,
+      ),
+    );
+  }
+}
+
+class _PartRow extends StatelessWidget {
+  const _PartRow({required this.part, required this.cs, required this.isDark});
+  final QuestionPart part;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: isDark ? 0.12 : 0.08),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              part.label,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+                color: cs.primary.withValues(alpha: 0.7),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  part.body,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurface.withValues(alpha: 0.75),
+                    height: 1.4,
+                  ),
+                ),
+                if (part.marks > 0) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    '${part.marks} mark${part.marks == 1 ? '' : 's'}',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w300,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RubricRow extends StatelessWidget {
+  const _RubricRow({
+    required this.criterion,
+    required this.cs,
+    required this.isDark,
+  });
+  final RubricCriterion criterion;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${criterion.marks}m',
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w500,
+              color: cs.primary.withValues(alpha: 0.6),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              criterion.criterion,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w300,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetaChip extends StatelessWidget {
+  const _MetaChip({
+    required this.label,
+    required this.icon,
+    required this.cs,
+    required this.isDark,
+  });
+  final String label;
+  final IconData icon;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(
+          alpha: isDark ? 0.5 : 0.6,
+        ),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 10, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StimulusPreview extends StatelessWidget {
+  const _StimulusPreview({
+    required this.stimulus,
+    required this.cs,
+    required this.isDark,
+  });
+  final Map<String, dynamic> stimulus;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = stimulus['text'] as String?;
+    if (text == null || text.isEmpty) {
+      return Text(
+        stimulus.toString(),
+        style: TextStyle(
+          fontSize: 11,
+          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+        ),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: isDark
+            ? cs.surfaceContainerHighest.withValues(alpha: 0.3)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: 0.15),
+          width: 0.5,
+        ),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11.5,
+          fontWeight: FontWeight.w300,
+          fontStyle: FontStyle.italic,
+          color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+          height: 1.5,
+        ),
+      ),
+    );
+  }
+}
+
+class _TextAction extends StatefulWidget {
+  const _TextAction({
+    required this.label,
+    required this.onTap,
+    required this.cs,
+    this.isDestructive = false,
+  });
+  final String label;
+  final VoidCallback onTap;
+  final ColorScheme cs;
+  final bool isDestructive;
+
+  @override
+  State<_TextAction> createState() => _TextActionState();
+}
+
+class _TextActionState extends State<_TextAction> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = widget.isDestructive
+        ? widget.cs.error
+        : widget.cs.primary;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Text(
+          widget.label,
+          style: TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w400,
+            color: color.withValues(alpha: _hovered ? 1.0 : 0.55),
+            decoration: _hovered ? TextDecoration.underline : null,
+          ),
+        ),
       ),
     );
   }
