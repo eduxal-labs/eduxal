@@ -8263,14 +8263,16 @@ class DeleteSubjectPayload extends $pb.GeneratedMessage {
 
 class CreateTopicPayload extends $pb.GeneratedMessage {
   factory CreateTopicPayload({
-    $core.int? subject,
+    $core.String? subjectName,
     $core.int? grade,
     $core.String? name,
+    $core.int? curriculum,
   }) {
     final result = create();
-    if (subject != null) result.subject = subject;
+    if (subjectName != null) result.subjectName = subjectName;
     if (grade != null) result.grade = grade;
     if (name != null) result.name = name;
+    if (curriculum != null) result.curriculum = curriculum;
     return result;
   }
 
@@ -8287,9 +8289,10 @@ class CreateTopicPayload extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'CreateTopicPayload',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
       createEmptyInstance: create)
-    ..aI(1, _omitFieldNames ? '' : 'subject')
+    ..aOS(1, _omitFieldNames ? '' : 'subjectName')
     ..aI(2, _omitFieldNames ? '' : 'grade')
     ..aOS(3, _omitFieldNames ? '' : 'name')
+    ..aI(4, _omitFieldNames ? '' : 'curriculum')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -8312,13 +8315,13 @@ class CreateTopicPayload extends $pb.GeneratedMessage {
   static CreateTopicPayload? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.int get subject => $_getIZ(0);
+  $core.String get subjectName => $_getSZ(0);
   @$pb.TagNumber(1)
-  set subject($core.int value) => $_setSignedInt32(0, value);
+  set subjectName($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasSubject() => $_has(0);
+  $core.bool hasSubjectName() => $_has(0);
   @$pb.TagNumber(1)
-  void clearSubject() => $_clearField(1);
+  void clearSubjectName() => $_clearField(1);
 
   @$pb.TagNumber(2)
   $core.int get grade => $_getIZ(1);
@@ -8337,6 +8340,15 @@ class CreateTopicPayload extends $pb.GeneratedMessage {
   $core.bool hasName() => $_has(2);
   @$pb.TagNumber(3)
   void clearName() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get curriculum => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set curriculum($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasCurriculum() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearCurriculum() => $_clearField(4);
 }
 
 class UpdateTopicPayload extends $pb.GeneratedMessage {

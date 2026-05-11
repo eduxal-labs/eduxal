@@ -268,10 +268,17 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
   /// which may differ from the server's. When the server responds, the
   /// [DeltaWriter] deletes the stale local row by natural key and inserts
   /// the authoritative row with the server-assigned ID.
+  ///
+  /// The sync payload uses [subjectName] + [curriculum] (natural key) so the
+  /// server can resolve the correct server-side subject ID, avoiding the
+  /// client-local vs server ID mismatch that would otherwise mix up topics
+  /// across subjects.
   Future<void> createTopic({
     required int subjectId,
+    required String subjectName,
     required int grade,
     required String name,
+    required int curriculum,
     required String accountId,
   }) async {
     final _authResult = await authorization.check(
@@ -297,9 +304,10 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
       );
 
       final payload = sync_pb.CreateTopicPayload(
-        subject: subjectId,
+        subjectName: subjectName,
         grade: grade,
         name: name,
+        curriculum: curriculum,
       );
 
       await into(logs).insert(
@@ -320,8 +328,10 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
   /// Writes a `createTopic` log entry only when creating a new topic.
   Future<int> findOrCreateTopic({
     required int subjectId,
+    required String subjectName,
     required int grade,
     required String name,
+    required int curriculum,
     required String accountId,
   }) async {
     final existing =
@@ -335,8 +345,10 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
     if (existing != null) return existing.id;
     await createTopic(
       subjectId: subjectId,
+      subjectName: subjectName,
       grade: grade,
       name: name,
+      curriculum: curriculum,
       accountId: accountId,
     );
     final created =

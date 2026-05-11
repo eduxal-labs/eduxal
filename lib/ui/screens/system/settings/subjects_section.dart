@@ -852,6 +852,7 @@ class _SubjectTileState extends State<_SubjectTile>
                   gradeLabel:
                       gradeLabelsFor(widget.curriculum)[widget.selectedGrade] ??
                           'Grade ${widget.selectedGrade}',
+                  curriculum: widget.curriculum.index_,
                   canCreate: widget.canCreate,
                   canEdit: widget.canEdit,
                   canDelete: widget.canDelete,
@@ -1085,6 +1086,7 @@ class _TopicsPanelState extends State<_TopicsPanel> {
               gradeLabel:
                   gradeLabelsFor(widget.curriculum)[_selectedGrade] ??
                   'Grade $_selectedGrade',
+              curriculum: widget.curriculum.index_,
               canCreate: widget.canCreate,
               canEdit: widget.canEdit,
               canDelete: widget.canDelete,
@@ -1253,6 +1255,7 @@ class _TopicList extends StatelessWidget {
     required this.subjectName,
     required this.grade,
     required this.gradeLabel,
+    required this.curriculum,
     required this.canCreate,
     required this.canEdit,
     required this.canDelete,
@@ -1264,6 +1267,7 @@ class _TopicList extends StatelessWidget {
   final String subjectName;
   final int grade;
   final String gradeLabel;
+  final int curriculum;
   final bool canCreate;
   final bool canEdit;
   final bool canDelete;
@@ -1384,6 +1388,7 @@ class _TopicList extends StatelessWidget {
         subjectName: subjectName,
         grade: grade,
         gradeLabel: gradeLabel,
+        curriculum: curriculum,
       ),
     );
   }
@@ -3230,12 +3235,14 @@ class _CreateTopicSheet extends StatefulWidget {
     required this.subjectName,
     required this.grade,
     required this.gradeLabel,
+    required this.curriculum,
   });
 
   final int subjectId;
   final String subjectName;
   final int grade;
   final String gradeLabel;
+  final int curriculum;
 
   @override
   State<_CreateTopicSheet> createState() => _CreateTopicSheetState();
@@ -3280,8 +3287,10 @@ class _CreateTopicSheetState extends State<_CreateTopicSheet> {
     try {
       await catalogDao.createTopic(
         subjectId: widget.subjectId,
+        subjectName: widget.subjectName,
         grade: widget.grade,
         name: _nameCtrl.text.trim(),
+        curriculum: widget.curriculum,
         accountId: accountId,
       );
       if (mounted) Navigator.of(context).pop();

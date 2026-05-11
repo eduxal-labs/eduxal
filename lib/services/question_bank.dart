@@ -980,8 +980,10 @@ class QuestionBankService {
     try {
       topicId = await catalogDao.findOrCreateTopic(
         subjectId: subjectId,
+        subjectName: parsed.subject,
         grade: parsed.grade,
         name: parsed.topic,
+        curriculum: curriculum.index_,
         accountId: accountId,
       );
     } catch (e) {

@@ -2108,16 +2108,16 @@ final $typed_data.Uint8List deleteSubjectPayloadDescriptor = $convert
 const CreateTopicPayload$json = {
   '1': 'CreateTopicPayload',
   '2': [
-    {'1': 'subject', '3': 1, '4': 1, '5': 5, '10': 'subject'},
+    {'1': 'subjectName', '3': 1, '4': 1, '5': 9, '10': 'subjectName'},
     {'1': 'grade', '3': 2, '4': 1, '5': 5, '10': 'grade'},
     {'1': 'name', '3': 3, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'curriculum', '3': 4, '4': 1, '5': 5, '10': 'curriculum'},
   ],
 };
 
 /// Descriptor for `CreateTopicPayload`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List createTopicPayloadDescriptor = $convert.base64Decode(
-    'ChJDcmVhdGVUb3BpY1BheWxvYWQSGAoHc3ViamVjdBgBIAEoBVIHc3ViamVjdBIUCgVncmFkZR'
-    'gCIAEoBVIFZ3JhZGUSEgoEbmFtZRgDIAEoCVIEbmFtZQ==');
+    '');
 
 @$core.Deprecated('Use updateTopicPayloadDescriptor instead')
 const UpdateTopicPayload$json = {
