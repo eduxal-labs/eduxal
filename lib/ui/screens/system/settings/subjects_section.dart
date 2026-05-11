@@ -1,4 +1,8 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart' hide Action;
+import 'package:path_provider/path_provider.dart';
 
 import '../../../../client.dart';
 import '../../../../models/result.dart';
@@ -50,6 +54,7 @@ class _SubjectsSectionState extends State<SubjectsSection> {
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
   int _selectedGrade = -1;
+  CurriculumType? _lastCurriculum;
   Map<int, String> _subjectNames = {};
 
   bool get _canCreate =>
@@ -58,14 +63,62 @@ class _SubjectsSectionState extends State<SubjectsSection> {
   bool get _canDelete =>
       widget.permissions.can(Resource.subjects, Action.delete);
 
+  /// Grade entries for the current curriculum, excluding PP1/PP2 for CBC and
+  /// Standard 1–8 for 8-4-4 (only Form 1–4 remain).
   List<MapEntry<int, String>> get _gradeEntries {
     final labels = gradeLabelsFor(widget.curriculumNotifier.value);
     return labels.entries.where((e) {
-      if (widget.curriculumNotifier.value == CurriculumType.cbc && e.key <= 2) {
-        return false;
-      }
+      final c = widget.curriculumNotifier.value;
+      if (c == CurriculumType.cbc && e.key <= 2) return false;
+      if (c == CurriculumType.eightFourFour && e.key < 41) return false;
       return true;
     }).toList();
+  }
+
+  /// Default grade per curriculum: Grade 1 (3) for CBC, Form 1 (41) for 844.
+  int _defaultGrade(CurriculumType c) =>
+      c == CurriculumType.cbc ? 3 : 41;
+
+  Future<File> _prefsFile() async {
+    final dir = await getApplicationDocumentsDirectory();
+    return File('${dir.path}/subject_grade_prefs.json');
+  }
+
+  Future<void> _loadGradePref() async {
+    try {
+      final f = await _prefsFile();
+      if (!await f.exists()) return;
+      final map = jsonDecode(await f.readAsString()) as Map<String, dynamic>;
+      final key = widget.curriculumNotifier.value == CurriculumType.cbc
+          ? 'cbc'
+          : '844';
+      final saved = map[key] as int?;
+      if (saved != null && mounted) {
+        setState(() => _selectedGrade = saved);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveGradePref(int grade) async {
+    try {
+      final f = await _prefsFile();
+      Map<String, dynamic> map = {};
+      if (await f.exists()) {
+        map = jsonDecode(await f.readAsString()) as Map<String, dynamic>;
+      }
+      final key = widget.curriculumNotifier.value == CurriculumType.cbc
+          ? 'cbc'
+          : '844';
+      map[key] = grade;
+      await f.writeAsString(jsonEncode(map));
+    } catch (_) {}
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedGrade = _defaultGrade(widget.curriculumNotifier.value);
+    _loadGradePref();
   }
 
   @override
@@ -92,6 +145,13 @@ class _SubjectsSectionState extends State<SubjectsSection> {
     return ValueListenableBuilder<CurriculumType>(
       valueListenable: widget.curriculumNotifier,
       builder: (context, currentCurriculum, _) {
+        if (_lastCurriculum != null &&
+            _lastCurriculum != currentCurriculum) {
+          _selectedGrade = _defaultGrade(currentCurriculum);
+          _loadGradePref();
+        }
+        _lastCurriculum = currentCurriculum;
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -124,47 +184,44 @@ class _SubjectsSectionState extends State<SubjectsSection> {
               ),
             ),
 
-            // ── Grade tabs ─────────────────────────────────────────────────
+            // ── Grade tabs (pill style, matching curriculum toggle) ────────
             if (_gradeEntries.length > 1)
               Padding(
-                padding: const EdgeInsets.only(left: 16, right: 8, bottom: 6),
+                padding:
+                    const EdgeInsets.only(left: 16, right: 8, bottom: 8),
                 child: SizedBox(
-                  height: 30,
-                  child: Row(
-                    children: [
-                      _GradeChip(
-                        label: 'All',
-                        isSelected: _selectedGrade == -1,
-                        onTap: () => setState(() => _selectedGrade = -1),
-                        cs: cs,
-                        isDark: isDark,
-                      ),
-                      const SizedBox(width: 5),
-                      Expanded(
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: _gradeEntries.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(width: 5),
-                          itemBuilder: (context, index) {
-                            final entry = _gradeEntries[index];
-                            final isActive = _selectedGrade == entry.key;
-                            return _GradeChip(
-                              label: entry.value,
-                              isSelected: isActive,
-                              onTap: () {
-                                setState(() {
-                                  _selectedGrade =
-                                      isActive ? -1 : entry.key;
-                                });
-                              },
-                              cs: cs,
-                              isDark: isDark,
+                  height: 32,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0xFF1E2A3A)
+                          : cs.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _gradeEntries.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 0),
+                      itemBuilder: (context, index) {
+                        final entry = _gradeEntries[index];
+                        final isSelected =
+                            _selectedGrade == entry.key;
+                        return _GradePill(
+                          label: entry.value,
+                          isSelected: isSelected,
+                          onTap: () {
+                            if (_selectedGrade == entry.key) return;
+                            setState(
+                              () => _selectedGrade = entry.key,
                             );
+                            _saveGradePref(entry.key);
                           },
-                        ),
-                      ),
-                    ],
+                          cs: cs,
+                          isDark: isDark,
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
@@ -1055,7 +1112,62 @@ class _TopicsPanelState extends State<_TopicsPanel> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Grade chip — selectable filter chip
+// Grade pill — toggle pill matching the curriculum toggle style
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GradePill extends StatelessWidget {
+  const _GradePill({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? cs.surface : Colors.white)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 2,
+                    offset: const Offset(0, 1),
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
+            color: isSelected ? cs.onSurface : cs.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Grade chip — selectable filter chip (used in per-subject _TopicsPanel)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _GradeChip extends StatefulWidget {
@@ -1590,6 +1702,7 @@ class _TopicTileState extends State<_TopicTile>
             canDelete: widget.canDelete,
             cs: cs,
             isDark: isDark,
+            shouldLoad: _expanded,
             onQuestionCountChanged: _refreshQuestionCount,
           ),
         ),
@@ -1651,6 +1764,7 @@ class _TopicExpandedContent extends StatefulWidget {
     required this.canDelete,
     required this.cs,
     required this.isDark,
+    this.shouldLoad = false,
     this.onQuestionCountChanged,
   });
 
@@ -1661,6 +1775,7 @@ class _TopicExpandedContent extends StatefulWidget {
   final bool canDelete;
   final ColorScheme cs;
   final bool isDark;
+  final bool shouldLoad;
   final VoidCallback? onQuestionCountChanged;
 
   @override
@@ -1670,19 +1785,25 @@ class _TopicExpandedContent extends StatefulWidget {
 class _TopicExpandedContentState extends State<_TopicExpandedContent> {
   List<Question>? _questions;
   int _total = 0;
-  bool _loading = true;
+  bool _loading = false;
   String? _error;
+  bool _hasLoaded = false;
 
   @override
   void initState() {
     super.initState();
-    _loadQuestions();
+    if (widget.shouldLoad) _loadQuestions();
   }
 
   @override
   void didUpdateWidget(covariant _TopicExpandedContent oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.topic.id != widget.topic.id) {
+      _hasLoaded = false;
+      _questions = null;
+      _error = null;
+      if (widget.shouldLoad) _loadQuestions();
+    } else if (widget.shouldLoad && !_hasLoaded && !_loading) {
       _loadQuestions();
     }
   }
@@ -1701,6 +1822,7 @@ class _TopicExpandedContentState extends State<_TopicExpandedContent> {
     if (!mounted) return;
     setState(() {
       _loading = false;
+      _hasLoaded = true;
       switch (result) {
         case Ok(value: final v):
           _questions = v.$1;
@@ -1830,6 +1952,20 @@ class _TopicExpandedContentState extends State<_TopicExpandedContent> {
                   width: 18,
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 1.5),
+                ),
+              ),
+            )
+          else if (!_hasLoaded)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  'Expand to load questions',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w300,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.30),
+                  ),
                 ),
               ),
             )
