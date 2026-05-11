@@ -51,7 +51,7 @@ class SubjectsSection extends StatefulWidget {
 }
 
 class _SubjectsSectionState extends State<SubjectsSection>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   String _search = '';
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
@@ -124,6 +124,20 @@ class _SubjectsSectionState extends State<SubjectsSection>
     _selectedGrade = _defaultGrade(widget.curriculumNotifier.value);
     _loadGradePref();
     _syncGradeTabs();
+    widget.curriculumNotifier.addListener(_onCurriculumChanged);
+  }
+
+  void _onCurriculumChanged() {
+    final current = widget.curriculumNotifier.value;
+    if (_lastCurriculum == current) return;
+    final prev = _lastCurriculum;
+    _lastCurriculum = current;
+    // Only reset grade when actually switching (not initial load).
+    if (prev != null) {
+      _selectedGrade = _defaultGrade(current);
+      _loadGradePref();
+    }
+    _syncGradeTabs();
   }
 
   void _syncGradeTabs() {
@@ -162,6 +176,7 @@ class _SubjectsSectionState extends State<SubjectsSection>
 
   @override
   void dispose() {
+    widget.curriculumNotifier.removeListener(_onCurriculumChanged);
     _gradeTabController?.removeListener(_onGradeTabChanged);
     _gradeTabController?.dispose();
     _searchCtrl.dispose();
@@ -186,14 +201,6 @@ class _SubjectsSectionState extends State<SubjectsSection>
     return ValueListenableBuilder<CurriculumType>(
       valueListenable: widget.curriculumNotifier,
       builder: (context, currentCurriculum, _) {
-        if (_lastCurriculum != null &&
-            _lastCurriculum != currentCurriculum) {
-          _selectedGrade = _defaultGrade(currentCurriculum);
-          _loadGradePref();
-          _syncGradeTabs();
-        }
-        _lastCurriculum = currentCurriculum;
-
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
