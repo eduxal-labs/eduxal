@@ -26,12 +26,16 @@ class BulkImportSheet extends StatefulWidget {
     required this.topicId,
     required this.topicName,
     required this.subjectName,
+    required this.curriculum,
+    required this.grade,
     this.onImported,
   });
 
   final int topicId;
   final String topicName;
   final String subjectName;
+  final int curriculum;
+  final int grade;
 
   /// Called after a successful (or partial-success) import so the caller can
   /// refresh its question list.
@@ -236,6 +240,10 @@ class _BulkImportSheetState extends State<BulkImportSheet> {
     final result = await questionBankService.bulkImport(
       jsonContent: _jsonCtrl.text.trim(),
       accessToken: accessToken,
+      subjectName: widget.subjectName,
+      curriculum: widget.curriculum,
+      grade: widget.grade,
+      topicName: widget.topicName,
     );
 
     if (!mounted) return;

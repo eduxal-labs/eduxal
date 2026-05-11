@@ -320,10 +320,10 @@ class QuestionBankService {
   Future<Result<models.BulkImportResult, GrpcError>> bulkImport({
     required String jsonContent,
     required String accessToken,
-    required String subjectName,
-    required int curriculum,
-    required int grade,
-    required String topicName,
+    String? subjectName,
+    int? curriculum,
+    int? grade,
+    String? topicName,
     String? diagnosticLabel,
   }) async {
     final label = diagnosticLabel?.trim().isNotEmpty == true
@@ -338,11 +338,11 @@ class QuestionBankService {
       final rawList = (decoded['questions'] as List<dynamic>? ?? [])
           .cast<Map<String, dynamic>>();
 
-      final req = pb.BulkImportRequest()
-        ..subjectName = subjectName
-        ..curriculum = curriculum
-        ..grade = grade
-        ..topicName = topicName;
+      final req = pb.BulkImportRequest();
+      if (subjectName != null) req.subjectName = subjectName;
+      if (curriculum != null) req.curriculum = curriculum;
+      if (grade != null) req.grade = grade;
+      if (topicName != null) req.topicName = topicName;
       for (final q in rawList) {
         final body = (q['body'] as String? ?? q['text'] as String? ?? '').trim();
         final marks = (q['marks'] as num?)?.toInt() ?? 0;

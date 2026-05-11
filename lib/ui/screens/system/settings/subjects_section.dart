@@ -1323,6 +1323,8 @@ class _TopicList extends StatelessWidget {
                     _TopicTile(
                       topic: topics[i],
                       subjectName: subjectName,
+                      curriculum: curriculum,
+                      grade: grade,
                       canCreate: canCreate,
                       canEdit: canEdit,
                       canDelete: canDelete,
@@ -1432,6 +1434,8 @@ class _TopicTile extends StatefulWidget {
   const _TopicTile({
     required this.topic,
     required this.subjectName,
+    required this.curriculum,
+    required this.grade,
     required this.canCreate,
     required this.canEdit,
     required this.canDelete,
@@ -1441,6 +1445,8 @@ class _TopicTile extends StatefulWidget {
 
   final Topic topic;
   final String subjectName;
+  final int curriculum;
+  final int grade;
   final bool canCreate;
   final bool canEdit;
   final bool canDelete;
@@ -1488,6 +1494,7 @@ class _TopicTileState extends State<_TopicTile>
       _expanded = !_expanded;
       if (_expanded) {
         _expandCtrl.forward();
+        _refreshQuestionCount();
       } else {
         _expandCtrl.reverse();
       }
@@ -1693,6 +1700,8 @@ class _TopicTileState extends State<_TopicTile>
           child: _TopicExpandedContent(
             topic: topic,
             subjectName: widget.subjectName,
+            curriculum: widget.curriculum,
+            grade: widget.grade,
             canCreate: widget.canCreate,
             canEdit: widget.canEdit,
             canDelete: widget.canDelete,
@@ -1755,6 +1764,8 @@ class _TopicExpandedContent extends StatefulWidget {
   const _TopicExpandedContent({
     required this.topic,
     required this.subjectName,
+    required this.curriculum,
+    required this.grade,
     required this.canCreate,
     required this.canEdit,
     required this.canDelete,
@@ -1766,6 +1777,8 @@ class _TopicExpandedContent extends StatefulWidget {
 
   final Topic topic;
   final String subjectName;
+  final int curriculum;
+  final int grade;
   final bool canCreate;
   final bool canEdit;
   final bool canDelete;
@@ -1904,6 +1917,8 @@ class _TopicExpandedContentState extends State<_TopicExpandedContent> {
                       topicId: widget.topic.id,
                       topicName: widget.topic.name,
                       subjectName: widget.subjectName,
+                      curriculum: widget.curriculum,
+                      grade: widget.grade,
                       onImported: () {
                         _loadQuestions();
                         widget.onQuestionCountChanged?.call();

@@ -464,13 +464,20 @@ class _QuestionRowState extends State<_QuestionRow>
                   ),
                   const SizedBox(width: 6),
                   // Type badge
-                  Chip(
-                    label: Text(q.type, style: const TextStyle(fontSize: 10)),
-                    backgroundColor: _questionTypeColor(q.type),
-                    padding: EdgeInsets.zero,
-                    labelPadding: const EdgeInsets.symmetric(horizontal: 6),
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _questionTypeBg(q.type, cs, isDark),
+                      borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+                    ),
+                    child: Text(
+                      q.type,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: _questionTypeFg(q.type, cs, isDark),
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 6),
                   // Question text
@@ -847,16 +854,31 @@ class _QuestionExpandedContent extends StatelessWidget {
 // Question type colour helper
 // ─────────────────────────────────────────────────────────────────────────────
 
-Color _questionTypeColor(String type) {
+Color _questionTypeBg(String type, ColorScheme cs, bool isDark) {
+  final alpha = isDark ? 0.20 : 0.12;
   return switch (type) {
-    'definition' => Colors.blue.shade100,
-    'calculation' => Colors.orange.shade100,
-    'structured' => Colors.purple.shade100,
-    'experiment' => Colors.green.shade100,
-    'diagram' => Colors.teal.shade100,
-    'data_response' => Colors.cyan.shade100,
-    'explanation' => Colors.grey.shade200,
-    _ => Colors.grey.shade200,
+    'definition' => cs.primary.withValues(alpha: alpha),
+    'calculation' => cs.error.withValues(alpha: alpha),
+    'structured' => cs.tertiary.withValues(alpha: alpha),
+    'experiment' => cs.secondary.withValues(alpha: alpha),
+    'diagram' => cs.primary.withValues(alpha: alpha * 0.8),
+    'data_response' => cs.tertiary.withValues(alpha: alpha * 0.7),
+    'explanation' => cs.surfaceContainerHighest.withValues(alpha: isDark ? 0.25 : 0.60),
+    _ => cs.surfaceContainerHighest.withValues(alpha: isDark ? 0.25 : 0.60),
+  };
+}
+
+Color _questionTypeFg(String type, ColorScheme cs, bool isDark) {
+  final alpha = isDark ? 0.75 : 0.65;
+  return switch (type) {
+    'definition' => cs.primary.withValues(alpha: alpha),
+    'calculation' => cs.error.withValues(alpha: alpha),
+    'structured' => cs.tertiary.withValues(alpha: alpha),
+    'experiment' => cs.secondary.withValues(alpha: alpha),
+    'diagram' => cs.primary.withValues(alpha: alpha * 0.9),
+    'data_response' => cs.tertiary.withValues(alpha: alpha * 0.9),
+    'explanation' => cs.onSurface.withValues(alpha: 0.55),
+    _ => cs.onSurface.withValues(alpha: 0.55),
   };
 }
 
