@@ -1494,6 +1494,7 @@ class _TopicTileState extends State<_TopicTile>
   late final Animation<double> _rotateAnim;
   int? _questionCount;
   bool _countLoading = true;
+  bool _countError = false;
 
   @override
   void initState() {
@@ -1528,7 +1529,10 @@ class _TopicTileState extends State<_TopicTile>
   }
 
   void _refreshQuestionCount() {
-    setState(() => _countLoading = true);
+    setState(() {
+      _countLoading = true;
+      _countError = false;
+    });
     questionBankService
         .listQuestions(
           topicId: widget.topic.id,
@@ -1540,10 +1544,14 @@ class _TopicTileState extends State<_TopicTile>
           if (!mounted) return;
           setState(() {
             _countLoading = false;
-            _questionCount = switch (result) {
-              Ok(value: final v) => v.$2,
-              Err() => null,
-            };
+            switch (result) {
+              case Ok(value: final v):
+                _questionCount = v.$2;
+                _countError = false;
+              case Err():
+                _questionCount = null;
+                _countError = true;
+            }
           });
         });
   }
@@ -1633,7 +1641,29 @@ class _TopicTileState extends State<_TopicTile>
                         ),
                       ),
                     ),
-                  ] else if (_questionCount != null) ...[
+                  ] else if (_countError) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cs.error.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.kChipRadius,
+                        ),
+                      ),
+                      child: Text(
+                        '—',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: cs.error.withValues(alpha: 0.50),
+                        ),
+                      ),
+                    ),
+                  ] else ...[
                     const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -1649,7 +1679,7 @@ class _TopicTileState extends State<_TopicTile>
                         ),
                       ),
                       child: Text(
-                        '$_questionCount Qs',
+                        '${_questionCount ?? 0} Qs',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
