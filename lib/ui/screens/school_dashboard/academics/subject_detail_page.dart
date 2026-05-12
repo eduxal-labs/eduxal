@@ -1071,160 +1071,206 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
     bool isAssessment,
   ) {
     if (isAssessment) {
-      return _buildAssessmentGradeGroup(cs, isDark, setModalState);
+      return _buildAssessmentButtonGroup(cs, isDark, setModalState);
     }
     return _buildAssignmentGradeTabs(cs, isDark, setModalState);
   }
 
-  /// Connected button group for assessments — single-select, no badges.
-  Widget _buildAssessmentGradeGroup(
+  /// Shadcn-style connected toggle group for assessments.
+  Widget _buildAssessmentButtonGroup(
     ColorScheme cs,
     bool isDark,
     StateSetter setModalState,
   ) {
     final n = _allowedGrades.length;
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
+    return Align(
+      alignment: Alignment.centerLeft,
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(9),
           border: Border.all(
-            color: cs.outlineVariant.withValues(alpha: isDark ? 0.25 : 0.35),
+            color: cs.outlineVariant.withValues(alpha: isDark ? 0.30 : 0.40),
             width: 0.5,
           ),
         ),
-        child: Row(
-          children: List.generate(n, (i) {
-            final e = _allowedGrades[i];
-            final isSelected = e.key == _selectedGrade;
-            final isLast = i == n - 1;
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8.5),
+          child: IntrinsicHeight(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(n, (i) {
+                final e = _allowedGrades[i];
+                final isSelected = e.key == _selectedGrade;
+                final isLast = i == n - 1;
 
-            return InkWell(
-              onTap: () {
-                setModalState(() {
-                  _selectedGrade = e.key;
-                  _selectedTopicIds.clear();
-                  _selectedByGrade.clear();
-                });
-              },
-              borderRadius: i == 0
-                  ? const BorderRadius.horizontal(left: Radius.circular(7))
-                  : isLast
-                      ? const BorderRadius.horizontal(
-                          right: Radius.circular(7))
-                      : null,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 140),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? cs.primary.withValues(alpha: isDark ? 0.22 : 0.10)
-                      : Colors.transparent,
-                  border: isLast
-                      ? null
-                      : Border(
-                          right: BorderSide(
-                            color: cs.outlineVariant
-                                .withValues(alpha: isDark ? 0.25 : 0.35),
-                            width: 0.5,
-                          ),
-                        ),
-                ),
-                child: Text(
-                  e.value,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    color: isSelected
-                        ? cs.primary
-                        : cs.onSurfaceVariant.withValues(alpha: 0.65),
+                return InkWell(
+                  onTap: () {
+                    setModalState(() {
+                      _selectedGrade = e.key;
+                      _selectedTopicIds.clear();
+                      _selectedByGrade.clear();
+                    });
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    curve: Curves.easeOut,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? cs.surface
+                          : Colors.transparent,
+                      border: isLast
+                          ? null
+                          : Border(
+                              right: BorderSide(
+                                color: cs.outlineVariant.withValues(
+                                  alpha: isDark ? 0.25 : 0.35,
+                                ),
+                                width: 0.5,
+                              ),
+                            ),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: Colors.black.withValues(
+                                  alpha: isDark ? 0.12 : 0.05,
+                                ),
+                                blurRadius: 3,
+                                offset: const Offset(0, 1),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Text(
+                      e.value,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.w400,
+                        color: isSelected
+                            ? cs.onSurface
+                            : cs.onSurfaceVariant.withValues(alpha: 0.60),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            );
-          }),
+                );
+              }),
+            ),
+          ),
         ),
       ),
     );
   }
 
-  /// Tab-like chips for assignments — each shows a badge with the number of
-  /// topics selected under that grade.  Selected tab gets a filled background.
+  /// EduTabBar-style tabs for assignments — background strip with a pill
+  /// indicator and per-grade badge counts.
   Widget _buildAssignmentGradeTabs(
     ColorScheme cs,
     bool isDark,
     StateSetter setModalState,
   ) {
-    final indigo = isDark ? AppTheme.brandIndigoDark : AppTheme.brandIndigo;
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
+    return Container(
+      height: 38,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: isDark
+            ? cs.surfaceContainerHighest.withValues(alpha: 0.6)
+            : cs.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.08 : 0.03),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.zero,
         children: _allowedGrades.map((e) {
           final isSelected = e.key == _selectedGrade;
           final count = _selectedCountForGrade(e.key);
-          final hasBadge = count > 0;
 
           return Padding(
-            padding: const EdgeInsets.only(right: 6),
+            padding: EdgeInsets.only(
+              left: e.key == _allowedGrades.first.key ? 0 : 2,
+              right: e.key == _allowedGrades.last.key ? 0 : 2,
+            ),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 140),
-              height: 30,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? indigo.withValues(alpha: isDark ? 0.18 : 0.10)
-                    : isDark
-                        ? const Color(0xFF1E2C3C)
-                        : cs.surfaceContainerHighest
-                            .withValues(alpha: 0.55),
-                borderRadius: BorderRadius.circular(7),
-                border: Border.all(
-                  color: isSelected
-                      ? indigo.withValues(alpha: isDark ? 0.55 : 0.45)
-                      : cs.outlineVariant
-                          .withValues(alpha: isDark ? 0.25 : 0.4),
-                  width: isSelected ? 1.5 : 1,
-                ),
-              ),
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOut,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: isSelected
+                  ? BoxDecoration(
+                      color: cs.surface,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(
+                            alpha: isDark ? 0.16 : 0.07,
+                          ),
+                          blurRadius: 5,
+                          offset: const Offset(0, 1.5),
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withValues(
+                            alpha: isDark ? 0.06 : 0.02,
+                          ),
+                          blurRadius: 1,
+                          offset: const Offset(0, 0.5),
+                        ),
+                      ],
+                    )
+                  : null,
               child: Material(
                 color: Colors.transparent,
-                borderRadius: BorderRadius.circular(7),
+                borderRadius: BorderRadius.circular(8),
                 child: InkWell(
                   onTap: () {
                     setModalState(() {
                       _selectedGrade = e.key;
                     });
                   },
-                  borderRadius: BorderRadius.circular(7),
+                  borderRadius: BorderRadius.circular(8),
                   splashFactory: NoSplash.splashFactory,
+                  overlayColor:
+                      WidgetStateProperty.all(Colors.transparent),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         e.value,
                         style: TextStyle(
-                          fontSize: 12,
-                          fontWeight:
-                              isSelected ? FontWeight.w600 : FontWeight.w400,
+                          fontSize: 12.5,
+                          fontWeight: isSelected
+                              ? FontWeight.w500
+                              : FontWeight.w400,
+                          letterSpacing: 0.15,
                           color: isSelected
-                              ? indigo
+                              ? cs.onSurface
                               : cs.onSurfaceVariant
-                                  .withValues(alpha: 0.65),
+                                  .withValues(alpha: 0.7),
                         ),
                       ),
-                      if (hasBadge) ...[
+                      if (count > 0) ...[
                         const SizedBox(width: 6),
                         AnimatedContainer(
-                          duration: const Duration(milliseconds: 140),
+                          duration: const Duration(milliseconds: 160),
+                          curve: Curves.easeOut,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 1),
+                            horizontal: 5,
+                            vertical: 1,
+                          ),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? indigo.withValues(
-                                    alpha: isDark ? 0.30 : 0.18)
-                                : cs.surfaceContainerHighest
-                                    .withValues(alpha: isDark ? 0.5 : 0.7),
+                                ? cs.surfaceContainerHighest.withValues(
+                                    alpha: isDark ? 0.7 : 0.8)
+                                : cs.surfaceContainerHighest.withValues(
+                                    alpha: isDark ? 0.5 : 0.7),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -1233,7 +1279,8 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                               color: isSelected
-                                  ? indigo
+                                  ? cs.onSurfaceVariant.withValues(
+                                      alpha: 0.8)
                                   : cs.onSurfaceVariant
                                       .withValues(alpha: 0.7),
                             ),
