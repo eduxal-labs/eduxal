@@ -1223,9 +1223,9 @@ class _EditQuestionSheetState extends State<_EditQuestionSheet> {
         }
         rubricSum += rm;
       }
-      if (rubricErr == null && marks != null && rubricSum != marks) {
+      if (rubricErr == null && marks != null && rubricSum < marks) {
         rubricErr =
-            'Rubric marks ($rubricSum) must equal total marks ($marks).';
+            'Rubric marks ($rubricSum) must cover at least the question marks ($marks).';
         valid = false;
       }
     }

@@ -191,10 +191,10 @@ class _BulkImportSheetState extends State<BulkImportSheet> {
             }
           }
 
-          // Check rubric marks sum matches question marks.
-          if (marks != null && rubricSum != marks) {
+          // Rubric marks must cover at least the question marks.
+          if (marks != null && rubricSum < marks) {
             errors.add(
-              '$prefix: rubric marks sum ($rubricSum) ≠ question marks ($marks).',
+              '$prefix: rubric marks sum ($rubricSum) is less than question marks ($marks). Rubric must cover at least the question marks.',
             );
           }
         }

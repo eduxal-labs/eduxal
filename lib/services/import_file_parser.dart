@@ -310,9 +310,9 @@ ParsedImportFile parseImportFile(String filePath, String jsonContent) {
           errors.add('$prefix, rubric[${j + 1}]: "marks" must be a number.');
         }
       }
-      if (marks != null && rubricSum != marks) {
+      if (marks != null && rubricSum < marks) {
         errors.add(
-          '$prefix: rubric marks sum ($rubricSum) ≠ question marks ($marks).',
+          '$prefix: rubric marks sum ($rubricSum) is less than question marks ($marks). Rubric must cover at least the question marks.',
         );
       }
     }
