@@ -889,47 +889,143 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
+    final viewInsets = MediaQuery.viewInsetsOf(context);
 
-    if (_step == 0) return _buildTypePicker(cs, isDark);
-    return _buildConfigForm(cs, isDark);
+    return Padding(
+      padding: EdgeInsets.only(bottom: viewInsets.bottom),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF18222E) : cs.surface,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(AppTheme.kModalRadius),
+            topRight: Radius.circular(AppTheme.kModalRadius),
+          ),
+          border: Border(
+            top: BorderSide(
+              color: isDark
+                  ? const Color(0xFF2A3848)
+                  : cs.outlineVariant.withValues(alpha: 0.5),
+              width: 1,
+            ),
+          ),
+        ),
+        child: _step == 0
+            ? _buildTypePicker(cs, isDark)
+            : _buildConfigForm(cs, isDark),
+      ),
+    );
   }
 
   // ── Step 0: pick type ───────────────────────────────────────────────────
 
   Widget _buildTypePicker(ColorScheme cs, bool isDark) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _TypeTile(
-          icon: Icons.assignment_outlined,
-          label: 'New Assignment',
-          subtitle: 'Multiple topics — students complete over a period',
-          cs: cs,
-          isDark: isDark,
-          onTap: () {
-            setState(() {
-              _pickedType = ExamType.assignment;
-              _nameCtrl.text = 'Assignment: ${widget.subjectName}';
-              _step = 1;
-            });
-          },
-        ),
-        const SizedBox(height: 8),
-        _TypeTile(
-          icon: Icons.quiz_outlined,
-          label: 'New Assessment',
-          subtitle: 'Single topic — focused short test',
-          cs: cs,
-          isDark: isDark,
-          onTap: () {
-            setState(() {
-              _pickedType = ExamType.assessment;
-              _nameCtrl.text = 'Assessment: ${widget.subjectName}';
-              _step = 1;
-            });
-          },
-        ),
-      ],
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Sheet handle
+          Center(
+            child: Container(
+              width: 36,
+              height: 3,
+              margin: const EdgeInsets.only(top: 10, bottom: 4),
+              decoration: BoxDecoration(
+                color: cs.outlineVariant.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 12, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'New Paper',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: cs.onSurface,
+                          height: 1.25,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Choose the type of paper to create.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(
+                    Icons.close,
+                    size: 17,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                  ),
+                  tooltip: 'Cancel',
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(34, 34),
+                    padding: const EdgeInsets.all(8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 14),
+            child: _SheetDivider(isDark: isDark, cs: cs),
+          ),
+          // Body
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+            child: Column(
+              children: [
+                _TypeTile(
+                  icon: Icons.assignment_outlined,
+                  label: 'New Assignment',
+                  subtitle: 'Multiple topics — students complete over a period',
+                  cs: cs,
+                  isDark: isDark,
+                  onTap: () {
+                    setState(() {
+                      _pickedType = ExamType.assignment;
+                      _nameCtrl.text = 'Assignment: ${widget.subjectName}';
+                      _step = 1;
+                    });
+                  },
+                ),
+                const SizedBox(height: 8),
+                _TypeTile(
+                  icon: Icons.quiz_outlined,
+                  label: 'New Assessment',
+                  subtitle: 'Single topic — focused short test',
+                  cs: cs,
+                  isDark: isDark,
+                  onTap: () {
+                    setState(() {
+                      _pickedType = ExamType.assessment;
+                      _nameCtrl.text = 'Assessment: ${widget.subjectName}';
+                      _step = 1;
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -940,153 +1036,407 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
 
     return StatefulBuilder(
       builder: (context, setModalState) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Name
-            TextField(
-              controller: _nameCtrl,
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurface),
-              decoration: const InputDecoration(hintText: 'Name'),
-            ),
-            const SizedBox(height: 12),
-
-            // Topic picker
-            Text(
-              isAssessment ? 'Topic' : 'Topics',
-              style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
-            ),
-            const SizedBox(height: 6),
-            StreamBuilder<List<Topic>>(
-              stream: catalogDao.watchTopicsBySubjectAndGrade(
-                  subjectId: widget.subjectId, grade: widget.grade),
-              builder: (context, snapshot) {
-                final topics = snapshot.data ?? [];
-                if (topics.isEmpty) {
-                  return Text('No topics found for this subject.',
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.45)));
-                }
-                return Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: topics.map((t) {
-                    final selected = _selectedTopicIds.contains(t.id);
-                    return FilterChip(
-                      selected: selected,
-                      label: Text(t.name,
-                          style: TextStyle(
-                              fontSize: 12, fontWeight: FontWeight.w400)),
-                      onSelected: (sel) {
-                        setModalState(() {
-                          if (isAssessment) {
-                            _selectedTopicIds.clear();
-                            if (sel) _selectedTopicIds.add(t.id);
-                          } else {
-                            if (sel) {
-                              _selectedTopicIds.add(t.id);
-                            } else {
-                              _selectedTopicIds.remove(t.id);
-                            }
-                          }
-                        });
-                      },
-                      selectedColor: cs.primary
-                          .withValues(alpha: isDark ? 0.25 : 0.12),
-                      checkmarkColor: cs.primary,
-                      side: BorderSide.none,
-                      shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(AppTheme.kChipRadius)),
-                    );
-                  }).toList(),
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-
-            // Total marks
-            TextField(
-              controller: _marksCtrl,
-              keyboardType: TextInputType.number,
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurface),
-              decoration: const InputDecoration(hintText: 'Total marks'),
-            ),
-            const SizedBox(height: 12),
-
-            // Date
-            InkWell(
-              onTap: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: _date,
-                  firstDate: DateTime(2020),
-                  lastDate: DateTime(2035),
-                );
-                if (picked != null) {
-                  setModalState(() => _date = picked);
-                }
-              },
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  borderRadius:
-                      BorderRadius.circular(AppTheme.kCardRadius),
-                  border: Border.all(
-                      color: cs.outline.withValues(alpha: 0.3)),
+        return SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Sheet handle
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 3,
+                  margin: const EdgeInsets.only(top: 10, bottom: 4),
+                  decoration: BoxDecoration(
+                    color: cs.outlineVariant.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-                child: Row(children: [
-                  Icon(Icons.calendar_today_rounded,
-                      size: 16,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${_date.year}-${_date.month.toString().padLeft(2, '0')}-${_date.day.toString().padLeft(2, '0')}',
-                    style: TextStyle(
+              ),
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 18, 12, 0),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        Icons.arrow_back_rounded,
+                        size: 17,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                      ),
+                      tooltip: 'Back',
+                      onPressed: () => setState(() {
+                        _step = 0;
+                        _error = null;
+                      }),
+                      style: IconButton.styleFrom(
+                        minimumSize: const Size(34, 34),
+                        padding: const EdgeInsets.all(8),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isAssessment ? 'New Assessment' : 'New Assignment',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: cs.onSurface,
+                              height: 1.25,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            '${widget.subjectName} · ${widget.streamName}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: cs.onSurfaceVariant
+                                  .withValues(alpha: 0.65),
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.close,
+                        size: 17,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                      ),
+                      tooltip: 'Cancel',
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: IconButton.styleFrom(
+                        minimumSize: const Size(34, 34),
+                        padding: const EdgeInsets.all(8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 14),
+                child: _SheetDivider(isDark: isDark, cs: cs),
+              ),
+              // Form body
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Name
+                    _SheetFieldLabel(label: 'Name', cs: cs),
+                    const SizedBox(height: 5),
+                    TextField(
+                      controller: _nameCtrl,
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w400,
-                        color: cs.onSurface),
-                  ),
-                ]),
-              ),
-            ),
-            const SizedBox(height: 16),
+                        color: cs.onSurface,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: isAssessment
+                            ? 'e.g. End of Topic Assessment'
+                            : 'e.g. Holiday Assignment',
+                        filled: true,
+                        fillColor: isDark
+                            ? cs.surfaceContainerHighest
+                                .withValues(alpha: 0.3)
+                            : cs.surfaceContainerHighest
+                                .withValues(alpha: 0.5),
+                        border: OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.kCardRadius),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.kCardRadius),
+                          borderSide: BorderSide(
+                            color: cs.outlineVariant
+                                .withValues(alpha: isDark ? 0.2 : 0.3),
+                            width: 0.5,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.kCardRadius),
+                          borderSide: BorderSide(
+                            color: cs.primary.withValues(alpha: 0.5),
+                            width: 1.0,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
 
-            // Error
-            if (_error != null)
+                    // Topic picker
+                    _SheetFieldLabel(
+                      label: isAssessment ? 'Topic' : 'Topics',
+                      cs: cs,
+                    ),
+                    if (isAssessment)
+                      Text(
+                        'Select exactly one topic',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w400,
+                          color:
+                              cs.onSurfaceVariant.withValues(alpha: 0.45),
+                        ),
+                      ),
+                    const SizedBox(height: 5),
+                    StreamBuilder<List<Topic>>(
+                      stream: catalogDao.watchTopicsBySubjectAndGrade(
+                        subjectId: widget.subjectId,
+                        grade: widget.grade,
+                      ),
+                      builder: (context, snapshot) {
+                        final topics = snapshot.data ?? [];
+                        if (topics.isEmpty) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.kCardRadius,
+                              ),
+                              border: Border.all(
+                                color: cs.outlineVariant
+                                    .withValues(alpha: isDark ? 0.2 : 0.3),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Text(
+                              'No topics found for this subject.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: cs.onSurfaceVariant
+                                    .withValues(alpha: 0.45),
+                              ),
+                            ),
+                          );
+                        }
+                        return Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: topics.map((t) {
+                            final selected =
+                                _selectedTopicIds.contains(t.id);
+                            return FilterChip(
+                              selected: selected,
+                              label: Text(
+                                t.name,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                              onSelected: (sel) {
+                                setModalState(() {
+                                  if (isAssessment) {
+                                    _selectedTopicIds.clear();
+                                    if (sel) _selectedTopicIds.add(t.id);
+                                  } else {
+                                    if (sel) {
+                                      _selectedTopicIds.add(t.id);
+                                    } else {
+                                      _selectedTopicIds.remove(t.id);
+                                    }
+                                  }
+                                });
+                              },
+                              selectedColor: cs.primary.withValues(
+                                alpha: isDark ? 0.25 : 0.12,
+                              ),
+                              checkmarkColor: cs.primary,
+                              side: BorderSide(
+                                color: selected
+                                    ? cs.primary.withValues(
+                                        alpha: isDark ? 0.35 : 0.25)
+                                    : cs.outlineVariant.withValues(
+                                        alpha: isDark ? 0.2 : 0.3),
+                                width: 0.5,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.kChipRadius,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Total marks
+                    _SheetFieldLabel(label: 'Total Marks', cs: cs),
+                    const SizedBox(height: 5),
+                    TextField(
+                      controller: _marksCtrl,
+                      keyboardType: TextInputType.number,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: cs.onSurface,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'e.g. 100',
+                        filled: true,
+                        fillColor: isDark
+                            ? cs.surfaceContainerHighest
+                                .withValues(alpha: 0.3)
+                            : cs.surfaceContainerHighest
+                                .withValues(alpha: 0.5),
+                        border: OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.kCardRadius),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.kCardRadius),
+                          borderSide: BorderSide(
+                            color: cs.outlineVariant
+                                .withValues(alpha: isDark ? 0.2 : 0.3),
+                            width: 0.5,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.kCardRadius),
+                          borderSide: BorderSide(
+                            color: cs.primary.withValues(alpha: 0.5),
+                            width: 1.0,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Date
+                    _SheetFieldLabel(label: 'Date', cs: cs),
+                    const SizedBox(height: 5),
+                    InkWell(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _date,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2035),
+                        );
+                        if (picked != null) {
+                          setModalState(() => _date = picked);
+                        }
+                      },
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.kCardRadius),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.kCardRadius),
+                          border: Border.all(
+                            color: cs.outlineVariant
+                                .withValues(alpha: isDark ? 0.2 : 0.3),
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.calendar_today_rounded,
+                              size: 16,
+                              color: cs.onSurfaceVariant
+                                  .withValues(alpha: 0.5),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${_date.year}-${_date.month.toString().padLeft(2, '0')}-${_date.day.toString().padLeft(2, '0')}',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w400,
+                                color: cs.onSurface,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Error banner
+                    if (_error != null) ...[
+                      const SizedBox(height: 10),
+                      _SheetErrorBanner(
+                        message: _error!,
+                        cs: cs,
+                        isDark: isDark,
+                      ),
+                    ],
+
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+
+              // Footer
+              _SheetDivider(isDark: isDark, cs: cs),
               Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(_error!,
-                    style: TextStyle(fontSize: 12, color: cs.error)),
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+                child: Row(
+                  children: [
+                    const Spacer(),
+                    GestureDetector(
+                      onTap:
+                          _creating ? null : () => Navigator.of(context).pop(),
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            color: _creating
+                                ? cs.onSurfaceVariant.withValues(alpha: 0.3)
+                                : cs.onSurfaceVariant.withValues(alpha: 0.65),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    _SheetConfirmButton(
+                      saving: _creating,
+                      onTap: _creating ? null : () => _doCreate(),
+                    ),
+                  ],
+                ),
               ),
-
-            // Create button
-            ElevatedButton(
-              onPressed: _creating ? null : () => _doCreate(),
-              child: _creating
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
-                    )
-                  : Text(_pickedType == ExamType.assignment
-                      ? 'Create Assignment'
-                      : 'Create Assessment'),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -1119,10 +1469,8 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
       final examId = _generateId();
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final startMs = _date.millisecondsSinceEpoch;
-      final endMs = _date
-          .add(const Duration(hours: 2))
-          .millisecondsSinceEpoch;
-      // Exam uses days-since-epoch (int) while Paper uses ms (BigInt).
+      final endMs =
+          _date.add(const Duration(hours: 2)).millisecondsSinceEpoch;
       final startDays = startMs ~/ (86400 * 1000);
       final endDays = endMs ~/ (86400 * 1000);
 
@@ -1159,16 +1507,13 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
         updated: Value(now),
       );
 
-      // Create exam + paper in one transaction.
       await widget.dao.createExamWithPapers(
         exam: exam,
         paperRows: [paperRow],
         accountId: accountId,
       );
 
-      // Trigger server-side paper generation.
-      final paperId =
-          '${widget.schoolId}|$examId|${widget.subjectId}||'
+      final paperId = '${widget.schoolId}|$examId|${widget.subjectId}||'
           '${widget.grade}|${widget.streamCode}';
       final token = accessToken;
 
@@ -1180,7 +1525,6 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
             paperId: paperId, accessToken: token);
       }
 
-      // Load the created paper to pass to onCreated.
       final papers = await widget.dao.getPapersForSubjectClass(
         schoolId: widget.schoolId,
         grade: widget.grade,
@@ -1255,6 +1599,155 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Sheet helper widgets (matching create_term_modal.dart style)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SheetFieldLabel extends StatelessWidget {
+  const _SheetFieldLabel({required this.label, required this.cs});
+  final String label;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label.toUpperCase(),
+      style: TextStyle(
+        fontSize: 9.5,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.9,
+        color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+      ),
+    );
+  }
+}
+
+class _SheetDivider extends StatelessWidget {
+  const _SheetDivider({required this.isDark, required this.cs});
+  final bool isDark;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 1,
+      color: cs.outlineVariant.withValues(alpha: isDark ? 0.30 : 0.45),
+    );
+  }
+}
+
+class _SheetErrorBanner extends StatelessWidget {
+  const _SheetErrorBanner({
+    required this.message,
+    required this.cs,
+    required this.isDark,
+  });
+  final String message;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: cs.error.withValues(alpha: isDark ? 0.12 : 0.07),
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(
+          color: cs.error.withValues(alpha: 0.30),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.error_outline_rounded,
+            size: 14,
+            color: cs.error.withValues(alpha: 0.75),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: cs.error.withValues(alpha: 0.85),
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SheetConfirmButton extends StatelessWidget {
+  const _SheetConfirmButton({required this.saving, required this.onTap});
+  final bool saving;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    const green = AppTheme.brandGreen;
+    final effectiveColor = saving ? green.withValues(alpha: 0.5) : green;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: effectiveColor,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: saving
+            ? []
+            : [
+                BoxShadow(
+                  color: green.withValues(alpha: 0.28),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          splashFactory: NoSplash.splashFactory,
+          overlayColor:
+              WidgetStateProperty.all(Colors.white.withValues(alpha: 0.08)),
+          child: Center(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 150),
+              child: saving
+                  ? SizedBox(
+                      key: const ValueKey('spin'),
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        valueColor: AlwaysStoppedAnimation(
+                          Colors.white.withValues(alpha: 0.85),
+                        ),
+                      ),
+                    )
+                  : const Icon(
+                      key: ValueKey('check'),
+                      Icons.check,
+                      size: 17,
+                      color: Colors.white,
+                    ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Type picker tile
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1285,43 +1778,53 @@ class _TypeTile extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
           border: Border.all(
-              color: cs.outline.withValues(alpha: isDark ? 0.12 : 0.08)),
+            color: cs.outlineVariant.withValues(alpha: isDark ? 0.18 : 0.12),
+            width: 0.5,
+          ),
         ),
-        child: Row(children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: cs.primary.withValues(alpha: isDark ? 0.15 : 0.08),
-              borderRadius: BorderRadius.circular(8),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: cs.primary.withValues(alpha: isDark ? 0.15 : 0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 20, color: cs.primary),
             ),
-            child:
-                Icon(icon, size: 20, color: cs.primary),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
                     style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: cs.onSurface)),
-                const SizedBox(height: 2),
-                Text(subtitle,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
                     style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w400,
-                        color: cs.onSurfaceVariant
-                            .withValues(alpha: 0.55))),
-              ],
+                      fontSize: 11,
+                      fontWeight: FontWeight.w400,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          Icon(Icons.chevron_right_rounded,
+            Icon(
+              Icons.chevron_right_rounded,
               size: 18,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.3)),
-        ]),
+              color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+            ),
+          ],
+        ),
       ),
     );
   }
