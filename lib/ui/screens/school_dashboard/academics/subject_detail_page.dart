@@ -11,6 +11,7 @@ import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/grade_analytics.dart';
 import '../../../../models/membership.dart';
+import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/edu_sheet.dart';
@@ -878,6 +879,34 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
   bool _creating = false;
   String? _error;
 
+  late final int _currentGrade;
+  late final List<MapEntry<int, String>> _allowedGrades;
+  late int _selectedGrade;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentGrade = widget.grade;
+    _selectedGrade = _currentGrade;
+    _allowedGrades = _computeAllowedGrades();
+  }
+
+  List<MapEntry<int, String>> _computeAllowedGrades() {
+    final labels = gradeLabelsFor(widget.curriculumType);
+    final entries = labels.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    final curIsForm = _currentGrade >= 41;
+    return entries.where((e) {
+      final g = e.key;
+      final gIsForm = g >= 41;
+      // Disallow cross-band: Form students only see Form grades, Standard
+      // students only see Standard grades.
+      if (curIsForm != gIsForm) return false;
+      // Only grades up to (and including) the current grade.
+      return g <= _currentGrade;
+    }).toList();
+  }
+
   @override
   void dispose() {
     _nameCtrl.dispose();
@@ -1025,6 +1054,57 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ── Grade selector ──────────────────────────────────────────────────────
+
+  Widget _buildGradeSelector(
+    ColorScheme cs,
+    bool isDark,
+    StateSetter setModalState,
+    bool isAssessment,
+  ) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: _allowedGrades.map((e) {
+          final isSelected = e.key == _selectedGrade;
+          return Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: FilterChip(
+              selected: isSelected,
+              label: Text(
+                e.value,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+              onSelected: (sel) {
+                if (!sel) return;
+                setModalState(() {
+                  _selectedGrade = e.key;
+                  if (isAssessment) _selectedTopicIds.clear();
+                });
+              },
+              selectedColor:
+                  cs.primary.withValues(alpha: isDark ? 0.25 : 0.12),
+              checkmarkColor: cs.primary,
+              side: BorderSide(
+                color: isSelected
+                    ? cs.primary.withValues(alpha: isDark ? 0.35 : 0.25)
+                    : cs.outlineVariant.withValues(
+                        alpha: isDark ? 0.2 : 0.3),
+                width: 0.5,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -1179,6 +1259,15 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
                     ),
                     const SizedBox(height: 16),
 
+                    // Grade selector
+                    if (_allowedGrades.length > 1) ...[
+                      _SheetFieldLabel(label: 'Grade', cs: cs),
+                      const SizedBox(height: 5),
+                      _buildGradeSelector(cs, isDark, setModalState,
+                          isAssessment),
+                      const SizedBox(height: 12),
+                    ],
+
                     // Topic picker
                     _SheetFieldLabel(
                       label: isAssessment ? 'Topic' : 'Topics',
@@ -1190,18 +1279,45 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w400,
-                          color:
-                              cs.onSurfaceVariant.withValues(alpha: 0.45),
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.45),
+                        ),
+                      )
+                    else ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Selections persist across grade tabs',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w400,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.45),
                         ),
                       ),
+                      if (_selectedTopicIds.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          '${_selectedTopicIds.length} topic${_selectedTopicIds.length == 1 ? '' : 's'} selected',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            color: cs.primary.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
+                    ],
                     const SizedBox(height: 5),
                     StreamBuilder<List<Topic>>(
-                      stream: catalogDao.watchTopicsBySubject(
+                      stream: catalogDao.watchTopicsBySubjectAndGrade(
                         subjectId: widget.subjectId,
+                        grade: _selectedGrade,
                       ),
                       builder: (context, snapshot) {
                         final topics = snapshot.data ?? [];
                         if (topics.isEmpty) {
+                          final gradeLabel = _allowedGrades
+                              .firstWhere((e) => e.key == _selectedGrade,
+                                  orElse: () =>
+                                      MapEntry(_selectedGrade, 'Grade $_selectedGrade'))
+                              .value;
                           return Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
@@ -1218,7 +1334,7 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
                               ),
                             ),
                             child: Text(
-                              'No topics found for this subject.',
+                              'No topics for $gradeLabel.',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: cs.onSurfaceVariant
