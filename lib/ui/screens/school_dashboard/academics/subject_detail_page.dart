@@ -876,6 +876,7 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
   final _marksCtrl = TextEditingController();
   DateTime _date = DateTime.now();
   final Set<int> _selectedTopicIds = {};
+  final Map<int, Set<int>> _selectedByGrade = {};
   bool _creating = false;
   String? _error;
 
@@ -890,6 +891,9 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
     _selectedGrade = _currentGrade;
     _allowedGrades = _computeAllowedGrades();
   }
+
+  int _selectedCountForGrade(int grade) =>
+      _selectedByGrade[grade]?.length ?? 0;
 
   List<MapEntry<int, String>> _computeAllowedGrades() {
     final labels = gradeLabelsFor(widget.curriculumType);
@@ -1066,41 +1070,179 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
     StateSetter setModalState,
     bool isAssessment,
   ) {
+    if (isAssessment) {
+      return _buildAssessmentGradeGroup(cs, isDark, setModalState);
+    }
+    return _buildAssignmentGradeTabs(cs, isDark, setModalState);
+  }
+
+  /// Connected button group for assessments — single-select, no badges.
+  Widget _buildAssessmentGradeGroup(
+    ColorScheme cs,
+    bool isDark,
+    StateSetter setModalState,
+  ) {
+    final n = _allowedGrades.length;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: cs.outlineVariant.withValues(alpha: isDark ? 0.25 : 0.35),
+            width: 0.5,
+          ),
+        ),
+        child: Row(
+          children: List.generate(n, (i) {
+            final e = _allowedGrades[i];
+            final isSelected = e.key == _selectedGrade;
+            final isLast = i == n - 1;
+
+            return InkWell(
+              onTap: () {
+                setModalState(() {
+                  _selectedGrade = e.key;
+                  _selectedTopicIds.clear();
+                  _selectedByGrade.clear();
+                });
+              },
+              borderRadius: i == 0
+                  ? const BorderRadius.horizontal(left: Radius.circular(7))
+                  : isLast
+                      ? const BorderRadius.horizontal(
+                          right: Radius.circular(7))
+                      : null,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 140),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? cs.primary.withValues(alpha: isDark ? 0.22 : 0.10)
+                      : Colors.transparent,
+                  border: isLast
+                      ? null
+                      : Border(
+                          right: BorderSide(
+                            color: cs.outlineVariant
+                                .withValues(alpha: isDark ? 0.25 : 0.35),
+                            width: 0.5,
+                          ),
+                        ),
+                ),
+                child: Text(
+                  e.value,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    color: isSelected
+                        ? cs.primary
+                        : cs.onSurfaceVariant.withValues(alpha: 0.65),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+
+  /// Tab-like chips for assignments — each shows a badge with the number of
+  /// topics selected under that grade.  Selected tab gets a filled background.
+  Widget _buildAssignmentGradeTabs(
+    ColorScheme cs,
+    bool isDark,
+    StateSetter setModalState,
+  ) {
+    final indigo = isDark ? AppTheme.brandIndigoDark : AppTheme.brandIndigo;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: _allowedGrades.map((e) {
           final isSelected = e.key == _selectedGrade;
+          final count = _selectedCountForGrade(e.key);
+          final hasBadge = count > 0;
+
           return Padding(
             padding: const EdgeInsets.only(right: 6),
-            child: FilterChip(
-              selected: isSelected,
-              label: Text(
-                e.value,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 140),
+              height: 30,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? indigo.withValues(alpha: isDark ? 0.18 : 0.10)
+                    : isDark
+                        ? const Color(0xFF1E2C3C)
+                        : cs.surfaceContainerHighest
+                            .withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(7),
+                border: Border.all(
+                  color: isSelected
+                      ? indigo.withValues(alpha: isDark ? 0.55 : 0.45)
+                      : cs.outlineVariant
+                          .withValues(alpha: isDark ? 0.25 : 0.4),
+                  width: isSelected ? 1.5 : 1,
                 ),
               ),
-              onSelected: (sel) {
-                if (!sel) return;
-                setModalState(() {
-                  _selectedGrade = e.key;
-                  if (isAssessment) _selectedTopicIds.clear();
-                });
-              },
-              selectedColor:
-                  cs.primary.withValues(alpha: isDark ? 0.25 : 0.12),
-              checkmarkColor: cs.primary,
-              side: BorderSide(
-                color: isSelected
-                    ? cs.primary.withValues(alpha: isDark ? 0.35 : 0.25)
-                    : cs.outlineVariant.withValues(
-                        alpha: isDark ? 0.2 : 0.3),
-                width: 0.5,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(7),
+                child: InkWell(
+                  onTap: () {
+                    setModalState(() {
+                      _selectedGrade = e.key;
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(7),
+                  splashFactory: NoSplash.splashFactory,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        e.value,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight:
+                              isSelected ? FontWeight.w600 : FontWeight.w400,
+                          color: isSelected
+                              ? indigo
+                              : cs.onSurfaceVariant
+                                  .withValues(alpha: 0.65),
+                        ),
+                      ),
+                      if (hasBadge) ...[
+                        const SizedBox(width: 6),
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 140),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? indigo.withValues(
+                                    alpha: isDark ? 0.30 : 0.18)
+                                : cs.surfaceContainerHighest
+                                    .withValues(alpha: isDark ? 0.5 : 0.7),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '$count',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: isSelected
+                                  ? indigo
+                                  : cs.onSurfaceVariant
+                                      .withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
             ),
           );
@@ -1148,6 +1290,8 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
                       onPressed: () => setState(() {
                         _step = 0;
                         _error = null;
+                        _selectedTopicIds.clear();
+                        _selectedByGrade.clear();
                       }),
                       style: IconButton.styleFrom(
                         minimumSize: const Size(34, 34),
@@ -1362,12 +1506,24 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
                                 setModalState(() {
                                   if (isAssessment) {
                                     _selectedTopicIds.clear();
-                                    if (sel) _selectedTopicIds.add(t.id);
+                                    _selectedByGrade.clear();
+                                    if (sel) {
+                                      _selectedTopicIds.add(t.id);
+                                      _selectedByGrade[_selectedGrade] = {
+                                        t.id,
+                                      };
+                                    }
                                   } else {
                                     if (sel) {
                                       _selectedTopicIds.add(t.id);
+                                      _selectedByGrade
+                                          .putIfAbsent(
+                                              _selectedGrade, () => {})
+                                          .add(t.id);
                                     } else {
                                       _selectedTopicIds.remove(t.id);
+                                      _selectedByGrade[_selectedGrade]
+                                          ?.remove(t.id);
                                     }
                                   }
                                 });
@@ -1376,18 +1532,30 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
                                 alpha: isDark ? 0.25 : 0.12,
                               ),
                               checkmarkColor: cs.primary,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              labelStyle: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: selected
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                                color: selected
+                                    ? cs.primary
+                                    : cs.onSurface,
+                              ),
                               side: BorderSide(
                                 color: selected
                                     ? cs.primary.withValues(
-                                        alpha: isDark ? 0.35 : 0.25)
+                                        alpha: isDark ? 0.4 : 0.30)
                                     : cs.outlineVariant.withValues(
                                         alpha: isDark ? 0.2 : 0.3),
-                                width: 0.5,
+                                width: selected ? 1.0 : 0.5,
                               ),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                  AppTheme.kChipRadius,
-                                ),
+                                borderRadius:
+                                    BorderRadius.circular(8),
                               ),
                             );
                           }).toList(),
