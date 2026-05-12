@@ -38,6 +38,9 @@ typedef GradeRow = ({Grade grade, StudentsData student});
 /// An exam row together with its papers.
 typedef ExamWithPapers = ({Exam exam, List<Paper> papers, UsersData teacher});
 
+/// A paper row together with its parent exam and the exam's teacher user.
+typedef PaperWithExamInfo = ({Paper paper, Exam exam, UsersData teacher});
+
 /// Analytics snapshot for a single paper — used to drive charts.
 class PaperAnalytics {
   const PaperAnalytics({
@@ -251,6 +254,142 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
             (p) => OrderingTerm.asc(p.paper),
           ]))
         .watch();
+  }
+
+  /// Emits papers for a specific subject+class combination, joined with their
+  /// parent exam and the exam's teacher.  Optionally filtered by [examType]
+  /// (0=exam, 1=assignment, 2=assessment).
+  ///
+  /// Sorted by paper start date ascending.
+  Stream<List<PaperWithExamInfo>> watchPapersForSubjectClass({
+    required String schoolId,
+    required int grade,
+    required int stream,
+    required int subject,
+    int? examType,
+  }) {
+    return (select(papers)
+          ..where((p) =>
+              p.school.equals(schoolId) &
+              p.grade.equals(grade) &
+              p.stream.equals(stream) &
+              p.subject.equals(subject))
+          ..orderBy([(p) => OrderingTerm.asc(p.start)]))
+        .watch()
+        .asyncMap((paperList) async {
+      if (paperList.isEmpty) return [];
+
+      // Collect distinct exam IDs from the matching papers.
+      final examIds = paperList.map((p) => p.exam).toSet();
+
+      /// Load the parent exams.
+      final examRows = await (select(exams)
+            ..where((e) => e.id.isIn(examIds)))
+          .get();
+
+      // Apply examType filter in Dart when requested.
+      final filteredExams = examType != null
+          ? examRows.where((e) => e.type == examType).toList()
+          : examRows;
+
+      // Index exams by id for fast lookup.
+      final examById = <String, Exam>{};
+      for (final e in filteredExams) {
+        examById[e.id] = e;
+      }
+
+      // Load teacher users for the filtered exams.
+      final teacherIds = filteredExams.map((e) => e.teacher).toSet();
+      final userRows = await (select(users)
+            ..where((u) => u.id.isIn(teacherIds)))
+          .get();
+      final userById = <String, UsersData>{};
+      for (final u in userRows) {
+        userById[u.id] = u;
+      }
+
+      // Build result: only papers whose exam passes the type filter.
+      final result = <PaperWithExamInfo>[];
+      for (final paper in paperList) {
+        final exam = examById[paper.exam];
+        if (exam == null) continue;
+        final teacher = userById[exam.teacher] ??
+            UsersData(
+              id: exam.teacher,
+              phone: '',
+              name: 'Unknown',
+              email: null,
+              level: UserLevel.normal,
+              status: UserStatus.active,
+              created: BigInt.zero,
+              updated: BigInt.zero,
+            );
+        result.add((paper: paper, exam: exam, teacher: teacher));
+      }
+      return result;
+    });
+  }
+
+  /// One-shot version of [watchPapersForSubjectClass].
+  Future<List<PaperWithExamInfo>> getPapersForSubjectClass({
+    required String schoolId,
+    required int grade,
+    required int stream,
+    required int subject,
+    int? examType,
+  }) async {
+    final paperList = await (select(papers)
+          ..where((p) =>
+              p.school.equals(schoolId) &
+              p.grade.equals(grade) &
+              p.stream.equals(stream) &
+              p.subject.equals(subject))
+          ..orderBy([(p) => OrderingTerm.asc(p.start)]))
+        .get();
+
+    if (paperList.isEmpty) return [];
+
+    final examIds = paperList.map((p) => p.exam).toSet();
+    final examRows = await (select(exams)
+          ..where((e) => e.id.isIn(examIds)))
+        .get();
+
+    final filteredExams = examType != null
+        ? examRows.where((e) => e.type == examType).toList()
+        : examRows;
+
+    final examById = <String, Exam>{};
+    for (final e in filteredExams) {
+      examById[e.id] = e;
+    }
+
+    final teacherIds = filteredExams.map((e) => e.teacher).toSet();
+    final userRows = await (select(users)
+          ..where((u) => u.id.isIn(teacherIds)))
+        .get();
+    final userById = <String, UsersData>{};
+    for (final u in userRows) {
+      userById[u.id] = u;
+    }
+
+    final result = <PaperWithExamInfo>[];
+    for (final paper in paperList) {
+      final exam = examById[paper.exam];
+      if (exam == null) continue;
+      final teacher = userById[exam.teacher] ??
+          UsersData(
+            id: exam.teacher,
+            phone: '',
+            name: 'Unknown',
+            email: null,
+            level: UserLevel.normal,
+            status: UserStatus.active,
+            created: BigInt.zero,
+            updated: BigInt.zero,
+          );
+      result.add((paper: paper, exam: exam, teacher: teacher));
+    }
+    return result;
   }
 
   /// Watches all distinct streams that have papers for a given [grade] within

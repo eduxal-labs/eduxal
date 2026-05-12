@@ -9,6 +9,7 @@ import '../../../../../models/grade_analytics.dart';
 import '../../../../../models/school_context.dart';
 import '../../../../theme/app_theme.dart';
 import '../../../../widgets/user_avatar.dart';
+import '../subject_detail_page.dart';
 
 /// Subjects tab — shows all subject-teacher assignments for a specific stream
 /// within a grade. Each card displays the subject name, assigned teacher,
@@ -287,6 +288,11 @@ class _SubjectsTabState extends State<SubjectsTab>
       curriculumType: widget.curriculumType,
       cs: cs,
       isDark: isDark,
+      schoolContext: widget.schoolContext,
+      schoolId: widget.schoolId,
+      year: widget.year,
+      term: widget.term,
+      grade: widget.grade,
     );
   }
 }
@@ -402,12 +408,22 @@ class _SubjectRow extends StatefulWidget {
     required this.curriculumType,
     required this.cs,
     required this.isDark,
+    required this.schoolContext,
+    required this.schoolId,
+    required this.year,
+    required this.term,
+    required this.grade,
   });
 
   final SubjectTeacherEntry entry;
   final CurriculumType curriculumType;
   final ColorScheme cs;
   final bool isDark;
+  final SchoolContext schoolContext;
+  final String schoolId;
+  final int year;
+  final int term;
+  final int grade;
 
   @override
   State<_SubjectRow> createState() => _SubjectRowState();
@@ -485,7 +501,22 @@ class _SubjectRowState extends State<_SubjectRow>
             onTapUp: _onTapUp,
             onTapCancel: _onTapCancel,
             onTap: () {
-              // TODO: navigate to subject detail
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => SubjectDetailPage(
+                    schoolContext: widget.schoolContext,
+                    subjectEntry: widget.entry,
+                    schoolId: widget.schoolId,
+                    year: widget.year,
+                    term: widget.term,
+                    grade: widget.grade,
+                    streamCode: widget.entry.streamCode,
+                    streamName: widget.entry.streamName,
+                    curriculumType: widget.curriculumType,
+                  ),
+                ),
+              );
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
