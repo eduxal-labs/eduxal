@@ -270,16 +270,25 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
 
   /// Records the intent to sync a profile image change for [userId].
   ///
-  /// **Currently blocked (P8):** There is no gRPC endpoint to request a fresh
-  /// presigned PUT URL on demand. Profile image changes are local-only for now
-  /// (the file is saved to `FileCache.profilePath(userId)` by the UI).
-  ///
-  /// When P8 is resolved this method should write a log entry so the sync
-  /// engine can upload the image. For now it is a no-op placeholder.
+  /// Writes a sync log entry with [SyncAction.updateUser] so the sync engine
+  /// can upload the profile image and notify other devices of the change.
   Future<void> logProfileImageChange(String userId) async {
-    // TODO(P8): Write a log entry once the upload-URL endpoint exists.
-    // The sync engine will handle profile images via a dedicated file-sync
-    // mechanism — no DB column exists for the image itself.
+    final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+    final payload = sync_pb.UpdateUserPayload(
+      id: userId,
+      profileImage: true,
+    );
+
+    await into(db.logs).insert(
+      LogsCompanion(
+        account: Value(userId),
+        action: Value(SyncAction.updateUser),
+        resource: Value(userId),
+        payload: Value(payload.writeToBuffer()),
+        created: Value(now),
+      ),
+    );
+    sync.schedulePush();
   }
 
   /// Marks the user as deleted and removes the account from this device.

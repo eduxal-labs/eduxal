@@ -7903,6 +7903,7 @@ class UpdateUserPayload extends $pb.GeneratedMessage {
     $core.String? name,
     $core.int? level,
     $core.int? status,
+    $core.bool? profileImage,
   }) {
     final result = create();
     if (id != null) result.id = id;
@@ -7911,6 +7912,7 @@ class UpdateUserPayload extends $pb.GeneratedMessage {
     if (name != null) result.name = name;
     if (level != null) result.level = level;
     if (status != null) result.status = status;
+    if (profileImage != null) result.profileImage = profileImage;
     return result;
   }
 
@@ -7933,6 +7935,7 @@ class UpdateUserPayload extends $pb.GeneratedMessage {
     ..aOS(4, _omitFieldNames ? '' : 'name')
     ..aI(5, _omitFieldNames ? '' : 'level')
     ..aI(6, _omitFieldNames ? '' : 'status')
+    ..aOB(7, _omitFieldNames ? '' : 'profileImage')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -8007,6 +8010,15 @@ class UpdateUserPayload extends $pb.GeneratedMessage {
   $core.bool hasStatus() => $_has(5);
   @$pb.TagNumber(6)
   void clearStatus() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.bool get profileImage => $_getBF(6);
+  @$pb.TagNumber(7)
+  set profileImage($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasProfileImage() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearProfileImage() => $_clearField(7);
 }
 
 class DeleteUserPayload extends $pb.GeneratedMessage {

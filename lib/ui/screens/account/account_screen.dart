@@ -186,6 +186,7 @@ class _AccountScreenState extends State<AccountScreen>
         await dir.create(recursive: true);
       }
       await file.copy(target.path);
+      FileCacheNotifier.notify(relativePath);
     } catch (e) {
       debugPrint('Failed to cache profile image locally: $e');
     }

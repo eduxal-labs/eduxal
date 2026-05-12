@@ -191,6 +191,7 @@ class _SetupScreenState extends State<SetupScreen>
         await dir.create(recursive: true);
       }
       await file.copy(target.path);
+      FileCacheNotifier.notify(relativePath);
     } catch (e) {
       debugPrint('Failed to cache profile image locally: $e');
     }

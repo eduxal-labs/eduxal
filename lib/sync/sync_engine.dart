@@ -751,6 +751,14 @@ class SyncEngine {
       if (isPushOriginator) {
         final putUrl = fileUrl.putUrl;
         if (putUrl.isEmpty) continue;
+
+        // Skip upload if the local file doesn't exist.
+        final localFile = await FileCache.get(path);
+        if (localFile == null) {
+          debugPrint('[FileSync] Skipping upload — local file not found: path=$path');
+          continue;
+        }
+
         debugPrint('[SyncEngine] Uploading file: path=$path');
         final ok = await FileCache.upload(putUrl, path);
         debugPrint('[FileSync] Upload result: ok=$ok, path=$path');
@@ -779,6 +787,15 @@ class SyncEngine {
       if (isPushOriginator) {
         final putUrl = fileUrl.putUrl;
         if (putUrl.isEmpty) continue;
+
+        // Skip upload if the local file doesn't exist (e.g. cache cleared,
+        // or a non-image UPDATE_USER action that included file URLs).
+        final localFile = await FileCache.get(path);
+        if (localFile == null) {
+          debugPrint('[FileSync] Skipping upload — local file not found: path=$path');
+          continue;
+        }
+
         debugPrint('[SyncEngine] Uploading file: path=$path');
         final ok = await FileCache.upload(putUrl, path);
         debugPrint('[FileSync] Upload result: ok=$ok, path=$path');

@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import '../../cache/file_cache.dart';
 
 /// A reusable circular profile image widget that reads from the local file
-/// cache.
+/// cache and updates in real-time when the file changes.
 ///
 /// Renders as a circle (WhatsApp/YouTube style). Falls back to a warm tinted
 /// circle with a person icon when no cached image exists for [userId].
-class UserAvatar extends StatelessWidget {
+class UserAvatar extends StatefulWidget {
   final String userId;
 
   /// Half-size of the avatar. The rendered widget is `radius * 2` in both
@@ -25,40 +25,72 @@ class UserAvatar extends StatelessWidget {
   });
 
   @override
+  State<UserAvatar> createState() => _UserAvatarState();
+}
+
+class _UserAvatarState extends State<UserAvatar> {
+  File? _file;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFile();
+    FileCacheNotifier.of(FileCache.profilePath(widget.userId))
+        .addListener(_onFileChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant UserAvatar old) {
+    super.didUpdateWidget(old);
+    if (old.userId != widget.userId) {
+      FileCacheNotifier.of(FileCache.profilePath(old.userId))
+          .removeListener(_onFileChanged);
+      FileCacheNotifier.of(FileCache.profilePath(widget.userId))
+          .addListener(_onFileChanged);
+      _loadFile();
+    }
+  }
+
+  @override
+  void dispose() {
+    FileCacheNotifier.of(FileCache.profilePath(widget.userId))
+        .removeListener(_onFileChanged);
+    super.dispose();
+  }
+
+  void _onFileChanged() {
+    _loadFile();
+  }
+
+  Future<void> _loadFile() async {
+    final file = await FileCache.get(FileCache.profilePath(widget.userId));
+    if (!mounted) return;
+    setState(() => _file = file);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
-    Widget avatar = FutureBuilder<File?>(
-      future: FileCache.get(FileCache.profilePath(userId)),
-      builder: (context, snapshot) {
-        final file = snapshot.data;
-        final hasImage = file != null && file.existsSync();
+    final hasImage = _file != null && _file!.existsSync();
 
-        if (hasImage) {
-          return CircleAvatar(
-            radius: radius,
-            backgroundImage: FileImage(file),
-            backgroundColor: cs.surfaceContainerHighest,
-          );
-        }
-
-        // Warm fallback — tinted circle with person icon.
-        return CircleAvatar(
-          radius: radius,
-          backgroundColor: cs.surfaceContainerHighest,
-          child: Icon(
-            Icons.person,
-            size: radius * 0.9,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.65),
-          ),
-        );
-      },
+    Widget avatar = CircleAvatar(
+      radius: widget.radius,
+      backgroundImage: hasImage ? FileImage(_file!) : null,
+      backgroundColor: cs.surfaceContainerHighest,
+      child: hasImage
+          ? null
+          : Icon(
+              Icons.person,
+              size: widget.radius * 0.9,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+            ),
     );
 
-    if (onTap != null) {
+    if (widget.onTap != null) {
       avatar = GestureDetector(
-        onTap: onTap,
+        onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,
         child: avatar,
       );
