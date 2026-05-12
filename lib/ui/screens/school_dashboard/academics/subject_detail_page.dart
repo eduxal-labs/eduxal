@@ -54,7 +54,7 @@ class SubjectDetailPage extends StatefulWidget {
 }
 
 class _SubjectDetailPageState extends State<SubjectDetailPage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   // ── Tab controllers ──────────────────────────────────────────────────────
   late final TabController _tabCtrl;
 
