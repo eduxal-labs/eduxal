@@ -1196,9 +1196,8 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
                       ),
                     const SizedBox(height: 5),
                     StreamBuilder<List<Topic>>(
-                      stream: catalogDao.watchTopicsBySubjectAndGrade(
+                      stream: catalogDao.watchTopicsBySubject(
                         subjectId: widget.subjectId,
-                        grade: widget.grade,
                       ),
                       builder: (context, snapshot) {
                         final topics = snapshot.data ?? [];

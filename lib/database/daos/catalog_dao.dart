@@ -251,6 +251,15 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
         .watch();
   }
 
+  /// Reactively watches all topics for [subjectId] across all grades,
+  /// ordered by name.
+  Stream<List<Topic>> watchTopicsBySubject({required int subjectId}) {
+    return (select(topics)
+          ..where((t) => t.subject.equals(subjectId))
+          ..orderBy([(t) => OrderingTerm.asc(t.name)]))
+        .watch();
+  }
+
   /// One-shot read of all topics for [subjectId].
   Future<List<Topic>> getTopicsForSubject(int subjectId) =>
       (select(topics)..where((t) => t.subject.equals(subjectId))).get();
