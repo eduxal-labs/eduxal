@@ -244,7 +244,7 @@ class _SubjectBulkImportSheetState extends State<SubjectBulkImportSheet> {
             } else if (rMarks is int) {
               rubricSum += rMarks;
             } else if (rMarks is double) {
-              rubricSum += rMarks.toInt();
+              rubricSum += rMarks.ceil();
             } else {
               errors.add(
                 '$prefix, rubric[${j + 1}]: "marks" must be a number.',
