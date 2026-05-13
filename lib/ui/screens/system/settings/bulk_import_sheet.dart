@@ -133,14 +133,15 @@ class _BulkImportSheetState extends State<BulkImportSheet> {
 
         // New fields (optional — do not reject if absent)
         final parts = (q['parts'] as List?)?.cast<Map<String, dynamic>>();
-        // ignore: unused_local_variable
         final stimulus = q['stimulus'] as Map<String, dynamic>?;
         // ignore: unused_local_variable
         final qType = q['type'] as String? ?? 'definition';
         // ignore: unused_local_variable
         final difficulty = q['difficulty'] as int? ?? 3;
 
-        if (body.trim().isEmpty) {
+        // A question with a stimulus passage/poem/narrative is valid even without body.
+        final hasStimulus = _hasQuestionStimulusContent(stimulus);
+        if (body.trim().isEmpty && !hasStimulus) {
           errors.add('$prefix: missing or empty "body" (or "text").');
         }
 
@@ -1002,4 +1003,10 @@ class _ErrorBanner extends StatelessWidget {
       ),
     );
   }
+}
+
+bool _hasQuestionStimulusContent(Map<String, dynamic>? stimulus) {
+  if (stimulus == null) return false;
+  final sb = stimulus['body'];
+  return sb is String && sb.trim().isNotEmpty;
 }

@@ -261,8 +261,10 @@ ParsedImportFile parseImportFile(String filePath, String jsonContent) {
     }
 
     // body (was "text" — backward compat: try "body" first, fall back to "text")
+    // A question with a stimulus passage/poem/narrative is valid even without body.
     final rawBody = q['body'] ?? q['text'];
-    if (rawBody == null || rawBody is! String || rawBody.trim().isEmpty) {
+    final bool hasStimulus = _hasQuestionStimulusContent(q['stimulus']);
+    if ((rawBody == null || rawBody is! String || rawBody.trim().isEmpty) && !hasStimulus) {
       errors.add('$prefix: missing or empty "body" (or "text").');
     }
 
@@ -562,6 +564,13 @@ ParsedImportFile _buildResult({
     imagePathMap: imagePathMap,
     questionImageMap: questionImageMap,
   );
+}
+
+/// Returns true if [stimulus] has a non-empty body (passage, poem, narrative, etc.).
+bool _hasQuestionStimulusContent(dynamic stimulus) {
+  if (stimulus is! Map<String, dynamic>) return false;
+  final sb = stimulus['body'];
+  return sb is String && sb.trim().isNotEmpty;
 }
 
 /// Normalizes a raw grade number to the DB-compatible grade number.
