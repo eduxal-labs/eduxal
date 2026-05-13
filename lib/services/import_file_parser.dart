@@ -406,8 +406,8 @@ ParsedImportFile parseImportFile(String filePath, String jsonContent) {
     final maxMarks = q['max_marks'];
     if (maxMarks != null && maxMarks is! int && maxMarks is! double) {
       errors.add('$prefix: "max_marks" must be a number if provided.');
-    } else if (maxMarks != null && marks != null && maxMarks is num && (maxMarks as num).toInt() < marks) {
-      errors.add('$prefix: "max_marks" (${(maxMarks as num).toInt()}) must be ≥ "marks" ($marks).');
+    } else if (maxMarks != null && marks != null && maxMarks is num && (maxMarks as num).toInt() > marks) {
+      errors.add('$prefix: "max_marks" (${(maxMarks as num).toInt()}) must be ≤ "marks" ($marks).');
     }
 
     // answer_space_type: optional, validate if present

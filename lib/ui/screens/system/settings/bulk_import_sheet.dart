@@ -199,11 +199,11 @@ class _BulkImportSheetState extends State<BulkImportSheet> {
           }
         }
 
-        // max_marks: must be at least the question marks
+        // max_marks: cap for AI marker, must not exceed question marks
         final maxMarks = q['max_marks'] as int?;
-        if (maxMarks != null && marks != null && maxMarks < marks) {
+        if (maxMarks != null && marks != null && maxMarks > marks) {
           errors.add(
-            '$prefix: "max_marks" ($maxMarks) must be ≥ "marks" ($marks).',
+            '$prefix: "max_marks" ($maxMarks) must be ≤ "marks" ($marks).',
           );
         }
 
