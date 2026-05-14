@@ -206,6 +206,10 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
 
   String _friendlyGenerateError(GrpcError e) {
     final msg = e.message?.toLowerCase() ?? '';
+    if (msg.contains('marks mismatch')) {
+      return 'The topic allocation marks do not add up to the paper\'s total. '
+          'Adjust the marks in each topic so they sum to the total.';
+    }
     if (e.code == StatusCode.failedPrecondition ||
         msg.contains('nothing to update') ||
         msg.contains('not enough question')) {
