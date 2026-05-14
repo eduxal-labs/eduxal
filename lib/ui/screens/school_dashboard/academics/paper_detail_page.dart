@@ -137,6 +137,9 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   int _bulkTotal = 0;
   bool _generatingPdfs = false;
 
+  // ── Paper metadata cached from papers_v2 ─────────────────────────────────
+  int? _paperTotalMarks;
+
   // ── Local PDF download state ────────────────────────────────────────────
   bool _teacherPdfLocal = false;
   final Set<int> _localStudentPdfs = {};
@@ -285,6 +288,18 @@ class _PaperDetailPageState extends State<PaperDetailPage>
         // Paper not yet finalized — ignore silently.
         break;
     }
+  }
+
+  /// Load the paper's original totalMarks from the local papers_v2 table.
+  Future<void> _loadPaperTotalMarks() async {
+    final serverId = widget.serverPaperId;
+    if (serverId == null) return;
+    try {
+      final row = await _dao.getPaperV2ById(serverId);
+      if (row != null && mounted) {
+        setState(() => _paperTotalMarks = row.totalMarks);
+      }
+    } catch (_) {}
   }
 
   /// Scan FileCache to determine which paper PDFs exist locally.
@@ -743,6 +758,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
     _subscribeStudents();
     _loadSchemeFiles();
     _tryLoadExistingPdf();
+    _loadPaperTotalMarks();
 
     // Subscribe to teacher subjects if the current entry is a teacher.
     final entry = widget.schoolContext.currentEntry.value;
@@ -1901,6 +1917,7 @@ class _PaperHeaderState extends State<_PaperHeader>
                                 .map((e) => (code: e.key, name: e.value))
                                 .toList(),
                             serverPaperId: widget.serverPaperId!,
+                            paperTotalMarks: _paperTotalMarks,
                           ),
                         ),
                       );

@@ -2507,6 +2507,14 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     await into(papers).insert(companion);
   }
 
+  /// Look up a single paper in [PapersV2] by server-issued UUID.
+  Future<PapersV2Data?> getPaperV2ById(String serverPaperId) async {
+    final rows = await (select(papersV2)
+          ..where((t) => t.id.equals(serverPaperId)))
+        .get();
+    return rows.isNotEmpty ? rows.first : null;
+  }
+
   /// Update the status of a paper in [PapersV2] after generation completes.
   Future<void> updatePaperStatusAfterGeneration({
     required String serverPaperId,

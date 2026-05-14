@@ -34,6 +34,7 @@ class PaperGenerationPage extends StatefulWidget {
     required this.examName,
     this.allStreamsForGrade = const [],
     required this.serverPaperId,
+    this.paperTotalMarks,
   });
 
   final String schoolId;
@@ -53,6 +54,9 @@ class PaperGenerationPage extends StatefulWidget {
   /// The server-side paper UUID (from papers_v2). Used directly for all
   /// QuestionBank RPC calls.
   final String serverPaperId;
+
+  /// The paper's original total marks. Used to initialise the marks field.
+  final int? paperTotalMarks;
 
   @override
   State<PaperGenerationPage> createState() => _PaperGenerationPageState();
@@ -103,6 +107,9 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
   @override
   void initState() {
     super.initState();
+    if (widget.paperTotalMarks != null && widget.paperTotalMarks! > 0) {
+      _totalMarks = widget.paperTotalMarks!;
+    }
     _totalMarksController = TextEditingController(text: '$_totalMarks');
     _tryRestoreExistingQuestions();
   }
