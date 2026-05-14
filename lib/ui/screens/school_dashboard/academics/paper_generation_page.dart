@@ -33,6 +33,7 @@ class PaperGenerationPage extends StatefulWidget {
     required this.subjectName,
     required this.examName,
     this.allStreamsForGrade = const [],
+    this.serverPaperId,
   });
 
   final String schoolId;
@@ -48,6 +49,10 @@ class PaperGenerationPage extends StatefulWidget {
   /// copy picker shown after PDF generation. Pass an empty list to hide the
   /// copy section.
   final List<({int code, String name})> allStreamsForGrade;
+
+  /// The server-side paper UUID (from papers_v2). When provided, used directly
+  /// for all QuestionBank RPC calls. Falls back to the legacy composite key.
+  final String? serverPaperId;
 
   @override
   State<PaperGenerationPage> createState() => _PaperGenerationPageState();
@@ -91,6 +96,15 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
 
   late final TextEditingController _totalMarksController;
   final List<TextEditingController> _markControllers = [];
+
+  /// The paper ID used for all QuestionBank RPC calls.
+  ///
+  /// Uses the server paper UUID when available; falls back to the legacy
+  /// composite key for old papers that predate papers_v2.
+  String get _rpcPaperId =>
+      widget.serverPaperId ??
+      '${widget.schoolId}|${widget.examId}|${widget.subjectId}|'
+      '${widget.paperId ?? ''}|${widget.grade}|${widget.stream ?? ''}';
 
   @override
   void initState() {
@@ -152,11 +166,8 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
       _generateError = null;
     });
 
-    final paperKey =
-        '${widget.schoolId}|${widget.examId}|${widget.subjectId}|'
-        '${widget.paperId ?? ''}|${widget.grade}|${widget.stream ?? ''}';
     final genResult = await questionBankService.generatePaper(
-      paperId: paperKey,
+      paperId: _rpcPaperId,
       totalMarks: _totalMarks,
       allocations: nonZero,
       accessToken: accessToken,
@@ -168,7 +179,7 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
       case Ok():
         // Paper generated on server — now fetch the question list.
         final questResult = await questionBankService.getPaperQuestions(
-          paperId: paperKey,
+          paperId: _rpcPaperId,
           accessToken: accessToken,
         );
         if (!mounted) return;
@@ -220,11 +231,8 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
   /// Fetch questions already generated for this paper from the server and
   /// restore wizard state to the review step (step 1) if any are found.
   Future<void> _tryRestoreExistingQuestions() async {
-    final paperKey =
-        '${widget.schoolId}|${widget.examId}|${widget.subjectId}|'
-        '${widget.paperId ?? ''}|${widget.grade}|${widget.stream ?? ''}';
     final result = await questionBankService.getPaperQuestions(
-      paperId: paperKey,
+      paperId: _rpcPaperId,
       accessToken: accessToken,
     );
     if (!mounted) return;
@@ -290,11 +298,8 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
 
     setState(() => _regeneratingIndex = index);
 
-    final paperKey =
-        '${widget.schoolId}|${widget.examId}|${widget.subjectId}|'
-        '${widget.paperId ?? ''}|${widget.grade}|${widget.stream ?? ''}';
     final result = await questionBankService.regenerateQuestion(
-      paperId: paperKey,
+      paperId: _rpcPaperId,
       position: question.order,
       topicId: _findTopicForQuestion(question),
       marks: question.marks,
@@ -482,11 +487,8 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
       }).toList();
     });
 
-    final paperKey =
-        '${widget.schoolId}|${widget.examId}|${widget.subjectId}|'
-        '${widget.paperId ?? ''}|${widget.grade}|${widget.stream ?? ''}';
     final result = await questionBankService.setPaperQuestionSection(
-      paperId: paperKey,
+      paperId: _rpcPaperId,
       position: question.order,
       section: section,
       accessToken: accessToken,
@@ -1526,11 +1528,8 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
     if (_isFinalizing) return;
     setState(() => _isFinalizing = true);
 
-    final paperKey =
-        '${widget.schoolId}|${widget.examId}|${widget.subjectId}|'
-        '${widget.paperId ?? ''}|${widget.grade}|${widget.stream ?? ''}';
     final result = await questionBankService.finalizePaper(
-      paperId: paperKey,
+      paperId: _rpcPaperId,
       accessToken: accessToken,
     );
 
@@ -1586,11 +1585,8 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
 
     setState(() => _isClearing = true);
 
-    final paperKey =
-        '${widget.schoolId}|${widget.examId}|${widget.subjectId}|'
-        '${widget.paperId ?? ''}|${widget.grade}|${widget.stream ?? ''}';
     final result = await questionBankService.clearPaperQuestions(
-      paperId: paperKey,
+      paperId: _rpcPaperId,
       accessToken: accessToken,
     );
 
@@ -1622,11 +1618,8 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
 
     setState(() => _isCopying = true);
 
-    final paperKey =
-        '${widget.schoolId}|${widget.examId}|${widget.subjectId}|'
-        '${widget.paperId ?? ''}|${widget.grade}|${widget.stream ?? ''}';
     final result = await questionBankService.copyPaperToStreams(
-      paperId: paperKey,
+      paperId: _rpcPaperId,
       targetStreams: _selectedTargetStreams.toList(),
       accessToken: accessToken,
     );

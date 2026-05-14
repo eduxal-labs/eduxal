@@ -1900,6 +1900,7 @@ class _PaperHeaderState extends State<_PaperHeader>
                             allStreamsForGrade: widget.streamNames.entries
                                 .map((e) => (code: e.key, name: e.value))
                                 .toList(),
+                            serverPaperId: widget.serverPaperId,
                           ),
                         ),
                       );
