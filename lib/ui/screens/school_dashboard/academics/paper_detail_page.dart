@@ -983,6 +983,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                         pdfDownloadTotal: _pdfDownloadTotal,
                         onDownloadAllPdfs: _downloadAllPdfs,
                         onPrintAllLocal: _printAllLocalPdfs,
+                        paperTotalMarks: _paperTotalMarks,
                       ),
                       const SizedBox(height: 16),
 
@@ -1191,6 +1192,7 @@ class _PaperHeader extends StatefulWidget {
     this.pdfDownloadTotal = 0,
     this.onDownloadAllPdfs,
     this.onPrintAllLocal,
+    this.paperTotalMarks,
   });
 
   final Paper paper;
@@ -1244,6 +1246,7 @@ class _PaperHeader extends StatefulWidget {
   final int pdfDownloadTotal;
   final VoidCallback? onDownloadAllPdfs;
   final VoidCallback? onPrintAllLocal;
+  final int? paperTotalMarks;
 
   @override
   State<_PaperHeader> createState() => _PaperHeaderState();
@@ -1917,7 +1920,7 @@ class _PaperHeaderState extends State<_PaperHeader>
                                 .map((e) => (code: e.key, name: e.value))
                                 .toList(),
                             serverPaperId: widget.serverPaperId!,
-                            paperTotalMarks: _paperTotalMarks,
+                            paperTotalMarks: widget.paperTotalMarks,
                           ),
                         ),
                       );
