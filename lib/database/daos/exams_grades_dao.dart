@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import '../database.dart';
 import '../tables/enums.dart';
 import '../../models/exam_group.dart';
+import '../tables/events.dart';
 import '../tables/exams.dart';
 import '../tables/grades.dart';
 import '../tables/logs.dart';
@@ -76,6 +77,7 @@ class PaperAnalytics {
 
 @DriftAccessor(
   tables: [
+    Events,
     Exams,
     Papers,
     PapersV2,
@@ -2319,5 +2321,27 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       await into(exams).insert(exam);
       await into(papers).insert(paper);
     });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Events — new server-aligned schema (migration 0007)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Insert a row into the new [Events] table and the legacy [Exams] table
+  /// in one transaction. No sync logs — the event was created on the server
+  /// via [PaperService.createEvent] RPC.
+  Future<void> insertEventWithLegacyExam({
+    required EventsCompanion event,
+    required ExamsCompanion exam,
+  }) async {
+    await transaction(() async {
+      await into(events).insert(event);
+      await into(exams).insert(exam);
+    });
+  }
+
+  /// Insert a single paper into the legacy [Papers] table without sync logs.
+  Future<void> insertLegacyPaper(PapersCompanion companion) async {
+    await into(papers).insert(companion);
   }
 }

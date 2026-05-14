@@ -5,6 +5,7 @@ part of 'exams_grades_dao.dart';
 // ignore_for_file: type=lint
 mixin _$ExamsGradesDaoMixin on DatabaseAccessor<AppDatabase> {
   $SchoolsTable get schools => attachedDatabase.schools;
+  $EventsTable get events => attachedDatabase.events;
   $ExamsTable get exams => attachedDatabase.exams;
   $PapersTable get papers => attachedDatabase.papers;
   $PapersV2Table get papersV2 => attachedDatabase.papersV2;
@@ -30,6 +31,8 @@ class ExamsGradesDaoManager {
   ExamsGradesDaoManager(this._db);
   $$SchoolsTableTableManager get schools =>
       $$SchoolsTableTableManager(_db.attachedDatabase, _db.schools);
+  $$EventsTableTableManager get events =>
+      $$EventsTableTableManager(_db.attachedDatabase, _db.events);
   $$ExamsTableTableManager get exams =>
       $$ExamsTableTableManager(_db.attachedDatabase, _db.exams);
   $$PapersTableTableManager get papers =>

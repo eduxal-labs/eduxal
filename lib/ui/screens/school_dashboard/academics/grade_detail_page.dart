@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:grpc/grpc.dart';
 import '../../../widgets/inline_date_picker_dialog.dart';
 
 import 'package:drift/drift.dart' hide Column;
@@ -13,9 +14,11 @@ import '../../../../database/daos/catalog_dao.dart';
 import '../../../../database/daos/members_dao.dart';
 import '../../../../database/daos/subjects_dao.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
-import '../../../../database/tables/enums.dart' show ExamType, PaperStatus;
+import '../../../../database/tables/enums.dart'
+    show EventType, EventStatus, ExamType, PaperStatus, PaperV2Type, PaperV2Status;
 import '../../../../models/membership.dart';
 import '../../../../models/permissions.dart';
+import '../../../../models/result.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
@@ -2601,83 +2604,55 @@ class _CreateExamFromGradeSheetState extends State<_CreateExamFromGradeSheet> {
 
     setState(() => _saving = true);
     try {
-      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
-      final examId = _generateExamId();
-      final startDays = _startDate.millisecondsSinceEpoch ~/ (86400 * 1000);
-      final endDays = _endDate.millisecondsSinceEpoch ~/ (86400 * 1000);
-
-      // Determine which streams to create papers for.
-      final streamsToProcess = <GradeStream>[];
-      if (_allStreams && widget.allStreams.length > 1) {
-        streamsToProcess.addAll(widget.allStreams);
-      } else if (widget.stream != null) {
-        streamsToProcess.add(widget.stream!);
-      }
-      // If no streams (grade has none), we still create the exam but
-      // with no papers — the user adds papers later via the full editor.
-
-      // Build paper rows for each stream by loading its assigned subjects.
-      final allPapers = <PapersCompanion>[];
-      for (final stream in streamsToProcess) {
-        final subjects = await _loadSubjects(stream.code);
-        for (final entry in subjects) {
-          // Use exam start/end as paper start/end (placeholder times).
-          final startSecs = BigInt.from(
-            DateTime.utc(
-                  _startDate.year,
-                  _startDate.month,
-                  _startDate.day,
-                ).millisecondsSinceEpoch ~/
-                1000,
-          );
-          final endSecs = BigInt.from(
-            DateTime.utc(
-                  _endDate.year,
-                  _endDate.month,
-                  _endDate.day,
-                ).millisecondsSinceEpoch ~/
-                1000,
-          );
-
-          allPapers.add(
-            PapersCompanion(
-              school: Value(widget.schoolId),
-              exam: Value(examId),
-              subject: Value(entry.subject.subject),
-              paper: const Value(null),
-              invigilator: Value(entry.subject.teacher),
-              grade: Value(widget.grade),
-              stream: Value(stream.code),
-              start: Value(startSecs),
-              end: Value(endSecs),
-              status: Value(PaperStatus.pending),
-              created: Value(now),
-              updated: Value(now),
+      final token = accessToken;
+      if (token.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Not authenticated'),
+              behavior: SnackBarBehavior.floating,
             ),
           );
         }
+        return;
       }
 
-      // Deduplicate by (subject, paper, grade, stream) to avoid PK conflicts.
-      {
-        final seen = <String>{};
-        final deduped = <PapersCompanion>[];
-        for (final p in allPapers) {
-          final paperVal = p.paper.present ? p.paper.value : null;
-          final streamVal = p.stream.present ? p.stream.value : null;
-          final key =
-              '${p.subject.value}:$paperVal:${p.grade.value}:$streamVal';
-          if (seen.add(key)) {
-            deduped.add(p);
-          }
-        }
-        allPapers
-          ..clear()
-          ..addAll(deduped);
-      }
+      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+      final startDays = _startDate.millisecondsSinceEpoch ~/ (86400 * 1000);
+      final endDays = _endDate.millisecondsSinceEpoch ~/ (86400 * 1000);
 
-      final exam = ExamsCompanion(
-        id: Value(examId),
+      // 1) Create event on server via RPC.
+      final createResult = await paperService.createEvent(
+        school: widget.schoolId,
+        name: examName,
+        type: EventType.exam.index,
+        term: widget.term,
+        year: widget.year,
+        startDate: _startDate,
+        endDate: _endDate,
+        accessToken: token,
+      );
+      if (createResult case Err(:final error)) throw error;
+
+      final eventId = (createResult as Ok<String, GrpcError>).value;
+
+      // 2) Save event locally (dual-write to events + legacy exams).
+      final eventCompanion = EventsCompanion(
+        id: Value(eventId),
+        school: Value(widget.schoolId),
+        name: Value(examName),
+        type_: const Value(EventType.exam),
+        term: Value(widget.term),
+        year: Value(widget.year),
+        startDate: Value(startDays),
+        endDate: Value(endDays),
+        status: const Value(EventStatus.active),
+        created: Value(now),
+        updated: Value(now),
+      );
+
+      final legacyExamCompanion = ExamsCompanion(
+        id: Value(eventId),
         school: Value(widget.schoolId),
         year: Value(widget.year),
         term: Value(widget.term),
@@ -2691,22 +2666,118 @@ class _CreateExamFromGradeSheetState extends State<_CreateExamFromGradeSheet> {
         updated: Value(now),
       );
 
-      await _dao.createExamWithPapers(
-        exam: exam,
-        paperRows: allPapers,
-        accountId: accountId,
+      await _dao.insertEventWithLegacyExam(
+        event: eventCompanion,
+        exam: legacyExamCompanion,
       );
+
+      // 3) Determine which streams to create papers for.
+      final streamsToProcess = <GradeStream>[];
+      if (_allStreams && widget.allStreams.length > 1) {
+        streamsToProcess.addAll(widget.allStreams);
+      } else if (widget.stream != null) {
+        streamsToProcess.add(widget.stream!);
+      }
+
+      // 4) Create papers on server + save locally.
+      int paperCount = 0;
+      for (final stream in streamsToProcess) {
+        final subjects = await _loadSubjects(stream.code);
+        for (final entry in subjects) {
+          final paperResult = await paperService.createPaper(
+            school: widget.schoolId,
+            eventId: eventId,
+            subject: entry.subject.subject,
+            grade: widget.grade,
+            stream: stream.code,
+            type: PaperV2Type.exam.index,
+            name: '${entry.subjectName} - $examName',
+            totalMarks: 100,
+            durationMinutes: 120,
+            date: _startDate,
+            accessToken: token,
+          );
+          if (paperResult case Err(:final error)) throw error;
+
+          final paperId = (paperResult as Ok<String, GrpcError>).value;
+
+          // Save paper locally (dual-write).
+          final paperStartSecs = BigInt.from(
+            DateTime.utc(
+              _startDate.year,
+              _startDate.month,
+              _startDate.day,
+            ).millisecondsSinceEpoch ~/ 1000,
+          );
+          final paperEndSecs = BigInt.from(
+            DateTime.utc(
+              _endDate.year,
+              _endDate.month,
+              _endDate.day,
+            ).millisecondsSinceEpoch ~/ 1000,
+          );
+
+          await _dao.insertPaperV2(
+            PapersV2Companion(
+              id: Value(paperId),
+              school: Value(widget.schoolId),
+              event: Value(eventId),
+              subject: Value(entry.subject.subject),
+              grade: Value(widget.grade),
+              stream: Value(stream.code),
+              type_: const Value(PaperV2Type.exam),
+              teacher: Value(entry.subject.teacher),
+              name: Value('${entry.subjectName} - $examName'),
+              totalMarks: const Value(100),
+              durationMinutes: const Value(120),
+              date: Value(startDays),
+              status: const Value(PaperV2Status.draft),
+              created: Value(now),
+              updated: Value(now),
+            ),
+          );
+
+          await _dao.insertLegacyPaper(
+            PapersCompanion(
+              school: Value(widget.schoolId),
+              exam: Value(eventId),
+              subject: Value(entry.subject.subject),
+              paper: const Value(null),
+              invigilator: Value(entry.subject.teacher),
+              grade: Value(widget.grade),
+              stream: Value(stream.code),
+              start: Value(paperStartSecs),
+              end: Value(paperEndSecs),
+              status: Value(PaperStatus.pending),
+              created: Value(now),
+              updated: Value(now),
+            ),
+          );
+
+          paperCount++;
+        }
+      }
 
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              allPapers.isEmpty
-                  ? 'Exam created (no papers — add via exam details)'
-                  : 'Exam created with ${allPapers.length} paper${allPapers.length == 1 ? '' : 's'}',
+              paperCount == 0
+                  ? 'Exam event created (no papers — add via exam details)'
+                  : 'Exam created with $paperCount paper${paperCount == 1 ? '' : 's'}',
             ),
             duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } on GrpcError catch (e) {
+      debugPrint('Exam creation gRPC error: ${e.message} (${e.code})');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Server error: ${e.message}'),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -2901,11 +2972,6 @@ class _CreateExamFromGradeSheetState extends State<_CreateExamFromGradeSheet> {
     );
   }
 
-  static String _generateExamId() {
-    final ms = DateTime.now().millisecondsSinceEpoch;
-    final rand = math.Random().nextInt(0x7FFFFFFF);
-    return '${ms.toRadixString(16)}-${rand.toRadixString(16)}';
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
