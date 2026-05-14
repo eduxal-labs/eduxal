@@ -2068,7 +2068,7 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
         invigilator: accountId,
         start: BigInt.from(startSecs),
         end: BigInt.from(endSecs),
-        status: PaperStatus.progress,
+        status: PaperStatus.pending,
         grade: widget.grade,
         stream: widget.streamCode,
         timeAllowedMinutes: null,
