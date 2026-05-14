@@ -1442,7 +1442,7 @@ class _PaperHeaderState extends State<_PaperHeader>
               end: newEnd.millisecondsSinceEpoch ~/ 1000,
               date: newDateDays,
               durationMinutes: newDuration,
-              accountId: accountId,
+              serverPaperId: rpcPaperId,
             );
 
             if (mounted) {

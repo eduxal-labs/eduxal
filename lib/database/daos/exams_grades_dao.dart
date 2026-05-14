@@ -2522,6 +2522,10 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
   ///
   /// [start] and [end] are seconds since epoch for the legacy table.
   /// [durationMinutes] and [date] (days since epoch) are for papers_v2.
+  ///
+  /// The server update is handled by the caller via direct RPC
+  /// ([PaperService.updatePaper]), so this method only updates local tables
+  /// and does not write a sync log entry.
   Future<void> updatePaperTimes({
     required String schoolId,
     required String examId,
@@ -2533,21 +2537,10 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required int end,
     required int date,
     required int durationMinutes,
-    required String accountId,
+    required String serverPaperId,
   }) async {
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
-
-      // Write sync log for offline push.
-      await into(logs).insert(
-        LogsCompanion(
-          account: Value(accountId),
-          action: Value(SyncAction.updatePaper),
-          resource: Value('Paper $paperNum'),
-          payload: Value(Uint8List(0)),
-          created: Value(now),
-        ),
-      );
 
       // Update legacy papers table.
       await customStatement(
@@ -2569,18 +2562,15 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         ],
       );
 
-      // Update papers_v2 — match by composite key since the server ID
-      // format is '{school}|{exam}|{subject}|{paper}|{grade}|{stream}'.
-      final serverPaperId =
-          '$schoolId|$examId|$subject|${paperNum ?? ''}|$grade|${stream ?? ''}';
-      await (update(papersV2)
-            ..where((t) => t.id.equals(serverPaperId)))
-          .write(PapersV2Companion(
-            date: Value(date),
-            durationMinutes: Value(durationMinutes),
-          ));
+      // Update papers_v2 using the server-issued UUID.
+      if (serverPaperId.isNotEmpty) {
+        await (update(papersV2)
+              ..where((t) => t.id.equals(serverPaperId)))
+            .write(PapersV2Companion(
+              date: Value(date),
+              durationMinutes: Value(durationMinutes),
+            ));
+      }
     });
-
-    sync.schedulePush();
   }
 }
