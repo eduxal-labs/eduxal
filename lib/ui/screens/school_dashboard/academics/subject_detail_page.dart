@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
+import 'package:grpc/grpc.dart' hide ConnectionState;
 
 import '../../../../client.dart';
 import '../../../../database/database.dart';
@@ -2035,12 +2036,23 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
       final localExamId = _generateId();
 
       // 4) Select questions from the bank and link them to the paper.
-      final genResult = await questionBankService.generatePaper(
+      // Retry once after a short delay — the QuestionBank microservice may
+      // not immediately see the paper created by the Paper service.
+      Result<void, GrpcError> genResult = await questionBankService.generatePaper(
         paperId: serverPaperId,
         totalMarks: totalMarks,
         allocations: allocations,
         accessToken: token,
       );
+      if (genResult is Err) {
+        await Future<void>.delayed(const Duration(seconds: 1));
+        genResult = await questionBankService.generatePaper(
+          paperId: serverPaperId,
+          totalMarks: totalMarks,
+          allocations: allocations,
+          accessToken: token,
+        );
+      }
       if (genResult case Err(:final error)) {
         if (!mounted) return;
         setState(() {

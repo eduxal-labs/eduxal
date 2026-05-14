@@ -331,37 +331,42 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required int subject,
     int? examType,
   }) {
-    return (select(papers)
-          ..where((p) =>
-              p.school.equals(schoolId) &
-              p.grade.equals(grade) &
-              p.stream.equals(stream) &
-              p.subject.equals(subject))
-          ..orderBy([(p) => OrderingTerm.asc(p.start)]))
-        .watch()
-        .asyncMap((paperList) async {
-      if (paperList.isEmpty) return [];
+    // Watch both legacy `papers` and `papers_v2` so that inserts into either
+    // table trigger a re-emission.  This is essential because papers created
+    // from SubjectDetailPage are written only to `papers_v2`.
+    late final StreamController<List<PaperWithExamInfo>> controller;
+    StreamSubscription? papersSub;
+    StreamSubscription? pv2Sub;
 
-      // Collect distinct exam IDs from the matching papers.
+    Future<void> emit() async {
+      final paperList = await (select(papers)
+            ..where((p) =>
+                p.school.equals(schoolId) &
+                p.grade.equals(grade) &
+                p.stream.equals(stream) &
+                p.subject.equals(subject)))
+          .get();
+      final pv2Rows = await (select(papersV2)
+            ..where((t) =>
+                t.school.equals(schoolId) &
+                t.subject.equals(subject) &
+                t.grade.equals(grade) &
+                t.stream.equals(stream)))
+          .get();
+
+      // ── Legacy exam lookup ──────────────────────────────────────────
       final examIds = paperList.map((p) => p.exam).toSet();
-
-      /// Load the parent exams.
       final examRows = await (select(exams)
             ..where((e) => e.id.isIn(examIds)))
           .get();
-
-      // Apply examType filter in Dart when requested.
       final filteredExams = examType != null
           ? examRows.where((e) => e.type.index == examType).toList()
           : examRows;
-
-      // Index exams by id for fast lookup.
       final examById = <String, Exam>{};
       for (final e in filteredExams) {
         examById[e.id] = e;
       }
 
-      // Load teacher users for the filtered exams.
       final teacherIds = filteredExams.map((e) => e.teacher).toSet();
       final userRows = await (select(users)
             ..where((u) => u.id.isIn(teacherIds)))
@@ -371,23 +376,13 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         userById[u.id] = u;
       }
 
-      // Load papers_v2 rows for this subject+class to:
-      // a) resolve server paper UUIDs for legacy rows (match by name)
-      // b) include standalone papers (event IS NULL) that have no legacy entry
-      final pv2Rows = await (select(papersV2)
-            ..where((t) =>
-                t.school.equals(schoolId) &
-                t.subject.equals(subject) &
-                t.grade.equals(grade) &
-                t.stream.equals(stream)))
-          .get();
-      // Index by name for matching with legacy exam names.
+      // Index papers_v2 by name for legacy matching.
       final pv2ByName = <String, PapersV2Data>{};
       for (final pv2 in pv2Rows) {
         pv2ByName[pv2.name] = pv2;
       }
 
-      // Build legacy result entries.
+      // ── Build merged result ─────────────────────────────────────────
       final result = <PaperWithExamInfo>[];
       final seenNames = <String>{};
       for (final paper in paperList) {
@@ -409,11 +404,12 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         result.add((paper: paper, exam: exam, teacher: teacher, serverPaperId: pv2?.id));
       }
 
-      // Add standalone papers_v2 rows not already covered by legacy entries.
+      // Add standalone papers_v2 rows (no event / no legacy match).
       for (final pv2 in pv2Rows) {
-        if (pv2.event != null && pv2.event!.isNotEmpty) continue; // belongs to an event
-        if (seenNames.contains(pv2.name)) continue; // already in legacy result
-        if (examType != null && _mapV2TypeToExamType(pv2.type_).index != examType) continue;
+        if (pv2.event != null && pv2.event!.isNotEmpty) continue;
+        if (seenNames.contains(pv2.name)) continue;
+        if (examType != null &&
+            _mapV2TypeToExamType(pv2.type_).index != examType) continue;
         final (:paper, :exam) = _paperExamFromV2(pv2);
         final teacher = UsersData(
           id: pv2.teacher,
@@ -427,8 +423,40 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         );
         result.add((paper: paper, exam: exam, teacher: teacher, serverPaperId: pv2.id));
       }
-      return result;
-    });
+
+      result.sort((a, b) => a.paper.start.compareTo(b.paper.start));
+      controller.add(result);
+    }
+
+    controller = StreamController<List<PaperWithExamInfo>>(
+      onListen: () {
+        // Emit initial data immediately.
+        emit();
+        // Re-emit whenever either table changes.
+        papersSub = (select(papers)
+              ..where((p) =>
+                  p.school.equals(schoolId) &
+                  p.grade.equals(grade) &
+                  p.stream.equals(stream) &
+                  p.subject.equals(subject)))
+            .watch()
+            .listen((_) => emit());
+        pv2Sub = (select(papersV2)
+              ..where((t) =>
+                  t.school.equals(schoolId) &
+                  t.subject.equals(subject) &
+                  t.grade.equals(grade) &
+                  t.stream.equals(stream)))
+            .watch()
+            .listen((_) => emit());
+      },
+      onCancel: () {
+        papersSub?.cancel();
+        pv2Sub?.cancel();
+      },
+    );
+
+    return controller.stream;
   }
 
   /// One-shot version of [watchPapersForSubjectClass].
