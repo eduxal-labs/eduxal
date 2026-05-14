@@ -127,7 +127,6 @@ class PaperService {
     try {
       final req = paperpb.CreatePaperRequest()
         ..school = school
-        ..event = eventId
         ..subject = subject
         ..grade = grade
         ..stream = stream
@@ -138,6 +137,9 @@ class PaperService {
         ..date = date.millisecondsSinceEpoch ~/ 86400000
         ..generationMode = generationMode
         ..instructions = instructions;
+      if (eventId.isNotEmpty) {
+        req.event = eventId;
+      }
       for (final w in topicWeights) {
         req.topicWeights.add(
           paperpb.PaperTopicWeight()

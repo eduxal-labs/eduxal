@@ -11,6 +11,8 @@ import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/grade_analytics.dart';
 import '../../../../models/membership.dart';
+import '../../../../models/paper_generation.dart';
+import '../../../../models/result.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
@@ -875,6 +877,9 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
   final _nameCtrl = TextEditingController();
   final _marksCtrl = TextEditingController();
   DateTime _date = DateTime.now();
+  TimeOfDay _startTime = const TimeOfDay(hour: 8, minute: 0);
+  int _durationMinutes = 120;
+  final _durationCtrl = TextEditingController(text: '120');
   final Set<int> _selectedTopicIds = {};
   final Map<int, Set<int>> _selectedByGrade = {};
   bool _creating = false;
@@ -915,6 +920,7 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
   void dispose() {
     _nameCtrl.dispose();
     _marksCtrl.dispose();
+    _durationCtrl.dispose();
     super.dispose();
   }
 
@@ -1713,6 +1719,121 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 14),
+
+                    // Start time + Duration row
+                    _SheetFieldLabel(label: 'Start Time & Duration', cs: cs),
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        // Start time picker
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showTimePicker(
+                                context: context,
+                                initialTime: _startTime,
+                              );
+                              if (picked != null) {
+                                setModalState(
+                                    () => _startTime = picked);
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(
+                                AppTheme.kCardRadius),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(
+                                    AppTheme.kCardRadius),
+                                border: Border.all(
+                                  color: cs.outlineVariant.withValues(
+                                      alpha: isDark ? 0.2 : 0.3),
+                                  width: 0.5,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.access_time_rounded,
+                                    size: 16,
+                                    color: cs.onSurfaceVariant
+                                        .withValues(alpha: 0.5),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '${_startTime.hourOfPeriod == 0 ? 12 : _startTime.hourOfPeriod}:${_startTime.minute.toString().padLeft(2, '0')} ${_startTime.period == DayPeriod.am ? "AM" : "PM"}',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w400,
+                                      color: cs.onSurface,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        // Duration text field
+                        Expanded(
+                          child: TextField(
+                            controller: _durationCtrl,
+                            keyboardType: TextInputType.number,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w400,
+                              color: cs.onSurface,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Duration (min)',
+                              filled: true,
+                              fillColor: isDark
+                                  ? cs.surfaceContainerHighest
+                                      .withValues(alpha: 0.3)
+                                  : cs.surfaceContainerHighest
+                                      .withValues(alpha: 0.5),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                    AppTheme.kCardRadius),
+                                borderSide: BorderSide.none,
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                    AppTheme.kCardRadius),
+                                borderSide: BorderSide(
+                                  color: cs.outlineVariant.withValues(
+                                      alpha: isDark ? 0.2 : 0.3),
+                                  width: 0.5,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                    AppTheme.kCardRadius),
+                                borderSide: BorderSide(
+                                  color: cs.primary.withValues(alpha: 0.5),
+                                  width: 1.0,
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                              isDense: true,
+                              prefixIcon: Icon(
+                                Icons.timer_outlined,
+                                size: 16,
+                                color: cs.onSurfaceVariant
+                                    .withValues(alpha: 0.5),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
 
                     // Error banner
                     if (_error != null) ...[
@@ -1789,6 +1910,64 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
       return;
     }
 
+    // Parse duration from the text field.
+    final durText = _durationCtrl.text.trim();
+    final dur = int.tryParse(durText);
+    if (dur == null || dur <= 0) {
+      setState(() => _error = 'Please enter a valid duration in minutes.');
+      return;
+    }
+    _durationMinutes = dur;
+
+    // Combine date + start time, derive end.
+    final startDateTime = DateTime(
+      _date.year,
+      _date.month,
+      _date.day,
+      _startTime.hour,
+      _startTime.minute,
+    );
+    final endDateTime =
+        startDateTime.add(Duration(minutes: _durationMinutes));
+
+    final startSecs = startDateTime.millisecondsSinceEpoch ~/ 1000;
+    final endSecs = endDateTime.millisecondsSinceEpoch ~/ 1000;
+
+    var startDays = startDateTime.millisecondsSinceEpoch ~/ (86400 * 1000);
+    var endDays = endDateTime.millisecondsSinceEpoch ~/ (86400 * 1000);
+    if (endDays <= startDays) endDays = startDays + 1;
+
+    // Map old ExamType to server PaperV2Type.
+    final serverType = _pickedType == ExamType.assessment ? 2 : 3;
+    final paperV2Type = _pickedType == ExamType.assessment
+        ? PaperV2Type.assessment
+        : PaperV2Type.assignment;
+
+    // Build topic lists for RPC calls.
+    final topicIds = _selectedTopicIds.toList();
+    final topicWeights = <({int topicId, int marks})>[];
+    final allocations = <TopicAllocation>[];
+    if (topicIds.length == 1) {
+      topicWeights.add((topicId: topicIds.first, marks: totalMarks));
+      allocations.add(TopicAllocation(
+        topicId: topicIds.first,
+        topicName: '',
+        marks: totalMarks,
+      ));
+    } else {
+      final perTopic = totalMarks ~/ topicIds.length;
+      final remainder = totalMarks % topicIds.length;
+      for (var i = 0; i < topicIds.length; i++) {
+        final marks = i == 0 ? perTopic + remainder : perTopic;
+        topicWeights.add((topicId: topicIds[i], marks: marks));
+        allocations.add(TopicAllocation(
+          topicId: topicIds[i],
+          topicName: '',
+          marks: marks,
+        ));
+      }
+    }
+
     setState(() {
       _creating = true;
       _error = null;
@@ -1796,123 +1975,168 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
 
     try {
       final accountId = cache.currentUser?.user.id ?? '';
-      final examId = _generateId();
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-      final startMs = _date.millisecondsSinceEpoch;
-      final endMs =
-          _date.add(const Duration(hours: 2)).millisecondsSinceEpoch;
-      final startDays = startMs ~/ (86400 * 1000);
-      final endDays = endMs ~/ (86400 * 1000);
-
-      final exam = ExamsCompanion(
-        id: Value(examId),
-        school: Value(widget.schoolId),
-        name: Value(name),
-        year: Value(widget.year),
-        term: Value(widget.term),
-        type: Value(_pickedType!),
-        start: Value(startDays),
-        end: Value(endDays),
-        teacher: Value(accountId),
-        personalized: const Value(false),
-        created: Value(now),
-        updated: Value(now),
-      );
-
-      final paperRow = PapersCompanion(
-        school: Value(widget.schoolId),
-        exam: Value(examId),
-        subject: Value(widget.subjectId),
-        topic: Value(
-            _selectedTopicIds.length == 1 ? _selectedTopicIds.first : null),
-        invigilator: const Value.absent(),
-        start: Value(BigInt.from(startMs)),
-        end: Value(BigInt.from(endMs)),
-        grade: Value(widget.grade),
-        stream: Value(widget.streamCode),
-        timeAllowedMinutes: const Value.absent(),
-        customInstructions: const Value.absent(),
-        status: const Value(PaperStatus.pending),
-        created: Value(now),
-        updated: Value(now),
-      );
-
-      await widget.dao.createExamWithPapers(
-        exam: exam,
-        paperRows: [paperRow],
-        accountId: accountId,
-      );
-
-      final paperId = '${widget.schoolId}|$examId|${widget.subjectId}||'
-          '${widget.grade}|${widget.streamCode}';
       final token = accessToken;
 
-      if (_pickedType == ExamType.assessment) {
-        await paperService.generateAssessment(
-            paperId: paperId, accessToken: token);
-      } else {
-        await paperService.generateAssignment(
-            paperId: paperId, accessToken: token);
-      }
-
-      final papers = await widget.dao.getPapersForSubjectClass(
-        schoolId: widget.schoolId,
+      // 1) Create paper on server via direct RPC (bypasses sync).
+      final createResult = await paperService.createPaper(
+        school: widget.schoolId,
+        eventId: '', // standalone paper — not part of an exam event
+        subject: widget.subjectId,
         grade: widget.grade,
         stream: widget.streamCode,
-        subject: widget.subjectId,
-        examType: _pickedType!.index,
+        type: serverType,
+        name: name,
+        totalMarks: totalMarks,
+        durationMinutes: _durationMinutes,
+        date: _date,
+        instructions: '',
+        topicWeights: topicWeights,
+        accessToken: token,
       );
-      final created = papers.firstWhere(
-        (p) => p.paper.exam == examId,
-        orElse: () => (
-          paper: Paper(
-            school: widget.schoolId,
-            exam: examId,
-            subject: widget.subjectId,
-            topic: _selectedTopicIds.length == 1
-                ? _selectedTopicIds.first
-                : null,
-            paper: null,
-            invigilator: '',
-            start: BigInt.from(startMs),
-            end: BigInt.from(endMs),
-            status: PaperStatus.pending,
-            grade: widget.grade,
-            stream: widget.streamCode,
-            timeAllowedMinutes: null,
-            customInstructions: null,
-            created: now,
-            updated: now,
-          ),
-          exam: Exam(
-            id: examId,
-            school: widget.schoolId,
-            name: name,
-            year: widget.year,
-            term: widget.term,
-            personalized: false,
-            type: _pickedType!,
-            start: startDays,
-            end: endDays,
-            teacher: accountId,
-            created: now,
-            updated: now,
-          ),
-          teacher: UsersData(
-            id: accountId,
-            phone: '',
-            name: 'Unknown',
-            email: null,
-            level: UserLevel.normal,
-            status: UserStatus.active,
-            created: BigInt.zero,
-            updated: BigInt.zero,
-          ),
+
+      if (createResult case Err(:final error)) {
+        if (!mounted) return;
+        setState(() {
+          _creating = false;
+          _error = 'Failed to create paper: ${error.message}';
+        });
+        return;
+      }
+
+      final serverPaperId = (createResult as Ok).value;
+
+      // 2) Persist locally — new papers_v2 table for future queries.
+      await widget.dao.insertPaperV2(
+        PapersV2Companion(
+          id: Value(serverPaperId),
+          school: Value(widget.schoolId),
+          event: const Value.absent(),
+          subject: Value(widget.subjectId),
+          grade: Value(widget.grade),
+          stream: Value(widget.streamCode),
+          type_: Value(paperV2Type),
+          teacher: Value(accountId),
+          name: Value(name),
+          totalMarks: Value(totalMarks),
+          durationMinutes: Value(_durationMinutes),
+          date: Value(_date.millisecondsSinceEpoch ~/ 86400000),
+          status: const Value(PaperV2Status.draft),
+          generationMode: const Value(0),
+          instructions: const Value(''),
+          created: Value(now),
+          updated: Value(now),
         ),
       );
 
+      // 3) Also persist to legacy tables so PaperDetailPage and subject tabs
+      //    can display the paper via existing DAO queries.
+      final localExamId = _generateId();
+      await widget.dao.insertLegacyExamAndPaper(
+        exam: ExamsCompanion(
+          id: Value(localExamId),
+          school: Value(widget.schoolId),
+          name: Value(name),
+          year: Value(widget.year),
+          term: Value(widget.term),
+          type: Value(_pickedType!),
+          start: Value(startDays),
+          end: Value(endDays),
+          teacher: Value(accountId),
+          personalized: const Value(false),
+          created: Value(now),
+          updated: Value(now),
+        ),
+        paper: PapersCompanion(
+          school: Value(widget.schoolId),
+          exam: Value(localExamId),
+          subject: Value(widget.subjectId),
+          topic: Value(
+              _selectedTopicIds.length == 1 ? _selectedTopicIds.first : null),
+          invigilator: Value(accountId),
+          start: Value(BigInt.from(startSecs)),
+          end: Value(BigInt.from(endSecs)),
+          grade: Value(widget.grade),
+          stream: Value(widget.streamCode),
+          timeAllowedMinutes: const Value.absent(),
+          customInstructions: const Value.absent(),
+          status: const Value(PaperStatus.pending),
+          created: Value(now),
+          updated: Value(now),
+        ),
+      );
+
+      // 4) Select questions from the bank and link them to the paper.
+      final genResult = await questionBankService.generatePaper(
+        paperId: serverPaperId,
+        totalMarks: totalMarks,
+        allocations: allocations,
+        accessToken: token,
+      );
+      if (genResult case Err(:final error)) {
+        if (!mounted) return;
+        setState(() {
+          _creating = false;
+          _error = 'Question generation failed: ${error.message}';
+        });
+        return;
+      }
+
+      // 5) Trigger per-student PDF generation.
+      if (_pickedType == ExamType.assessment) {
+        await paperService.generateAssessment(
+            paperId: serverPaperId, accessToken: token);
+      } else {
+        await paperService.generateAssignment(
+            paperId: serverPaperId, accessToken: token);
+      }
+
+      // 6) Navigate to PaperDetailPage with old-style types (backward compat).
+      final paper = Paper(
+        school: widget.schoolId,
+        exam: localExamId,
+        subject: widget.subjectId,
+        topic:
+            _selectedTopicIds.length == 1 ? _selectedTopicIds.first : null,
+        paper: null,
+        invigilator: accountId,
+        start: BigInt.from(startSecs),
+        end: BigInt.from(endSecs),
+        status: PaperStatus.pending,
+        grade: widget.grade,
+        stream: widget.streamCode,
+        timeAllowedMinutes: null,
+        customInstructions: null,
+        created: now,
+        updated: now,
+      );
+      final exam = Exam(
+        id: localExamId,
+        school: widget.schoolId,
+        name: name,
+        year: widget.year,
+        term: widget.term,
+        personalized: false,
+        type: _pickedType!,
+        start: startDays,
+        end: endDays,
+        teacher: accountId,
+        created: now,
+        updated: now,
+      );
+      final teacher = UsersData(
+        id: accountId,
+        phone: '',
+        name: 'Unknown',
+        email: null,
+        level: UserLevel.normal,
+        status: UserStatus.active,
+        created: BigInt.zero,
+        updated: BigInt.zero,
+      );
+
       if (!mounted) return;
-      widget.onCreated(created.paper, created.exam, created.teacher);
+      widget.onCreated(paper, exam, teacher);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -1996,7 +2220,7 @@ class _SheetErrorBanner extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
+            child: SelectableText(
               message,
               style: TextStyle(
                 fontSize: 12,

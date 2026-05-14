@@ -7,6 +7,7 @@ mixin _$ExamsGradesDaoMixin on DatabaseAccessor<AppDatabase> {
   $SchoolsTable get schools => attachedDatabase.schools;
   $ExamsTable get exams => attachedDatabase.exams;
   $PapersTable get papers => attachedDatabase.papers;
+  $PapersV2Table get papersV2 => attachedDatabase.papersV2;
   $PaperSubmissionsTable get paperSubmissions =>
       attachedDatabase.paperSubmissions;
   $GradesTable get grades => attachedDatabase.grades;
@@ -33,6 +34,8 @@ class ExamsGradesDaoManager {
       $$ExamsTableTableManager(_db.attachedDatabase, _db.exams);
   $$PapersTableTableManager get papers =>
       $$PapersTableTableManager(_db.attachedDatabase, _db.papers);
+  $$PapersV2TableTableManager get papersV2 =>
+      $$PapersV2TableTableManager(_db.attachedDatabase, _db.papersV2);
   $$PaperSubmissionsTableTableManager get paperSubmissions =>
       $$PaperSubmissionsTableTableManager(
         _db.attachedDatabase,

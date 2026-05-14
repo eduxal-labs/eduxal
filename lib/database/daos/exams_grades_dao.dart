@@ -13,6 +13,7 @@ import '../tables/logs.dart';
 import '../tables/mastery.dart';
 import '../tables/papers.dart';
 import '../tables/students.dart';
+import '../tables/papers_v2.dart';
 import '../tables/streams.dart';
 import '../../client.dart';
 import '../tables/teachers.dart';
@@ -77,6 +78,7 @@ class PaperAnalytics {
   tables: [
     Exams,
     Papers,
+    PapersV2,
     PaperSubmissions,
     Grades,
     Mastery,
@@ -289,7 +291,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
 
       // Apply examType filter in Dart when requested.
       final filteredExams = examType != null
-          ? examRows.where((e) => e.type == examType).toList()
+          ? examRows.where((e) => e.type.index == examType).toList()
           : examRows;
 
       // Index exams by id for fast lookup.
@@ -355,7 +357,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         .get();
 
     final filteredExams = examType != null
-        ? examRows.where((e) => e.type == examType).toList()
+        ? examRows.where((e) => e.type.index == examType).toList()
         : examRows;
 
     final examById = <String, Exam>{};
@@ -2293,5 +2295,29 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       ),
     );
     sync.schedulePush();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // PapersV2 — new server-aligned schema (migration 0007)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Insert a single row into the new [PapersV2] table.
+  Future<void> insertPaperV2(PapersV2Companion companion) async {
+    await into(papersV2).insert(companion);
+  }
+
+  /// Insert into legacy [Exams] and [Papers] tables WITHOUT sync logs.
+  ///
+  /// Used when the paper was already created on the server via
+  /// [PaperService.createPaper] RPC and we only need local data for
+  /// backward-compatible UI ([PaperDetailPage], subject tabs, etc.).
+  Future<void> insertLegacyExamAndPaper({
+    required ExamsCompanion exam,
+    required PapersCompanion paper,
+  }) async {
+    await transaction(() async {
+      await into(exams).insert(exam);
+      await into(papers).insert(paper);
+    });
   }
 }

@@ -12618,6 +12618,1052 @@ class PaperSubmissionsCompanion extends UpdateCompanion<PaperSubmissionData> {
   }
 }
 
+class $PapersV2Table extends PapersV2
+    with TableInfo<$PapersV2Table, PapersV2Data> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PapersV2Table(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _schoolMeta = const VerificationMeta('school');
+  @override
+  late final GeneratedColumn<String> school = GeneratedColumn<String>(
+    'school',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES schools (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _eventMeta = const VerificationMeta('event');
+  @override
+  late final GeneratedColumn<String> event = GeneratedColumn<String>(
+    'event',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _subjectMeta = const VerificationMeta(
+    'subject',
+  );
+  @override
+  late final GeneratedColumn<int> subject = GeneratedColumn<int>(
+    'subject',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _gradeMeta = const VerificationMeta('grade');
+  @override
+  late final GeneratedColumn<int> grade = GeneratedColumn<int>(
+    'grade',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _streamMeta = const VerificationMeta('stream');
+  @override
+  late final GeneratedColumn<int> stream = GeneratedColumn<int>(
+    'stream',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<PaperV2Type, int> type_ =
+      GeneratedColumn<int>(
+        'type',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      ).withConverter<PaperV2Type>($PapersV2Table.$convertertype_);
+  static const VerificationMeta _teacherMeta = const VerificationMeta(
+    'teacher',
+  );
+  @override
+  late final GeneratedColumn<String> teacher = GeneratedColumn<String>(
+    'teacher',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _totalMarksMeta = const VerificationMeta(
+    'totalMarks',
+  );
+  @override
+  late final GeneratedColumn<int> totalMarks = GeneratedColumn<int>(
+    'total_marks',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _durationMinutesMeta = const VerificationMeta(
+    'durationMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> durationMinutes = GeneratedColumn<int>(
+    'duration_minutes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _dateMeta = const VerificationMeta('date');
+  @override
+  late final GeneratedColumn<int> date = GeneratedColumn<int>(
+    'date',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<PaperV2Status, int> status =
+      GeneratedColumn<int>(
+        'status',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0),
+      ).withConverter<PaperV2Status>($PapersV2Table.$converterstatus);
+  static const VerificationMeta _pdfKeyMeta = const VerificationMeta('pdfKey');
+  @override
+  late final GeneratedColumn<String> pdfKey = GeneratedColumn<String>(
+    'pdf_key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _msKeyMeta = const VerificationMeta('msKey');
+  @override
+  late final GeneratedColumn<String> msKey = GeneratedColumn<String>(
+    'ms_key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _generationModeMeta = const VerificationMeta(
+    'generationMode',
+  );
+  @override
+  late final GeneratedColumn<int> generationMode = GeneratedColumn<int>(
+    'generation_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _instructionsMeta = const VerificationMeta(
+    'instructions',
+  );
+  @override
+  late final GeneratedColumn<String> instructions = GeneratedColumn<String>(
+    'instructions',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdMeta = const VerificationMeta(
+    'created',
+  );
+  @override
+  late final GeneratedColumn<BigInt> created = GeneratedColumn<BigInt>(
+    'created',
+    aliasedName,
+    false,
+    type: DriftSqlType.bigInt,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedMeta = const VerificationMeta(
+    'updated',
+  );
+  @override
+  late final GeneratedColumn<BigInt> updated = GeneratedColumn<BigInt>(
+    'updated',
+    aliasedName,
+    false,
+    type: DriftSqlType.bigInt,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    school,
+    event,
+    subject,
+    grade,
+    stream,
+    type_,
+    teacher,
+    name,
+    totalMarks,
+    durationMinutes,
+    date,
+    status,
+    pdfKey,
+    msKey,
+    generationMode,
+    instructions,
+    created,
+    updated,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'papers_v2';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PapersV2Data> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('school')) {
+      context.handle(
+        _schoolMeta,
+        school.isAcceptableOrUnknown(data['school']!, _schoolMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_schoolMeta);
+    }
+    if (data.containsKey('event')) {
+      context.handle(
+        _eventMeta,
+        event.isAcceptableOrUnknown(data['event']!, _eventMeta),
+      );
+    }
+    if (data.containsKey('subject')) {
+      context.handle(
+        _subjectMeta,
+        subject.isAcceptableOrUnknown(data['subject']!, _subjectMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_subjectMeta);
+    }
+    if (data.containsKey('grade')) {
+      context.handle(
+        _gradeMeta,
+        grade.isAcceptableOrUnknown(data['grade']!, _gradeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_gradeMeta);
+    }
+    if (data.containsKey('stream')) {
+      context.handle(
+        _streamMeta,
+        stream.isAcceptableOrUnknown(data['stream']!, _streamMeta),
+      );
+    }
+    if (data.containsKey('teacher')) {
+      context.handle(
+        _teacherMeta,
+        teacher.isAcceptableOrUnknown(data['teacher']!, _teacherMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_teacherMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('total_marks')) {
+      context.handle(
+        _totalMarksMeta,
+        totalMarks.isAcceptableOrUnknown(data['total_marks']!, _totalMarksMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_totalMarksMeta);
+    }
+    if (data.containsKey('duration_minutes')) {
+      context.handle(
+        _durationMinutesMeta,
+        durationMinutes.isAcceptableOrUnknown(
+          data['duration_minutes']!,
+          _durationMinutesMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_durationMinutesMeta);
+    }
+    if (data.containsKey('date')) {
+      context.handle(
+        _dateMeta,
+        date.isAcceptableOrUnknown(data['date']!, _dateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dateMeta);
+    }
+    if (data.containsKey('pdf_key')) {
+      context.handle(
+        _pdfKeyMeta,
+        pdfKey.isAcceptableOrUnknown(data['pdf_key']!, _pdfKeyMeta),
+      );
+    }
+    if (data.containsKey('ms_key')) {
+      context.handle(
+        _msKeyMeta,
+        msKey.isAcceptableOrUnknown(data['ms_key']!, _msKeyMeta),
+      );
+    }
+    if (data.containsKey('generation_mode')) {
+      context.handle(
+        _generationModeMeta,
+        generationMode.isAcceptableOrUnknown(
+          data['generation_mode']!,
+          _generationModeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('instructions')) {
+      context.handle(
+        _instructionsMeta,
+        instructions.isAcceptableOrUnknown(
+          data['instructions']!,
+          _instructionsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created')) {
+      context.handle(
+        _createdMeta,
+        created.isAcceptableOrUnknown(data['created']!, _createdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdMeta);
+    }
+    if (data.containsKey('updated')) {
+      context.handle(
+        _updatedMeta,
+        updated.isAcceptableOrUnknown(data['updated']!, _updatedMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PapersV2Data map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PapersV2Data(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      school: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}school'],
+      )!,
+      event: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}event'],
+      ),
+      subject: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}subject'],
+      )!,
+      grade: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}grade'],
+      )!,
+      stream: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}stream'],
+      ),
+      type_: $PapersV2Table.$convertertype_.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}type'],
+        )!,
+      ),
+      teacher: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}teacher'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      totalMarks: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}total_marks'],
+      )!,
+      durationMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}duration_minutes'],
+      )!,
+      date: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}date'],
+      )!,
+      status: $PapersV2Table.$converterstatus.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}status'],
+        )!,
+      ),
+      pdfKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pdf_key'],
+      ),
+      msKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ms_key'],
+      ),
+      generationMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}generation_mode'],
+      )!,
+      instructions: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}instructions'],
+      ),
+      created: attachedDatabase.typeMapping.read(
+        DriftSqlType.bigInt,
+        data['${effectivePrefix}created'],
+      )!,
+      updated: attachedDatabase.typeMapping.read(
+        DriftSqlType.bigInt,
+        data['${effectivePrefix}updated'],
+      )!,
+    );
+  }
+
+  @override
+  $PapersV2Table createAlias(String alias) {
+    return $PapersV2Table(attachedDatabase, alias);
+  }
+
+  static TypeConverter<PaperV2Type, int> $convertertype_ =
+      const PaperV2TypeConverter();
+  static TypeConverter<PaperV2Status, int> $converterstatus =
+      const PaperV2StatusConverter();
+}
+
+class PapersV2Data extends DataClass implements Insertable<PapersV2Data> {
+  final String id;
+  final String school;
+  final String? event;
+  final int subject;
+  final int grade;
+  final int? stream;
+  final PaperV2Type type_;
+  final String teacher;
+  final String name;
+  final int totalMarks;
+  final int durationMinutes;
+  final int date;
+  final PaperV2Status status;
+  final String? pdfKey;
+  final String? msKey;
+  final int generationMode;
+  final String? instructions;
+  final BigInt created;
+  final BigInt updated;
+  const PapersV2Data({
+    required this.id,
+    required this.school,
+    this.event,
+    required this.subject,
+    required this.grade,
+    this.stream,
+    required this.type_,
+    required this.teacher,
+    required this.name,
+    required this.totalMarks,
+    required this.durationMinutes,
+    required this.date,
+    required this.status,
+    this.pdfKey,
+    this.msKey,
+    required this.generationMode,
+    this.instructions,
+    required this.created,
+    required this.updated,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['school'] = Variable<String>(school);
+    if (!nullToAbsent || event != null) {
+      map['event'] = Variable<String>(event);
+    }
+    map['subject'] = Variable<int>(subject);
+    map['grade'] = Variable<int>(grade);
+    if (!nullToAbsent || stream != null) {
+      map['stream'] = Variable<int>(stream);
+    }
+    {
+      map['type'] = Variable<int>($PapersV2Table.$convertertype_.toSql(type_));
+    }
+    map['teacher'] = Variable<String>(teacher);
+    map['name'] = Variable<String>(name);
+    map['total_marks'] = Variable<int>(totalMarks);
+    map['duration_minutes'] = Variable<int>(durationMinutes);
+    map['date'] = Variable<int>(date);
+    {
+      map['status'] = Variable<int>(
+        $PapersV2Table.$converterstatus.toSql(status),
+      );
+    }
+    if (!nullToAbsent || pdfKey != null) {
+      map['pdf_key'] = Variable<String>(pdfKey);
+    }
+    if (!nullToAbsent || msKey != null) {
+      map['ms_key'] = Variable<String>(msKey);
+    }
+    map['generation_mode'] = Variable<int>(generationMode);
+    if (!nullToAbsent || instructions != null) {
+      map['instructions'] = Variable<String>(instructions);
+    }
+    map['created'] = Variable<BigInt>(created);
+    map['updated'] = Variable<BigInt>(updated);
+    return map;
+  }
+
+  PapersV2Companion toCompanion(bool nullToAbsent) {
+    return PapersV2Companion(
+      id: Value(id),
+      school: Value(school),
+      event: event == null && nullToAbsent
+          ? const Value.absent()
+          : Value(event),
+      subject: Value(subject),
+      grade: Value(grade),
+      stream: stream == null && nullToAbsent
+          ? const Value.absent()
+          : Value(stream),
+      type_: Value(type_),
+      teacher: Value(teacher),
+      name: Value(name),
+      totalMarks: Value(totalMarks),
+      durationMinutes: Value(durationMinutes),
+      date: Value(date),
+      status: Value(status),
+      pdfKey: pdfKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pdfKey),
+      msKey: msKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(msKey),
+      generationMode: Value(generationMode),
+      instructions: instructions == null && nullToAbsent
+          ? const Value.absent()
+          : Value(instructions),
+      created: Value(created),
+      updated: Value(updated),
+    );
+  }
+
+  factory PapersV2Data.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PapersV2Data(
+      id: serializer.fromJson<String>(json['id']),
+      school: serializer.fromJson<String>(json['school']),
+      event: serializer.fromJson<String?>(json['event']),
+      subject: serializer.fromJson<int>(json['subject']),
+      grade: serializer.fromJson<int>(json['grade']),
+      stream: serializer.fromJson<int?>(json['stream']),
+      type_: serializer.fromJson<PaperV2Type>(json['type_']),
+      teacher: serializer.fromJson<String>(json['teacher']),
+      name: serializer.fromJson<String>(json['name']),
+      totalMarks: serializer.fromJson<int>(json['totalMarks']),
+      durationMinutes: serializer.fromJson<int>(json['durationMinutes']),
+      date: serializer.fromJson<int>(json['date']),
+      status: serializer.fromJson<PaperV2Status>(json['status']),
+      pdfKey: serializer.fromJson<String?>(json['pdfKey']),
+      msKey: serializer.fromJson<String?>(json['msKey']),
+      generationMode: serializer.fromJson<int>(json['generationMode']),
+      instructions: serializer.fromJson<String?>(json['instructions']),
+      created: serializer.fromJson<BigInt>(json['created']),
+      updated: serializer.fromJson<BigInt>(json['updated']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'school': serializer.toJson<String>(school),
+      'event': serializer.toJson<String?>(event),
+      'subject': serializer.toJson<int>(subject),
+      'grade': serializer.toJson<int>(grade),
+      'stream': serializer.toJson<int?>(stream),
+      'type_': serializer.toJson<PaperV2Type>(type_),
+      'teacher': serializer.toJson<String>(teacher),
+      'name': serializer.toJson<String>(name),
+      'totalMarks': serializer.toJson<int>(totalMarks),
+      'durationMinutes': serializer.toJson<int>(durationMinutes),
+      'date': serializer.toJson<int>(date),
+      'status': serializer.toJson<PaperV2Status>(status),
+      'pdfKey': serializer.toJson<String?>(pdfKey),
+      'msKey': serializer.toJson<String?>(msKey),
+      'generationMode': serializer.toJson<int>(generationMode),
+      'instructions': serializer.toJson<String?>(instructions),
+      'created': serializer.toJson<BigInt>(created),
+      'updated': serializer.toJson<BigInt>(updated),
+    };
+  }
+
+  PapersV2Data copyWith({
+    String? id,
+    String? school,
+    Value<String?> event = const Value.absent(),
+    int? subject,
+    int? grade,
+    Value<int?> stream = const Value.absent(),
+    PaperV2Type? type_,
+    String? teacher,
+    String? name,
+    int? totalMarks,
+    int? durationMinutes,
+    int? date,
+    PaperV2Status? status,
+    Value<String?> pdfKey = const Value.absent(),
+    Value<String?> msKey = const Value.absent(),
+    int? generationMode,
+    Value<String?> instructions = const Value.absent(),
+    BigInt? created,
+    BigInt? updated,
+  }) => PapersV2Data(
+    id: id ?? this.id,
+    school: school ?? this.school,
+    event: event.present ? event.value : this.event,
+    subject: subject ?? this.subject,
+    grade: grade ?? this.grade,
+    stream: stream.present ? stream.value : this.stream,
+    type_: type_ ?? this.type_,
+    teacher: teacher ?? this.teacher,
+    name: name ?? this.name,
+    totalMarks: totalMarks ?? this.totalMarks,
+    durationMinutes: durationMinutes ?? this.durationMinutes,
+    date: date ?? this.date,
+    status: status ?? this.status,
+    pdfKey: pdfKey.present ? pdfKey.value : this.pdfKey,
+    msKey: msKey.present ? msKey.value : this.msKey,
+    generationMode: generationMode ?? this.generationMode,
+    instructions: instructions.present ? instructions.value : this.instructions,
+    created: created ?? this.created,
+    updated: updated ?? this.updated,
+  );
+  PapersV2Data copyWithCompanion(PapersV2Companion data) {
+    return PapersV2Data(
+      id: data.id.present ? data.id.value : this.id,
+      school: data.school.present ? data.school.value : this.school,
+      event: data.event.present ? data.event.value : this.event,
+      subject: data.subject.present ? data.subject.value : this.subject,
+      grade: data.grade.present ? data.grade.value : this.grade,
+      stream: data.stream.present ? data.stream.value : this.stream,
+      type_: data.type_.present ? data.type_.value : this.type_,
+      teacher: data.teacher.present ? data.teacher.value : this.teacher,
+      name: data.name.present ? data.name.value : this.name,
+      totalMarks: data.totalMarks.present
+          ? data.totalMarks.value
+          : this.totalMarks,
+      durationMinutes: data.durationMinutes.present
+          ? data.durationMinutes.value
+          : this.durationMinutes,
+      date: data.date.present ? data.date.value : this.date,
+      status: data.status.present ? data.status.value : this.status,
+      pdfKey: data.pdfKey.present ? data.pdfKey.value : this.pdfKey,
+      msKey: data.msKey.present ? data.msKey.value : this.msKey,
+      generationMode: data.generationMode.present
+          ? data.generationMode.value
+          : this.generationMode,
+      instructions: data.instructions.present
+          ? data.instructions.value
+          : this.instructions,
+      created: data.created.present ? data.created.value : this.created,
+      updated: data.updated.present ? data.updated.value : this.updated,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PapersV2Data(')
+          ..write('id: $id, ')
+          ..write('school: $school, ')
+          ..write('event: $event, ')
+          ..write('subject: $subject, ')
+          ..write('grade: $grade, ')
+          ..write('stream: $stream, ')
+          ..write('type_: $type_, ')
+          ..write('teacher: $teacher, ')
+          ..write('name: $name, ')
+          ..write('totalMarks: $totalMarks, ')
+          ..write('durationMinutes: $durationMinutes, ')
+          ..write('date: $date, ')
+          ..write('status: $status, ')
+          ..write('pdfKey: $pdfKey, ')
+          ..write('msKey: $msKey, ')
+          ..write('generationMode: $generationMode, ')
+          ..write('instructions: $instructions, ')
+          ..write('created: $created, ')
+          ..write('updated: $updated')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    school,
+    event,
+    subject,
+    grade,
+    stream,
+    type_,
+    teacher,
+    name,
+    totalMarks,
+    durationMinutes,
+    date,
+    status,
+    pdfKey,
+    msKey,
+    generationMode,
+    instructions,
+    created,
+    updated,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PapersV2Data &&
+          other.id == this.id &&
+          other.school == this.school &&
+          other.event == this.event &&
+          other.subject == this.subject &&
+          other.grade == this.grade &&
+          other.stream == this.stream &&
+          other.type_ == this.type_ &&
+          other.teacher == this.teacher &&
+          other.name == this.name &&
+          other.totalMarks == this.totalMarks &&
+          other.durationMinutes == this.durationMinutes &&
+          other.date == this.date &&
+          other.status == this.status &&
+          other.pdfKey == this.pdfKey &&
+          other.msKey == this.msKey &&
+          other.generationMode == this.generationMode &&
+          other.instructions == this.instructions &&
+          other.created == this.created &&
+          other.updated == this.updated);
+}
+
+class PapersV2Companion extends UpdateCompanion<PapersV2Data> {
+  final Value<String> id;
+  final Value<String> school;
+  final Value<String?> event;
+  final Value<int> subject;
+  final Value<int> grade;
+  final Value<int?> stream;
+  final Value<PaperV2Type> type_;
+  final Value<String> teacher;
+  final Value<String> name;
+  final Value<int> totalMarks;
+  final Value<int> durationMinutes;
+  final Value<int> date;
+  final Value<PaperV2Status> status;
+  final Value<String?> pdfKey;
+  final Value<String?> msKey;
+  final Value<int> generationMode;
+  final Value<String?> instructions;
+  final Value<BigInt> created;
+  final Value<BigInt> updated;
+  final Value<int> rowid;
+  const PapersV2Companion({
+    this.id = const Value.absent(),
+    this.school = const Value.absent(),
+    this.event = const Value.absent(),
+    this.subject = const Value.absent(),
+    this.grade = const Value.absent(),
+    this.stream = const Value.absent(),
+    this.type_ = const Value.absent(),
+    this.teacher = const Value.absent(),
+    this.name = const Value.absent(),
+    this.totalMarks = const Value.absent(),
+    this.durationMinutes = const Value.absent(),
+    this.date = const Value.absent(),
+    this.status = const Value.absent(),
+    this.pdfKey = const Value.absent(),
+    this.msKey = const Value.absent(),
+    this.generationMode = const Value.absent(),
+    this.instructions = const Value.absent(),
+    this.created = const Value.absent(),
+    this.updated = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PapersV2Companion.insert({
+    required String id,
+    required String school,
+    this.event = const Value.absent(),
+    required int subject,
+    required int grade,
+    this.stream = const Value.absent(),
+    required PaperV2Type type_,
+    required String teacher,
+    required String name,
+    required int totalMarks,
+    required int durationMinutes,
+    required int date,
+    this.status = const Value.absent(),
+    this.pdfKey = const Value.absent(),
+    this.msKey = const Value.absent(),
+    this.generationMode = const Value.absent(),
+    this.instructions = const Value.absent(),
+    required BigInt created,
+    required BigInt updated,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       school = Value(school),
+       subject = Value(subject),
+       grade = Value(grade),
+       type_ = Value(type_),
+       teacher = Value(teacher),
+       name = Value(name),
+       totalMarks = Value(totalMarks),
+       durationMinutes = Value(durationMinutes),
+       date = Value(date),
+       created = Value(created),
+       updated = Value(updated);
+  static Insertable<PapersV2Data> custom({
+    Expression<String>? id,
+    Expression<String>? school,
+    Expression<String>? event,
+    Expression<int>? subject,
+    Expression<int>? grade,
+    Expression<int>? stream,
+    Expression<int>? type_,
+    Expression<String>? teacher,
+    Expression<String>? name,
+    Expression<int>? totalMarks,
+    Expression<int>? durationMinutes,
+    Expression<int>? date,
+    Expression<int>? status,
+    Expression<String>? pdfKey,
+    Expression<String>? msKey,
+    Expression<int>? generationMode,
+    Expression<String>? instructions,
+    Expression<BigInt>? created,
+    Expression<BigInt>? updated,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (school != null) 'school': school,
+      if (event != null) 'event': event,
+      if (subject != null) 'subject': subject,
+      if (grade != null) 'grade': grade,
+      if (stream != null) 'stream': stream,
+      if (type_ != null) 'type': type_,
+      if (teacher != null) 'teacher': teacher,
+      if (name != null) 'name': name,
+      if (totalMarks != null) 'total_marks': totalMarks,
+      if (durationMinutes != null) 'duration_minutes': durationMinutes,
+      if (date != null) 'date': date,
+      if (status != null) 'status': status,
+      if (pdfKey != null) 'pdf_key': pdfKey,
+      if (msKey != null) 'ms_key': msKey,
+      if (generationMode != null) 'generation_mode': generationMode,
+      if (instructions != null) 'instructions': instructions,
+      if (created != null) 'created': created,
+      if (updated != null) 'updated': updated,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PapersV2Companion copyWith({
+    Value<String>? id,
+    Value<String>? school,
+    Value<String?>? event,
+    Value<int>? subject,
+    Value<int>? grade,
+    Value<int?>? stream,
+    Value<PaperV2Type>? type_,
+    Value<String>? teacher,
+    Value<String>? name,
+    Value<int>? totalMarks,
+    Value<int>? durationMinutes,
+    Value<int>? date,
+    Value<PaperV2Status>? status,
+    Value<String?>? pdfKey,
+    Value<String?>? msKey,
+    Value<int>? generationMode,
+    Value<String?>? instructions,
+    Value<BigInt>? created,
+    Value<BigInt>? updated,
+    Value<int>? rowid,
+  }) {
+    return PapersV2Companion(
+      id: id ?? this.id,
+      school: school ?? this.school,
+      event: event ?? this.event,
+      subject: subject ?? this.subject,
+      grade: grade ?? this.grade,
+      stream: stream ?? this.stream,
+      type_: type_ ?? this.type_,
+      teacher: teacher ?? this.teacher,
+      name: name ?? this.name,
+      totalMarks: totalMarks ?? this.totalMarks,
+      durationMinutes: durationMinutes ?? this.durationMinutes,
+      date: date ?? this.date,
+      status: status ?? this.status,
+      pdfKey: pdfKey ?? this.pdfKey,
+      msKey: msKey ?? this.msKey,
+      generationMode: generationMode ?? this.generationMode,
+      instructions: instructions ?? this.instructions,
+      created: created ?? this.created,
+      updated: updated ?? this.updated,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (school.present) {
+      map['school'] = Variable<String>(school.value);
+    }
+    if (event.present) {
+      map['event'] = Variable<String>(event.value);
+    }
+    if (subject.present) {
+      map['subject'] = Variable<int>(subject.value);
+    }
+    if (grade.present) {
+      map['grade'] = Variable<int>(grade.value);
+    }
+    if (stream.present) {
+      map['stream'] = Variable<int>(stream.value);
+    }
+    if (type_.present) {
+      map['type'] = Variable<int>(
+        $PapersV2Table.$convertertype_.toSql(type_.value),
+      );
+    }
+    if (teacher.present) {
+      map['teacher'] = Variable<String>(teacher.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (totalMarks.present) {
+      map['total_marks'] = Variable<int>(totalMarks.value);
+    }
+    if (durationMinutes.present) {
+      map['duration_minutes'] = Variable<int>(durationMinutes.value);
+    }
+    if (date.present) {
+      map['date'] = Variable<int>(date.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<int>(
+        $PapersV2Table.$converterstatus.toSql(status.value),
+      );
+    }
+    if (pdfKey.present) {
+      map['pdf_key'] = Variable<String>(pdfKey.value);
+    }
+    if (msKey.present) {
+      map['ms_key'] = Variable<String>(msKey.value);
+    }
+    if (generationMode.present) {
+      map['generation_mode'] = Variable<int>(generationMode.value);
+    }
+    if (instructions.present) {
+      map['instructions'] = Variable<String>(instructions.value);
+    }
+    if (created.present) {
+      map['created'] = Variable<BigInt>(created.value);
+    }
+    if (updated.present) {
+      map['updated'] = Variable<BigInt>(updated.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PapersV2Companion(')
+          ..write('id: $id, ')
+          ..write('school: $school, ')
+          ..write('event: $event, ')
+          ..write('subject: $subject, ')
+          ..write('grade: $grade, ')
+          ..write('stream: $stream, ')
+          ..write('type_: $type_, ')
+          ..write('teacher: $teacher, ')
+          ..write('name: $name, ')
+          ..write('totalMarks: $totalMarks, ')
+          ..write('durationMinutes: $durationMinutes, ')
+          ..write('date: $date, ')
+          ..write('status: $status, ')
+          ..write('pdfKey: $pdfKey, ')
+          ..write('msKey: $msKey, ')
+          ..write('generationMode: $generationMode, ')
+          ..write('instructions: $instructions, ')
+          ..write('created: $created, ')
+          ..write('updated: $updated, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $GradesTable extends Grades with TableInfo<$GradesTable, Grade> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -20599,6 +21645,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PaperSubmissionsTable paperSubmissions = $PaperSubmissionsTable(
     this,
   );
+  late final $PapersV2Table papersV2 = $PapersV2Table(this);
   late final $GradesTable grades = $GradesTable(this);
   late final $FeesTable fees = $FeesTable(this);
   late final $InvoicesTable invoices = $InvoicesTable(this);
@@ -20675,6 +21722,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     exams,
     papers,
     paperSubmissions,
+    papersV2,
     grades,
     fees,
     invoices,
@@ -20866,6 +21914,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('papers', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'schools',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('papers_v2', kind: UpdateKind.delete)],
     ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
@@ -22531,6 +23586,24 @@ final class $$SchoolsTableReferences
     );
   }
 
+  static MultiTypedResultKey<$PapersV2Table, List<PapersV2Data>>
+  _papersV2RefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.papersV2,
+    aliasName: $_aliasNameGenerator(db.schools.id, db.papersV2.school),
+  );
+
+  $$PapersV2TableProcessedTableManager get papersV2Refs {
+    final manager = $$PapersV2TableTableManager(
+      $_db,
+      $_db.papersV2,
+    ).filter((f) => f.school.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_papersV2RefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
   static MultiTypedResultKey<$GradesTable, List<Grade>> _gradesRefsTable(
     _$AppDatabase db,
   ) => MultiTypedResultKey.fromTable(
@@ -23259,6 +24332,31 @@ class $$SchoolsTableFilterComposer
           }) => $$PapersTableFilterComposer(
             $db: $db,
             $table: $db.papers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> papersV2Refs(
+    Expression<bool> Function($$PapersV2TableFilterComposer f) f,
+  ) {
+    final $$PapersV2TableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.papersV2,
+      getReferencedColumn: (t) => t.school,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PapersV2TableFilterComposer(
+            $db: $db,
+            $table: $db.papersV2,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -24128,6 +25226,31 @@ class $$SchoolsTableAnnotationComposer
     return f(composer);
   }
 
+  Expression<T> papersV2Refs<T extends Object>(
+    Expression<T> Function($$PapersV2TableAnnotationComposer a) f,
+  ) {
+    final $$PapersV2TableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.papersV2,
+      getReferencedColumn: (t) => t.school,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PapersV2TableAnnotationComposer(
+            $db: $db,
+            $table: $db.papersV2,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<T> gradesRefs<T extends Object>(
     Expression<T> Function($$GradesTableAnnotationComposer a) f,
   ) {
@@ -24461,6 +25584,7 @@ class $$SchoolsTableTableManager
             bool lessonsRefs,
             bool examsRefs,
             bool papersRefs,
+            bool papersV2Refs,
             bool gradesRefs,
             bool feesRefs,
             bool invoicesRefs,
@@ -24570,6 +25694,7 @@ class $$SchoolsTableTableManager
                 lessonsRefs = false,
                 examsRefs = false,
                 papersRefs = false,
+                papersV2Refs = false,
                 gradesRefs = false,
                 feesRefs = false,
                 invoicesRefs = false,
@@ -24604,6 +25729,7 @@ class $$SchoolsTableTableManager
                     if (lessonsRefs) db.lessons,
                     if (examsRefs) db.exams,
                     if (papersRefs) db.papers,
+                    if (papersV2Refs) db.papersV2,
                     if (gradesRefs) db.grades,
                     if (feesRefs) db.fees,
                     if (invoicesRefs) db.invoices,
@@ -24978,6 +26104,27 @@ class $$SchoolsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (papersV2Refs)
+                        await $_getPrefetchedData<
+                          SchoolsData,
+                          $SchoolsTable,
+                          PapersV2Data
+                        >(
+                          currentTable: table,
+                          referencedTable: $$SchoolsTableReferences
+                              ._papersV2RefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$SchoolsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).papersV2Refs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.school == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                       if (gradesRefs)
                         await $_getPrefetchedData<
                           SchoolsData,
@@ -25265,6 +26412,7 @@ typedef $$SchoolsTableProcessedTableManager =
         bool lessonsRefs,
         bool examsRefs,
         bool papersRefs,
+        bool papersV2Refs,
         bool gradesRefs,
         bool feesRefs,
         bool invoicesRefs,
@@ -34616,6 +35764,600 @@ typedef $$PaperSubmissionsTableProcessedTableManager =
       PaperSubmissionData,
       PrefetchHooks Function()
     >;
+typedef $$PapersV2TableCreateCompanionBuilder =
+    PapersV2Companion Function({
+      required String id,
+      required String school,
+      Value<String?> event,
+      required int subject,
+      required int grade,
+      Value<int?> stream,
+      required PaperV2Type type_,
+      required String teacher,
+      required String name,
+      required int totalMarks,
+      required int durationMinutes,
+      required int date,
+      Value<PaperV2Status> status,
+      Value<String?> pdfKey,
+      Value<String?> msKey,
+      Value<int> generationMode,
+      Value<String?> instructions,
+      required BigInt created,
+      required BigInt updated,
+      Value<int> rowid,
+    });
+typedef $$PapersV2TableUpdateCompanionBuilder =
+    PapersV2Companion Function({
+      Value<String> id,
+      Value<String> school,
+      Value<String?> event,
+      Value<int> subject,
+      Value<int> grade,
+      Value<int?> stream,
+      Value<PaperV2Type> type_,
+      Value<String> teacher,
+      Value<String> name,
+      Value<int> totalMarks,
+      Value<int> durationMinutes,
+      Value<int> date,
+      Value<PaperV2Status> status,
+      Value<String?> pdfKey,
+      Value<String?> msKey,
+      Value<int> generationMode,
+      Value<String?> instructions,
+      Value<BigInt> created,
+      Value<BigInt> updated,
+      Value<int> rowid,
+    });
+
+final class $$PapersV2TableReferences
+    extends BaseReferences<_$AppDatabase, $PapersV2Table, PapersV2Data> {
+  $$PapersV2TableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $SchoolsTable _schoolTable(_$AppDatabase db) => db.schools.createAlias(
+    $_aliasNameGenerator(db.papersV2.school, db.schools.id),
+  );
+
+  $$SchoolsTableProcessedTableManager get school {
+    final $_column = $_itemColumn<String>('school')!;
+
+    final manager = $$SchoolsTableTableManager(
+      $_db,
+      $_db.schools,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_schoolTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$PapersV2TableFilterComposer
+    extends Composer<_$AppDatabase, $PapersV2Table> {
+  $$PapersV2TableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get event => $composableBuilder(
+    column: $table.event,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get subject => $composableBuilder(
+    column: $table.subject,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get grade => $composableBuilder(
+    column: $table.grade,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get stream => $composableBuilder(
+    column: $table.stream,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<PaperV2Type, PaperV2Type, int> get type_ =>
+      $composableBuilder(
+        column: $table.type_,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<String> get teacher => $composableBuilder(
+    column: $table.teacher,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get totalMarks => $composableBuilder(
+    column: $table.totalMarks,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get durationMinutes => $composableBuilder(
+    column: $table.durationMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<PaperV2Status, PaperV2Status, int>
+  get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get pdfKey => $composableBuilder(
+    column: $table.pdfKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get msKey => $composableBuilder(
+    column: $table.msKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get generationMode => $composableBuilder(
+    column: $table.generationMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get instructions => $composableBuilder(
+    column: $table.instructions,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<BigInt> get created => $composableBuilder(
+    column: $table.created,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<BigInt> get updated => $composableBuilder(
+    column: $table.updated,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$SchoolsTableFilterComposer get school {
+    final $$SchoolsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.school,
+      referencedTable: $db.schools,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SchoolsTableFilterComposer(
+            $db: $db,
+            $table: $db.schools,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PapersV2TableOrderingComposer
+    extends Composer<_$AppDatabase, $PapersV2Table> {
+  $$PapersV2TableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get event => $composableBuilder(
+    column: $table.event,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get subject => $composableBuilder(
+    column: $table.subject,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get grade => $composableBuilder(
+    column: $table.grade,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get stream => $composableBuilder(
+    column: $table.stream,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get type_ => $composableBuilder(
+    column: $table.type_,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get teacher => $composableBuilder(
+    column: $table.teacher,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get totalMarks => $composableBuilder(
+    column: $table.totalMarks,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get durationMinutes => $composableBuilder(
+    column: $table.durationMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pdfKey => $composableBuilder(
+    column: $table.pdfKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get msKey => $composableBuilder(
+    column: $table.msKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get generationMode => $composableBuilder(
+    column: $table.generationMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get instructions => $composableBuilder(
+    column: $table.instructions,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<BigInt> get created => $composableBuilder(
+    column: $table.created,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<BigInt> get updated => $composableBuilder(
+    column: $table.updated,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$SchoolsTableOrderingComposer get school {
+    final $$SchoolsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.school,
+      referencedTable: $db.schools,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SchoolsTableOrderingComposer(
+            $db: $db,
+            $table: $db.schools,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PapersV2TableAnnotationComposer
+    extends Composer<_$AppDatabase, $PapersV2Table> {
+  $$PapersV2TableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get event =>
+      $composableBuilder(column: $table.event, builder: (column) => column);
+
+  GeneratedColumn<int> get subject =>
+      $composableBuilder(column: $table.subject, builder: (column) => column);
+
+  GeneratedColumn<int> get grade =>
+      $composableBuilder(column: $table.grade, builder: (column) => column);
+
+  GeneratedColumn<int> get stream =>
+      $composableBuilder(column: $table.stream, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<PaperV2Type, int> get type_ =>
+      $composableBuilder(column: $table.type_, builder: (column) => column);
+
+  GeneratedColumn<String> get teacher =>
+      $composableBuilder(column: $table.teacher, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<int> get totalMarks => $composableBuilder(
+    column: $table.totalMarks,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get durationMinutes => $composableBuilder(
+    column: $table.durationMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get date =>
+      $composableBuilder(column: $table.date, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<PaperV2Status, int> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get pdfKey =>
+      $composableBuilder(column: $table.pdfKey, builder: (column) => column);
+
+  GeneratedColumn<String> get msKey =>
+      $composableBuilder(column: $table.msKey, builder: (column) => column);
+
+  GeneratedColumn<int> get generationMode => $composableBuilder(
+    column: $table.generationMode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get instructions => $composableBuilder(
+    column: $table.instructions,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<BigInt> get created =>
+      $composableBuilder(column: $table.created, builder: (column) => column);
+
+  GeneratedColumn<BigInt> get updated =>
+      $composableBuilder(column: $table.updated, builder: (column) => column);
+
+  $$SchoolsTableAnnotationComposer get school {
+    final $$SchoolsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.school,
+      referencedTable: $db.schools,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SchoolsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.schools,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PapersV2TableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PapersV2Table,
+          PapersV2Data,
+          $$PapersV2TableFilterComposer,
+          $$PapersV2TableOrderingComposer,
+          $$PapersV2TableAnnotationComposer,
+          $$PapersV2TableCreateCompanionBuilder,
+          $$PapersV2TableUpdateCompanionBuilder,
+          (PapersV2Data, $$PapersV2TableReferences),
+          PapersV2Data,
+          PrefetchHooks Function({bool school})
+        > {
+  $$PapersV2TableTableManager(_$AppDatabase db, $PapersV2Table table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PapersV2TableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PapersV2TableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PapersV2TableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> school = const Value.absent(),
+                Value<String?> event = const Value.absent(),
+                Value<int> subject = const Value.absent(),
+                Value<int> grade = const Value.absent(),
+                Value<int?> stream = const Value.absent(),
+                Value<PaperV2Type> type_ = const Value.absent(),
+                Value<String> teacher = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<int> totalMarks = const Value.absent(),
+                Value<int> durationMinutes = const Value.absent(),
+                Value<int> date = const Value.absent(),
+                Value<PaperV2Status> status = const Value.absent(),
+                Value<String?> pdfKey = const Value.absent(),
+                Value<String?> msKey = const Value.absent(),
+                Value<int> generationMode = const Value.absent(),
+                Value<String?> instructions = const Value.absent(),
+                Value<BigInt> created = const Value.absent(),
+                Value<BigInt> updated = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PapersV2Companion(
+                id: id,
+                school: school,
+                event: event,
+                subject: subject,
+                grade: grade,
+                stream: stream,
+                type_: type_,
+                teacher: teacher,
+                name: name,
+                totalMarks: totalMarks,
+                durationMinutes: durationMinutes,
+                date: date,
+                status: status,
+                pdfKey: pdfKey,
+                msKey: msKey,
+                generationMode: generationMode,
+                instructions: instructions,
+                created: created,
+                updated: updated,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String school,
+                Value<String?> event = const Value.absent(),
+                required int subject,
+                required int grade,
+                Value<int?> stream = const Value.absent(),
+                required PaperV2Type type_,
+                required String teacher,
+                required String name,
+                required int totalMarks,
+                required int durationMinutes,
+                required int date,
+                Value<PaperV2Status> status = const Value.absent(),
+                Value<String?> pdfKey = const Value.absent(),
+                Value<String?> msKey = const Value.absent(),
+                Value<int> generationMode = const Value.absent(),
+                Value<String?> instructions = const Value.absent(),
+                required BigInt created,
+                required BigInt updated,
+                Value<int> rowid = const Value.absent(),
+              }) => PapersV2Companion.insert(
+                id: id,
+                school: school,
+                event: event,
+                subject: subject,
+                grade: grade,
+                stream: stream,
+                type_: type_,
+                teacher: teacher,
+                name: name,
+                totalMarks: totalMarks,
+                durationMinutes: durationMinutes,
+                date: date,
+                status: status,
+                pdfKey: pdfKey,
+                msKey: msKey,
+                generationMode: generationMode,
+                instructions: instructions,
+                created: created,
+                updated: updated,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$PapersV2TableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({school = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (school) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.school,
+                                referencedTable: $$PapersV2TableReferences
+                                    ._schoolTable(db),
+                                referencedColumn: $$PapersV2TableReferences
+                                    ._schoolTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$PapersV2TableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PapersV2Table,
+      PapersV2Data,
+      $$PapersV2TableFilterComposer,
+      $$PapersV2TableOrderingComposer,
+      $$PapersV2TableAnnotationComposer,
+      $$PapersV2TableCreateCompanionBuilder,
+      $$PapersV2TableUpdateCompanionBuilder,
+      (PapersV2Data, $$PapersV2TableReferences),
+      PapersV2Data,
+      PrefetchHooks Function({bool school})
+    >;
 typedef $$GradesTableCreateCompanionBuilder =
     GradesCompanion Function({
       required String school,
@@ -41496,6 +43238,8 @@ class $AppDatabaseManager {
       $$PapersTableTableManager(_db, _db.papers);
   $$PaperSubmissionsTableTableManager get paperSubmissions =>
       $$PaperSubmissionsTableTableManager(_db, _db.paperSubmissions);
+  $$PapersV2TableTableManager get papersV2 =>
+      $$PapersV2TableTableManager(_db, _db.papersV2);
   $$GradesTableTableManager get grades =>
       $$GradesTableTableManager(_db, _db.grades);
   $$FeesTableTableManager get fees => $$FeesTableTableManager(_db, _db.fees);

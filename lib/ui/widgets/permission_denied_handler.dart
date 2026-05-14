@@ -28,7 +28,7 @@ void showPermissionDenied(BuildContext context, String reason) {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
+              child: SelectableText(
                 reason,
                 style: const TextStyle(
                   fontSize: 13,

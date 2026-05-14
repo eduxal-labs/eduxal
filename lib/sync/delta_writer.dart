@@ -89,6 +89,7 @@ class DeltaWriter {
     34: 'mpesa',
     36: 'scheme_pages',
     37: 'answer_pages',
+    39: 'papers_v2',
   };
 
   /// Dependency-ordered table indices for flushing.
@@ -127,6 +128,7 @@ class DeltaWriter {
     36,
     18,
     37,
+    39,
     19,
     20,
     21,
@@ -316,6 +318,17 @@ class DeltaWriter {
         await _applySchemePages(delta);
       case 37:
         await _applyAnswerPages(delta);
+      case 38:
+        // events — not yet supported locally
+        debugPrint('[DeltaWriter] table=38 (events) — SKIPPED (NYI)');
+      case 39:
+        await _applyPapersV2(delta);
+      case 40:
+        // paper_schedules — not yet supported locally
+        debugPrint('[DeltaWriter] table=40 (paper_schedules) — SKIPPED (NYI)');
+      case 41:
+        // taught_topics — not yet supported locally
+        debugPrint('[DeltaWriter] table=41 (taught_topics) — SKIPPED (NYI)');
       default:
         debugPrint(
           '[DeltaWriter] ⚠ UNKNOWN table=${delta.table}, '
@@ -1815,5 +1828,80 @@ class DeltaWriter {
         ],
       );
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 39: papers_v2  — PK: (id)  — rowKey: "{id}"
+  // ---------------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------------
+  // 39: papers_v2 — PK: (id) — rowKey: "{id}"
+  // ---------------------------------------------------------------------------
+
+  Future<void> _applyPapersV2(SyncDelta delta) async {
+    // rowKey format: "{id}" (UUID string)
+    final paperId = delta.rowKey;
+
+    if (delta.operation == 2) {
+      await (_db.delete(_db.papersV2)
+            ..where((t) => t.id.equals(paperId)))
+          .go();
+      return;
+    }
+    final row = delta.data.paperV2;
+    final now = _now();
+
+    final eventVal = row.hasEvent() ? row.event : null;
+    final streamVal = row.hasStream() ? row.stream : null;
+    final pdfKeyVal = row.hasPdfKey() ? row.pdfKey : null;
+    final msKeyVal = row.hasMsKey() ? row.msKey : null;
+    final instructionsVal = row.hasInstructions() ? row.instructions : null;
+
+    await _db.customStatement(
+      'INSERT INTO papers_v2 (id, school, event, subject, grade, stream,'
+      ' type_, teacher, name, total_marks, duration_minutes, date, status,'
+      ' pdf_key, ms_key, generation_mode, instructions, created, updated)'
+      ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      ' ON CONFLICT (id) DO UPDATE SET'
+      ' school = excluded.school,'
+      ' event = excluded.event,'
+      ' subject = excluded.subject,'
+      ' grade = excluded.grade,'
+      ' stream = excluded.stream,'
+      ' type_ = excluded.type_,'
+      ' teacher = excluded.teacher,'
+      ' name = excluded.name,'
+      ' total_marks = excluded.total_marks,'
+      ' duration_minutes = excluded.duration_minutes,'
+      ' date = excluded.date,'
+      ' status = excluded.status,'
+      ' pdf_key = excluded.pdf_key,'
+      ' ms_key = excluded.ms_key,'
+      ' generation_mode = excluded.generation_mode,'
+      ' instructions = excluded.instructions,'
+      ' created = excluded.created,'
+      ' updated = excluded.updated',
+      [
+        paperId,
+        row.school,
+        eventVal,
+        row.subject,
+        row.grade,
+        streamVal,
+        row.type,
+        row.teacher,
+        row.name,
+        row.totalMarks,
+        row.durationMinutes,
+        row.date,
+        row.status,
+        pdfKeyVal,
+        msKeyVal,
+        row.generationMode,
+        instructionsVal,
+        row.created.toInt(),
+        now.toInt(),
+      ],
+    );
   }
 }

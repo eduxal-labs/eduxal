@@ -244,6 +244,43 @@ class PaperStatusConverter extends TypeConverter<PaperStatus, int> {
   int toSql(PaperStatus value) => value.index;
 }
 
+/// Server paper type (migration 0007). Stored as smallint in `papers_v2.type_`.
+enum PaperV2Type {
+  exam, // 0
+  cat, // 1
+  assessment, // 2
+  assignment, // 3
+  practical, // 4
+  adaptive, // 5
+}
+
+class PaperV2TypeConverter extends TypeConverter<PaperV2Type, int> {
+  const PaperV2TypeConverter();
+  @override
+  PaperV2Type fromSql(int fromDb) => PaperV2Type.values[fromDb];
+  @override
+  int toSql(PaperV2Type value) => value.index;
+}
+
+/// Server paper status (migration 0007). Stored as smallint in `papers_v2.status`.
+enum PaperV2Status {
+  draft, // 0
+  questionsSet, // 1
+  finalized, // 2
+  revealed, // 3
+  active, // 4
+  completed, // 5
+  marked, // 6
+}
+
+class PaperV2StatusConverter extends TypeConverter<PaperV2Status, int> {
+  const PaperV2StatusConverter();
+  @override
+  PaperV2Status fromSql(int fromDb) => PaperV2Status.values[fromDb];
+  @override
+  int toSql(PaperV2Status value) => value.index;
+}
+
 /// Invoice payment state. Stored as smallint in `invoices.status`.
 enum InvoiceStatus {
   pending, // 0

@@ -1,6 +1,6 @@
 // This is a generated file - do not edit.
 //
-// Generated from services/sync.proto.
+// Generated from sync.proto.
 
 // @dart = 3.3
 
@@ -10,6 +10,7 @@
 // ignore_for_file: deprecated_member_use_from_same_package, library_prefixes
 // ignore_for_file: non_constant_identifier_names, prefer_relative_imports
 
+import 'dart:async' as $async;
 import 'dart:core' as $core;
 
 import 'package:fixnum/fixnum.dart' as $fixnum;
@@ -10633,6 +10634,10 @@ enum InsertData_Row {
   mpesa,
   schemePage,
   answerPage,
+  event,
+  paperV2,
+  paperSchedule,
+  taughtTopic,
   notSet
 }
 
@@ -10673,6 +10678,10 @@ class InsertData extends $pb.GeneratedMessage {
     MpesaInsert? mpesa,
     SchemePageInsert? schemePage,
     AnswerPageInsert? answerPage,
+    EventInsert? event,
+    PaperV2Insert? paperV2,
+    PaperScheduleInsert? paperSchedule,
+    TaughtTopicInsert? taughtTopic,
   }) {
     final result = create();
     if (user != null) result.user = user;
@@ -10710,6 +10719,10 @@ class InsertData extends $pb.GeneratedMessage {
     if (mpesa != null) result.mpesa = mpesa;
     if (schemePage != null) result.schemePage = schemePage;
     if (answerPage != null) result.answerPage = answerPage;
+    if (event != null) result.event = event;
+    if (paperV2 != null) result.paperV2 = paperV2;
+    if (paperSchedule != null) result.paperSchedule = paperSchedule;
+    if (taughtTopic != null) result.taughtTopic = taughtTopic;
     return result;
   }
 
@@ -10758,6 +10771,10 @@ class InsertData extends $pb.GeneratedMessage {
     34: InsertData_Row.mpesa,
     36: InsertData_Row.schemePage,
     37: InsertData_Row.answerPage,
+    38: InsertData_Row.event,
+    39: InsertData_Row.paperV2,
+    40: InsertData_Row.paperSchedule,
+    41: InsertData_Row.taughtTopic,
     0: InsertData_Row.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -10799,7 +10816,11 @@ class InsertData extends $pb.GeneratedMessage {
       33,
       34,
       36,
-      37
+      37,
+      38,
+      39,
+      40,
+      41
     ])
     ..aOM<UserInsert>(1, _omitFieldNames ? '' : 'user',
         subBuilder: UserInsert.create)
@@ -10871,6 +10892,14 @@ class InsertData extends $pb.GeneratedMessage {
         subBuilder: SchemePageInsert.create)
     ..aOM<AnswerPageInsert>(37, _omitFieldNames ? '' : 'answerPage',
         subBuilder: AnswerPageInsert.create)
+    ..aOM<EventInsert>(38, _omitFieldNames ? '' : 'event',
+        subBuilder: EventInsert.create)
+    ..aOM<PaperV2Insert>(39, _omitFieldNames ? '' : 'paperV2',
+        subBuilder: PaperV2Insert.create)
+    ..aOM<PaperScheduleInsert>(40, _omitFieldNames ? '' : 'paperSchedule',
+        subBuilder: PaperScheduleInsert.create)
+    ..aOM<TaughtTopicInsert>(41, _omitFieldNames ? '' : 'taughtTopic',
+        subBuilder: TaughtTopicInsert.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -10926,6 +10955,10 @@ class InsertData extends $pb.GeneratedMessage {
   @$pb.TagNumber(34)
   @$pb.TagNumber(36)
   @$pb.TagNumber(37)
+  @$pb.TagNumber(38)
+  @$pb.TagNumber(39)
+  @$pb.TagNumber(40)
+  @$pb.TagNumber(41)
   InsertData_Row whichRow() => _InsertData_RowByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(1)
   @$pb.TagNumber(2)
@@ -10962,6 +10995,10 @@ class InsertData extends $pb.GeneratedMessage {
   @$pb.TagNumber(34)
   @$pb.TagNumber(36)
   @$pb.TagNumber(37)
+  @$pb.TagNumber(38)
+  @$pb.TagNumber(39)
+  @$pb.TagNumber(40)
+  @$pb.TagNumber(41)
   void clearRow() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -11349,6 +11386,50 @@ class InsertData extends $pb.GeneratedMessage {
   void clearAnswerPage() => $_clearField(37);
   @$pb.TagNumber(37)
   AnswerPageInsert ensureAnswerPage() => $_ensure(34);
+
+  @$pb.TagNumber(38)
+  EventInsert get event => $_getN(35);
+  @$pb.TagNumber(38)
+  set event(EventInsert value) => $_setField(38, value);
+  @$pb.TagNumber(38)
+  $core.bool hasEvent() => $_has(35);
+  @$pb.TagNumber(38)
+  void clearEvent() => $_clearField(38);
+  @$pb.TagNumber(38)
+  EventInsert ensureEvent() => $_ensure(35);
+
+  @$pb.TagNumber(39)
+  PaperV2Insert get paperV2 => $_getN(36);
+  @$pb.TagNumber(39)
+  set paperV2(PaperV2Insert value) => $_setField(39, value);
+  @$pb.TagNumber(39)
+  $core.bool hasPaperV2() => $_has(36);
+  @$pb.TagNumber(39)
+  void clearPaperV2() => $_clearField(39);
+  @$pb.TagNumber(39)
+  PaperV2Insert ensurePaperV2() => $_ensure(36);
+
+  @$pb.TagNumber(40)
+  PaperScheduleInsert get paperSchedule => $_getN(37);
+  @$pb.TagNumber(40)
+  set paperSchedule(PaperScheduleInsert value) => $_setField(40, value);
+  @$pb.TagNumber(40)
+  $core.bool hasPaperSchedule() => $_has(37);
+  @$pb.TagNumber(40)
+  void clearPaperSchedule() => $_clearField(40);
+  @$pb.TagNumber(40)
+  PaperScheduleInsert ensurePaperSchedule() => $_ensure(37);
+
+  @$pb.TagNumber(41)
+  TaughtTopicInsert get taughtTopic => $_getN(38);
+  @$pb.TagNumber(41)
+  set taughtTopic(TaughtTopicInsert value) => $_setField(41, value);
+  @$pb.TagNumber(41)
+  $core.bool hasTaughtTopic() => $_has(38);
+  @$pb.TagNumber(41)
+  void clearTaughtTopic() => $_clearField(41);
+  @$pb.TagNumber(41)
+  TaughtTopicInsert ensureTaughtTopic() => $_ensure(38);
 }
 
 class UserInsert extends $pb.GeneratedMessage {
@@ -15671,6 +15752,853 @@ class DiscountInsert extends $pb.GeneratedMessage {
   $core.bool hasUnit() => $_has(6);
   @$pb.TagNumber(7)
   void clearUnit() => $_clearField(7);
+}
+
+/// table 38 — events
+/// type_: 0=exam, 1=mock, 2=holiday_revision
+/// status: 0=draft, 1=active, 2=completed, 3=cancelled
+class EventInsert extends $pb.GeneratedMessage {
+  factory EventInsert({
+    $core.String? id,
+    $core.String? school,
+    $core.String? name,
+    $core.int? type,
+    $core.int? term,
+    $core.int? year,
+    $core.int? startDate,
+    $core.int? endDate,
+    $core.int? status,
+    $fixnum.Int64? created,
+    $fixnum.Int64? updated,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (school != null) result.school = school;
+    if (name != null) result.name = name;
+    if (type != null) result.type = type;
+    if (term != null) result.term = term;
+    if (year != null) result.year = year;
+    if (startDate != null) result.startDate = startDate;
+    if (endDate != null) result.endDate = endDate;
+    if (status != null) result.status = status;
+    if (created != null) result.created = created;
+    if (updated != null) result.updated = updated;
+    return result;
+  }
+
+  EventInsert._();
+
+  factory EventInsert.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory EventInsert.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'EventInsert',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'school')
+    ..aOS(3, _omitFieldNames ? '' : 'name')
+    ..aI(4, _omitFieldNames ? '' : 'type', protoName: 'type_')
+    ..aI(5, _omitFieldNames ? '' : 'term')
+    ..aI(6, _omitFieldNames ? '' : 'year')
+    ..aI(7, _omitFieldNames ? '' : 'startDate')
+    ..aI(8, _omitFieldNames ? '' : 'endDate')
+    ..aI(9, _omitFieldNames ? '' : 'status')
+    ..aInt64(10, _omitFieldNames ? '' : 'created')
+    ..aInt64(11, _omitFieldNames ? '' : 'updated')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EventInsert clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EventInsert copyWith(void Function(EventInsert) updates) =>
+      super.copyWith((message) => updates(message as EventInsert))
+          as EventInsert;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static EventInsert create() => EventInsert._();
+  @$core.override
+  EventInsert createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static EventInsert getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<EventInsert>(create);
+  static EventInsert? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get school => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set school($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSchool() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSchool() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get name => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set name($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasName() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearName() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get type => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set type($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasType() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearType() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get term => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set term($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasTerm() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearTerm() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get year => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set year($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasYear() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearYear() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.int get startDate => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set startDate($core.int value) => $_setSignedInt32(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasStartDate() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearStartDate() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.int get endDate => $_getIZ(7);
+  @$pb.TagNumber(8)
+  set endDate($core.int value) => $_setSignedInt32(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasEndDate() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearEndDate() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.int get status => $_getIZ(8);
+  @$pb.TagNumber(9)
+  set status($core.int value) => $_setSignedInt32(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasStatus() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearStatus() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $fixnum.Int64 get created => $_getI64(9);
+  @$pb.TagNumber(10)
+  set created($fixnum.Int64 value) => $_setInt64(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasCreated() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearCreated() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $fixnum.Int64 get updated => $_getI64(10);
+  @$pb.TagNumber(11)
+  set updated($fixnum.Int64 value) => $_setInt64(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasUpdated() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearUpdated() => $_clearField(11);
+}
+
+/// table 39 — papers (v2, UUID PK)
+/// type_:            0=exam, 1=cat, 2=assessment, 3=assignment,
+///                   4=practical, 5=adaptive
+/// status:           0=draft, 1=questions_set, 2=finalized, 3=revealed,
+///                   4=active, 5=completed, 6=marked
+/// generation_mode:  0=class_uniform, 1=per_student
+class PaperV2Insert extends $pb.GeneratedMessage {
+  factory PaperV2Insert({
+    $core.String? id,
+    $core.String? school,
+    $core.String? event,
+    $core.int? subject,
+    $core.int? grade,
+    $core.int? stream,
+    $core.int? type,
+    $core.String? teacher,
+    $core.String? name,
+    $core.int? totalMarks,
+    $core.int? durationMinutes,
+    $core.int? date,
+    $core.int? status,
+    $core.String? pdfKey,
+    $core.String? msKey,
+    $core.int? generationMode,
+    $core.String? instructions,
+    $fixnum.Int64? created,
+    $fixnum.Int64? updated,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (school != null) result.school = school;
+    if (event != null) result.event = event;
+    if (subject != null) result.subject = subject;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    if (type != null) result.type = type;
+    if (teacher != null) result.teacher = teacher;
+    if (name != null) result.name = name;
+    if (totalMarks != null) result.totalMarks = totalMarks;
+    if (durationMinutes != null) result.durationMinutes = durationMinutes;
+    if (date != null) result.date = date;
+    if (status != null) result.status = status;
+    if (pdfKey != null) result.pdfKey = pdfKey;
+    if (msKey != null) result.msKey = msKey;
+    if (generationMode != null) result.generationMode = generationMode;
+    if (instructions != null) result.instructions = instructions;
+    if (created != null) result.created = created;
+    if (updated != null) result.updated = updated;
+    return result;
+  }
+
+  PaperV2Insert._();
+
+  factory PaperV2Insert.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PaperV2Insert.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PaperV2Insert',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'school')
+    ..aOS(3, _omitFieldNames ? '' : 'event')
+    ..aI(4, _omitFieldNames ? '' : 'subject')
+    ..aI(5, _omitFieldNames ? '' : 'grade')
+    ..aI(6, _omitFieldNames ? '' : 'stream')
+    ..aI(7, _omitFieldNames ? '' : 'type', protoName: 'type_')
+    ..aOS(8, _omitFieldNames ? '' : 'teacher')
+    ..aOS(9, _omitFieldNames ? '' : 'name')
+    ..aI(10, _omitFieldNames ? '' : 'totalMarks')
+    ..aI(11, _omitFieldNames ? '' : 'durationMinutes')
+    ..aI(12, _omitFieldNames ? '' : 'date')
+    ..aI(13, _omitFieldNames ? '' : 'status')
+    ..aOS(14, _omitFieldNames ? '' : 'pdfKey')
+    ..aOS(15, _omitFieldNames ? '' : 'msKey')
+    ..aI(16, _omitFieldNames ? '' : 'generationMode')
+    ..aOS(17, _omitFieldNames ? '' : 'instructions')
+    ..aInt64(18, _omitFieldNames ? '' : 'created')
+    ..aInt64(19, _omitFieldNames ? '' : 'updated')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PaperV2Insert clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PaperV2Insert copyWith(void Function(PaperV2Insert) updates) =>
+      super.copyWith((message) => updates(message as PaperV2Insert))
+          as PaperV2Insert;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PaperV2Insert create() => PaperV2Insert._();
+  @$core.override
+  PaperV2Insert createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PaperV2Insert getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PaperV2Insert>(create);
+  static PaperV2Insert? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get school => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set school($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSchool() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSchool() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get event => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set event($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasEvent() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearEvent() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get subject => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set subject($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSubject() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSubject() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get grade => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set grade($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasGrade() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearGrade() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get stream => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set stream($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasStream() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearStream() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.int get type => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set type($core.int value) => $_setSignedInt32(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasType() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearType() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.String get teacher => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set teacher($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasTeacher() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearTeacher() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.String get name => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set name($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasName() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearName() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.int get totalMarks => $_getIZ(9);
+  @$pb.TagNumber(10)
+  set totalMarks($core.int value) => $_setSignedInt32(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasTotalMarks() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearTotalMarks() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.int get durationMinutes => $_getIZ(10);
+  @$pb.TagNumber(11)
+  set durationMinutes($core.int value) => $_setSignedInt32(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasDurationMinutes() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearDurationMinutes() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $core.int get date => $_getIZ(11);
+  @$pb.TagNumber(12)
+  set date($core.int value) => $_setSignedInt32(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasDate() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearDate() => $_clearField(12);
+
+  @$pb.TagNumber(13)
+  $core.int get status => $_getIZ(12);
+  @$pb.TagNumber(13)
+  set status($core.int value) => $_setSignedInt32(12, value);
+  @$pb.TagNumber(13)
+  $core.bool hasStatus() => $_has(12);
+  @$pb.TagNumber(13)
+  void clearStatus() => $_clearField(13);
+
+  @$pb.TagNumber(14)
+  $core.String get pdfKey => $_getSZ(13);
+  @$pb.TagNumber(14)
+  set pdfKey($core.String value) => $_setString(13, value);
+  @$pb.TagNumber(14)
+  $core.bool hasPdfKey() => $_has(13);
+  @$pb.TagNumber(14)
+  void clearPdfKey() => $_clearField(14);
+
+  @$pb.TagNumber(15)
+  $core.String get msKey => $_getSZ(14);
+  @$pb.TagNumber(15)
+  set msKey($core.String value) => $_setString(14, value);
+  @$pb.TagNumber(15)
+  $core.bool hasMsKey() => $_has(14);
+  @$pb.TagNumber(15)
+  void clearMsKey() => $_clearField(15);
+
+  @$pb.TagNumber(16)
+  $core.int get generationMode => $_getIZ(15);
+  @$pb.TagNumber(16)
+  set generationMode($core.int value) => $_setSignedInt32(15, value);
+  @$pb.TagNumber(16)
+  $core.bool hasGenerationMode() => $_has(15);
+  @$pb.TagNumber(16)
+  void clearGenerationMode() => $_clearField(16);
+
+  @$pb.TagNumber(17)
+  $core.String get instructions => $_getSZ(16);
+  @$pb.TagNumber(17)
+  set instructions($core.String value) => $_setString(16, value);
+  @$pb.TagNumber(17)
+  $core.bool hasInstructions() => $_has(16);
+  @$pb.TagNumber(17)
+  void clearInstructions() => $_clearField(17);
+
+  @$pb.TagNumber(18)
+  $fixnum.Int64 get created => $_getI64(17);
+  @$pb.TagNumber(18)
+  set created($fixnum.Int64 value) => $_setInt64(17, value);
+  @$pb.TagNumber(18)
+  $core.bool hasCreated() => $_has(17);
+  @$pb.TagNumber(18)
+  void clearCreated() => $_clearField(18);
+
+  @$pb.TagNumber(19)
+  $fixnum.Int64 get updated => $_getI64(18);
+  @$pb.TagNumber(19)
+  set updated($fixnum.Int64 value) => $_setInt64(18, value);
+  @$pb.TagNumber(19)
+  $core.bool hasUpdated() => $_has(18);
+  @$pb.TagNumber(19)
+  void clearUpdated() => $_clearField(19);
+}
+
+/// table 40 — paper_schedules
+/// generation_status: 0=pending, 1=generating, 2=generated, 3=failed
+class PaperScheduleInsert extends $pb.GeneratedMessage {
+  factory PaperScheduleInsert({
+    $core.String? id,
+    $core.String? event,
+    $core.int? subject,
+    $core.int? grade,
+    $core.int? stream,
+    $core.int? date,
+    $core.int? startTime,
+    $core.int? endTime,
+    $core.int? durationMinutes,
+    $core.String? invigilator,
+    $core.String? paper,
+    $core.int? generationStatus,
+    $fixnum.Int64? revealAt,
+    $fixnum.Int64? generateAt,
+    $fixnum.Int64? created,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (event != null) result.event = event;
+    if (subject != null) result.subject = subject;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    if (date != null) result.date = date;
+    if (startTime != null) result.startTime = startTime;
+    if (endTime != null) result.endTime = endTime;
+    if (durationMinutes != null) result.durationMinutes = durationMinutes;
+    if (invigilator != null) result.invigilator = invigilator;
+    if (paper != null) result.paper = paper;
+    if (generationStatus != null) result.generationStatus = generationStatus;
+    if (revealAt != null) result.revealAt = revealAt;
+    if (generateAt != null) result.generateAt = generateAt;
+    if (created != null) result.created = created;
+    return result;
+  }
+
+  PaperScheduleInsert._();
+
+  factory PaperScheduleInsert.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PaperScheduleInsert.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PaperScheduleInsert',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'event')
+    ..aI(3, _omitFieldNames ? '' : 'subject')
+    ..aI(4, _omitFieldNames ? '' : 'grade')
+    ..aI(5, _omitFieldNames ? '' : 'stream')
+    ..aI(6, _omitFieldNames ? '' : 'date')
+    ..aI(7, _omitFieldNames ? '' : 'startTime')
+    ..aI(8, _omitFieldNames ? '' : 'endTime')
+    ..aI(9, _omitFieldNames ? '' : 'durationMinutes')
+    ..aOS(10, _omitFieldNames ? '' : 'invigilator')
+    ..aOS(11, _omitFieldNames ? '' : 'paper')
+    ..aI(12, _omitFieldNames ? '' : 'generationStatus')
+    ..aInt64(13, _omitFieldNames ? '' : 'revealAt')
+    ..aInt64(14, _omitFieldNames ? '' : 'generateAt')
+    ..aInt64(15, _omitFieldNames ? '' : 'created')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PaperScheduleInsert clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PaperScheduleInsert copyWith(void Function(PaperScheduleInsert) updates) =>
+      super.copyWith((message) => updates(message as PaperScheduleInsert))
+          as PaperScheduleInsert;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PaperScheduleInsert create() => PaperScheduleInsert._();
+  @$core.override
+  PaperScheduleInsert createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PaperScheduleInsert getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PaperScheduleInsert>(create);
+  static PaperScheduleInsert? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get event => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set event($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasEvent() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearEvent() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get subject => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set subject($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSubject() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSubject() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get grade => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set grade($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasGrade() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearGrade() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get stream => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set stream($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStream() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStream() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get date => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set date($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasDate() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearDate() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.int get startTime => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set startTime($core.int value) => $_setSignedInt32(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasStartTime() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearStartTime() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.int get endTime => $_getIZ(7);
+  @$pb.TagNumber(8)
+  set endTime($core.int value) => $_setSignedInt32(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasEndTime() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearEndTime() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.int get durationMinutes => $_getIZ(8);
+  @$pb.TagNumber(9)
+  set durationMinutes($core.int value) => $_setSignedInt32(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasDurationMinutes() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearDurationMinutes() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.String get invigilator => $_getSZ(9);
+  @$pb.TagNumber(10)
+  set invigilator($core.String value) => $_setString(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasInvigilator() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearInvigilator() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.String get paper => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set paper($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasPaper() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearPaper() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $core.int get generationStatus => $_getIZ(11);
+  @$pb.TagNumber(12)
+  set generationStatus($core.int value) => $_setSignedInt32(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasGenerationStatus() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearGenerationStatus() => $_clearField(12);
+
+  @$pb.TagNumber(13)
+  $fixnum.Int64 get revealAt => $_getI64(12);
+  @$pb.TagNumber(13)
+  set revealAt($fixnum.Int64 value) => $_setInt64(12, value);
+  @$pb.TagNumber(13)
+  $core.bool hasRevealAt() => $_has(12);
+  @$pb.TagNumber(13)
+  void clearRevealAt() => $_clearField(13);
+
+  @$pb.TagNumber(14)
+  $fixnum.Int64 get generateAt => $_getI64(13);
+  @$pb.TagNumber(14)
+  set generateAt($fixnum.Int64 value) => $_setInt64(13, value);
+  @$pb.TagNumber(14)
+  $core.bool hasGenerateAt() => $_has(13);
+  @$pb.TagNumber(14)
+  void clearGenerateAt() => $_clearField(14);
+
+  @$pb.TagNumber(15)
+  $fixnum.Int64 get created => $_getI64(14);
+  @$pb.TagNumber(15)
+  set created($fixnum.Int64 value) => $_setInt64(14, value);
+  @$pb.TagNumber(15)
+  $core.bool hasCreated() => $_has(14);
+  @$pb.TagNumber(15)
+  void clearCreated() => $_clearField(15);
+}
+
+/// table 41 — taught_topics
+/// status: 0=not_started, 1=in_progress, 2=completed
+class TaughtTopicInsert extends $pb.GeneratedMessage {
+  factory TaughtTopicInsert({
+    $core.String? school,
+    $core.int? subject,
+    $core.int? grade,
+    $core.int? stream,
+    $core.int? topic,
+    $core.String? taughtBy,
+    $core.int? status,
+    $core.int? taughtDate,
+    $fixnum.Int64? updated,
+  }) {
+    final result = create();
+    if (school != null) result.school = school;
+    if (subject != null) result.subject = subject;
+    if (grade != null) result.grade = grade;
+    if (stream != null) result.stream = stream;
+    if (topic != null) result.topic = topic;
+    if (taughtBy != null) result.taughtBy = taughtBy;
+    if (status != null) result.status = status;
+    if (taughtDate != null) result.taughtDate = taughtDate;
+    if (updated != null) result.updated = updated;
+    return result;
+  }
+
+  TaughtTopicInsert._();
+
+  factory TaughtTopicInsert.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory TaughtTopicInsert.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'TaughtTopicInsert',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'school')
+    ..aI(2, _omitFieldNames ? '' : 'subject')
+    ..aI(3, _omitFieldNames ? '' : 'grade')
+    ..aI(4, _omitFieldNames ? '' : 'stream')
+    ..aI(5, _omitFieldNames ? '' : 'topic')
+    ..aOS(6, _omitFieldNames ? '' : 'taughtBy')
+    ..aI(7, _omitFieldNames ? '' : 'status')
+    ..aI(8, _omitFieldNames ? '' : 'taughtDate')
+    ..aInt64(9, _omitFieldNames ? '' : 'updated')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  TaughtTopicInsert clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  TaughtTopicInsert copyWith(void Function(TaughtTopicInsert) updates) =>
+      super.copyWith((message) => updates(message as TaughtTopicInsert))
+          as TaughtTopicInsert;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static TaughtTopicInsert create() => TaughtTopicInsert._();
+  @$core.override
+  TaughtTopicInsert createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static TaughtTopicInsert getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<TaughtTopicInsert>(create);
+  static TaughtTopicInsert? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get school => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set school($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchool() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchool() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get subject => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set subject($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSubject() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSubject() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get grade => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set grade($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasGrade() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearGrade() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get stream => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set stream($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasStream() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearStream() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get topic => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set topic($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasTopic() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearTopic() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get taughtBy => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set taughtBy($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasTaughtBy() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearTaughtBy() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.int get status => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set status($core.int value) => $_setSignedInt32(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasStatus() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearStatus() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.int get taughtDate => $_getIZ(7);
+  @$pb.TagNumber(8)
+  set taughtDate($core.int value) => $_setSignedInt32(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasTaughtDate() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearTaughtDate() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $fixnum.Int64 get updated => $_getI64(8);
+  @$pb.TagNumber(9)
+  set updated($fixnum.Int64 value) => $_setInt64(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasUpdated() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearUpdated() => $_clearField(9);
+}
+
+class SyncApi {
+  final $pb.RpcClient _client;
+
+  SyncApi(this._client);
+
+  /// Client streams actions one at a time, server responds to each
+  $async.Future<ActionResponse> pushActions(
+          $pb.ClientContext? ctx, ActionRequest request) =>
+      _client.invoke<ActionResponse>(
+          ctx, 'Sync', 'PushActions', request, ActionResponse());
+
+  /// Server streams changes to client (UNCHANGED from current)
+  $async.Future<SyncDelta> watchChanges(
+          $pb.ClientContext? ctx, WatchRequest request) =>
+      _client.invoke<SyncDelta>(
+          ctx, 'Sync', 'WatchChanges', request, SyncDelta());
 }
 
 const $core.bool _omitFieldNames =
