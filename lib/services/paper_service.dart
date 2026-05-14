@@ -351,6 +351,41 @@ class PaperService {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Paper update
+  // ---------------------------------------------------------------------------
+
+  /// Update a paper's metadata. Only mutable fields are sent.
+  ///
+  /// [date] is days since epoch. [durationMinutes] is total exam duration.
+  /// Returns the updated paper from the server.
+  Future<Result<void, GrpcError>> updatePaper({
+    required String paperId,
+    String? name,
+    int? totalMarks,
+    int? durationMinutes,
+    int? date,
+    String? instructions,
+    int? generationMode,
+    required String accessToken,
+  }) async {
+    try {
+      final req = paperpb.UpdatePaperRequest()..paperId = paperId;
+      if (name != null) req.name = name;
+      if (totalMarks != null) req.totalMarks = totalMarks;
+      if (durationMinutes != null) req.durationMinutes = durationMinutes;
+      if (date != null) req.date = date;
+      if (instructions != null) req.instructions = instructions;
+      if (generationMode != null) req.generationMode = generationMode;
+      await _paperClient.updatePaper(req, options: _opts(accessToken));
+      return Ok(null);
+    } on GrpcError catch (e) {
+      return Err(e);
+    } catch (e) {
+      return Err(GrpcError.internal('updatePaper failed: $e'));
+    }
+  }
+
   /// Trigger per-student paper finalization (PDF generation) for all enrolled
   /// students on this paper. Returns the job ID for status polling.
   Future<Result<String, GrpcError>> finalizeStudentPapers({

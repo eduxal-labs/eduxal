@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
 import 'package:fixnum/fixnum.dart' as fixnum;
@@ -2380,5 +2381,71 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         ],
       );
     });
+  }
+
+  /// Update paper start/end times in both legacy [Papers] and [PapersV2].
+  ///
+  /// [start] and [end] are seconds since epoch for the legacy table.
+  /// [durationMinutes] and [date] (days since epoch) are for papers_v2.
+  Future<void> updatePaperTimes({
+    required String schoolId,
+    required String examId,
+    required int subject,
+    required int? paperNum,
+    required int grade,
+    required int? stream,
+    required int start,
+    required int end,
+    required int date,
+    required int durationMinutes,
+    required String accountId,
+  }) async {
+    await transaction(() async {
+      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+
+      // Write sync log for offline push.
+      await into(logs).insert(
+        LogsCompanion(
+          account: Value(accountId),
+          action: Value(SyncAction.updatePaper),
+          resource: Value('Paper $paperNum'),
+          payload: Value(Uint8List(0)),
+          created: Value(now),
+        ),
+      );
+
+      // Update legacy papers table.
+      await customStatement(
+        'UPDATE papers SET start = ?, "end" = ?, updated = ?'
+        ' WHERE school = ? AND exam = ? AND subject = ?'
+        ' AND (paper IS NULL OR paper = ?)'
+        ' AND grade = ?'
+        ' AND (stream IS NULL OR stream = ?)',
+        [
+          start,
+          end,
+          now,
+          schoolId,
+          examId,
+          subject,
+          paperNum ?? 0,
+          grade,
+          stream ?? 0,
+        ],
+      );
+
+      // Update papers_v2 — match by composite key since the server ID
+      // format is '{school}|{exam}|{subject}|{paper}|{grade}|{stream}'.
+      final serverPaperId =
+          '$schoolId|$examId|$subject|${paperNum ?? ''}|$grade|${stream ?? ''}';
+      await (update(papersV2)
+            ..where((t) => t.id.equals(serverPaperId)))
+          .write(PapersV2Companion(
+            date: Value(date),
+            durationMinutes: Value(durationMinutes),
+          ));
+    });
+
+    sync.schedulePush();
   }
 }

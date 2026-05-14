@@ -8,6 +8,7 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/foundation.dart' show consolidateHttpClientResponseBytes;
 import 'package:flutter/material.dart' hide Action;
 import 'package:flutter/services.dart';
+import 'package:grpc/grpc.dart' show GrpcError;
 import 'package:cunning_document_scanner/cunning_document_scanner.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:printing/printing.dart';
@@ -41,6 +42,7 @@ import '../../../widgets/marking_status_indicator.dart';
 import 'paper_generation_page.dart';
 import 'paper_pdf_viewer.dart';
 import 'question_grades_sheet.dart';
+import 'question_viewer_page.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Paper Detail Page
@@ -1086,6 +1088,92 @@ class _PaperHeaderState extends State<_PaperHeader>
     }
   }
 
+  void _showEditTimeSheet(BuildContext context) {
+    final paper = widget.paper;
+    final startDt =
+        DateTime.fromMillisecondsSinceEpoch(paper.start.toInt() * 1000);
+    final endDt =
+        DateTime.fromMillisecondsSinceEpoch(paper.end.toInt() * 1000);
+    final durationMinutes = endDt.difference(startDt).inMinutes;
+
+    showEduSheet(
+      context: context,
+      builder: (sheetCtx) => _EditTimeSheet(
+        currentDate: startDt,
+        currentStartTime: TimeOfDay.fromDateTime(startDt),
+        currentDurationMinutes: durationMinutes < 1 ? 60 : durationMinutes,
+        subjectName:
+            widget.subjectNames[paper.subject] ?? 'Subject ${paper.subject}',
+        onSave: (newDate, newStartTime, newDuration) async {
+          final newStart = DateTime(
+            newDate.year,
+            newDate.month,
+            newDate.day,
+            newStartTime.hour,
+            newStartTime.minute,
+          );
+          final newEnd = newStart.add(Duration(minutes: newDuration));
+          final newDateDays = newDate.millisecondsSinceEpoch ~/ 86400000;
+
+          final accountId = cache.currentUser?.user.id;
+          if (accountId == null) return;
+
+          setState(() => _busy = true);
+
+          try {
+            // Update server via RPC.
+            final serverPaperId =
+                '${widget.schoolId}|${widget.exam.exam.id}|'
+                '${paper.subject}|${paper.paper ?? ''}|'
+                '${paper.grade}|${paper.stream ?? ''}';
+            await paperService.updatePaper(
+              paperId: serverPaperId,
+              date: newDateDays,
+              durationMinutes: newDuration,
+              accessToken: accessToken,
+            );
+
+            // Update local DB.
+            await widget.dao.updatePaperTimes(
+              schoolId: widget.schoolId,
+              examId: widget.exam.exam.id,
+              subject: paper.subject,
+              paperNum: paper.paper,
+              grade: paper.grade,
+              stream: paper.stream,
+              start: newStart.millisecondsSinceEpoch ~/ 1000,
+              end: newEnd.millisecondsSinceEpoch ~/ 1000,
+              date: newDateDays,
+              durationMinutes: newDuration,
+              accountId: accountId,
+            );
+
+            if (mounted) {
+              Navigator.of(sheetCtx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Paper time updated')),
+              );
+            }
+          } on GrpcError catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Server error: ${e.message}')),
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Failed to update: $e')),
+              );
+            }
+          } finally {
+            if (mounted) setState(() => _busy = false);
+          }
+        },
+      ),
+    );
+  }
+
   Future<void> _advance() async {
     final paper = widget.paper;
     final next = _nextStatus(paper.status);
@@ -1472,6 +1560,22 @@ class _PaperHeaderState extends State<_PaperHeader>
                     ),
                   ),
                 ),
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: 'Edit Paper Time',
+                  child: InkWell(
+                    onTap: _busy ? null : () => _showEditTimeSheet(context),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(5),
+                      child: Icon(
+                        Icons.schedule_rounded,
+                        size: 18,
+                        color: cs.primary.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+                ),
               ],
               // ── Generate Paper (pending only) ─────────────────────────
               if (widget.canManage && isPending) ...[
@@ -1575,6 +1679,39 @@ class _PaperHeaderState extends State<_PaperHeader>
                     ),
                     onPressed: () =>
                         _openMarkingScheme(widget.paperPdf!.markingSchemeUrl!),
+                  ),
+                ),
+              ],
+              // ── View Questions (when paper has generated questions) ────────
+              if (!isPending) ...[
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: 'View Questions',
+                  child: InkWell(
+                    onTap: () {
+                      final paperId =
+                          '${widget.schoolId}|${widget.exam.exam.id}|'
+                          '${widget.paper.subject}|${widget.paper.paper ?? ''}|'
+                          '${widget.paper.grade}|${widget.paper.stream ?? ''}';
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => QuestionViewerPage(
+                            paperId: paperId,
+                            title:
+                                '${widget.subjectNames[widget.paper.subject] ?? 'Paper'} Questions',
+                          ),
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(5),
+                      child: Icon(
+                        Icons.quiz_rounded,
+                        size: 18,
+                        color: cs.primary.withValues(alpha: 0.7),
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -5776,4 +5913,307 @@ InputDecoration _inputDeco(ColorScheme cs, {required String label}) {
       borderSide: BorderSide(color: cs.error, width: 1.5),
     ),
   );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Edit Time Sheet — shown from PaperDetailPage header (pending papers only)
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _EditTimeSheet extends StatefulWidget {
+  const _EditTimeSheet({
+    required this.currentDate,
+    required this.currentStartTime,
+    required this.currentDurationMinutes,
+    required this.subjectName,
+    required this.onSave,
+  });
+
+  final DateTime currentDate;
+  final TimeOfDay currentStartTime;
+  final int currentDurationMinutes;
+  final String subjectName;
+  final void Function(DateTime date, TimeOfDay startTime, int durationMinutes)
+      onSave;
+
+  @override
+  State<_EditTimeSheet> createState() => _EditTimeSheetState();
+}
+
+class _EditTimeSheetState extends State<_EditTimeSheet> {
+  late DateTime _date;
+  late TimeOfDay _startTime;
+  late final TextEditingController _durationCtrl;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _date = widget.currentDate;
+    _startTime = widget.currentStartTime;
+    _durationCtrl = TextEditingController(
+      text: widget.currentDurationMinutes.toString(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _durationCtrl.dispose();
+    super.dispose();
+  }
+
+  DateTime get _endDateTime =>
+      DateTime(
+        _date.year,
+        _date.month,
+        _date.day,
+        _startTime.hour,
+        _startTime.minute,
+      ).add(Duration(minutes: int.tryParse(_durationCtrl.text) ?? 60));
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Handle bar ──────────────────────────────────────────────
+            Center(
+              child: Container(
+                width: 32,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Title ───────────────────────────────────────────────────
+            Text(
+              'Edit Paper Time',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: cs.onSurface,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              widget.subjectName,
+              style: TextStyle(
+                fontSize: 13,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // ── Date picker ─────────────────────────────────────────────
+            _SheetField(
+              label: 'Date',
+              cs: cs,
+              child: InkWell(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _date,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2030),
+                  );
+                  if (picked != null) setState(() => _date = picked);
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: cs.outline.withValues(alpha: isDark ? 0.15 : 0.12),
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.calendar_today_rounded,
+                          size: 16, color: cs.primary),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${_date.day} ${_months[_date.month - 1]} ${_date.year}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                      const Spacer(),
+                      Icon(Icons.arrow_drop_down_rounded,
+                          size: 20, color: cs.onSurfaceVariant),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // ── Start time picker ───────────────────────────────────────
+            _SheetField(
+              label: 'Start Time',
+              cs: cs,
+              child: InkWell(
+                onTap: () async {
+                  final picked = await showTimePicker(
+                    context: context,
+                    initialTime: _startTime,
+                  );
+                  if (picked != null) setState(() => _startTime = picked);
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: cs.outline.withValues(alpha: isDark ? 0.15 : 0.12),
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.access_time_rounded,
+                          size: 16, color: cs.primary),
+                      const SizedBox(width: 8),
+                      Text(
+                        _startTime.format(context),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                      const Spacer(),
+                      Icon(Icons.arrow_drop_down_rounded,
+                          size: 20, color: cs.onSurfaceVariant),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // ── Duration field ──────────────────────────────────────────
+            _SheetField(
+              label: 'Duration (minutes)',
+              cs: cs,
+              child: TextField(
+                controller: _durationCtrl,
+                keyboardType: TextInputType.number,
+                style: TextStyle(fontSize: 14, color: cs.onSurface),
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(
+                      color: cs.outline.withValues(alpha: isDark ? 0.15 : 0.12),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(
+                      color: cs.outline.withValues(alpha: isDark ? 0.15 : 0.12),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: cs.primary, width: 1.5),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+
+            // ── Computed end time ───────────────────────────────────────
+            Text(
+              'Ends at ${_endDateTime.hour.toString().padLeft(2, '0')}:${_endDateTime.minute.toString().padLeft(2, '0')}',
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontSize: 12,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // ── Save button ─────────────────────────────────────────────
+            FilledButton(
+              onPressed: _saving
+                  ? null
+                  : () {
+                      final duration =
+                          int.tryParse(_durationCtrl.text) ?? 60;
+                      if (duration < 1) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content:
+                                  Text('Duration must be at least 1 minute')),
+                        );
+                        return;
+                      }
+                      setState(() => _saving = true);
+                      widget.onSave(_date, _startTime, duration);
+                    },
+              child: _saving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child:
+                          CircularProgressIndicator(strokeWidth: 1.5),
+                    )
+                  : const Text('Save Changes'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetField extends StatelessWidget {
+  const _SheetField({
+    required this.label,
+    required this.cs,
+    required this.child,
+  });
+
+  final String label;
+  final ColorScheme cs;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6, left: 2),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+            ),
+          ),
+        ),
+        child,
+      ],
+    );
+  }
 }
