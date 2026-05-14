@@ -1877,7 +1877,7 @@ class _PaperHeaderState extends State<_PaperHeader>
                 ),
               ],
               // ── Generate Paper (pending only) ─────────────────────────
-              if (widget.canManage && isPending) ...[
+              if (widget.canManage && isPending && widget.serverPaperId != null) ...[
                 const SizedBox(width: 4),
                 Tooltip(
                   message: 'Generate Paper',
@@ -1900,7 +1900,7 @@ class _PaperHeaderState extends State<_PaperHeader>
                             allStreamsForGrade: widget.streamNames.entries
                                 .map((e) => (code: e.key, name: e.value))
                                 .toList(),
-                            serverPaperId: widget.serverPaperId,
+                            serverPaperId: widget.serverPaperId!,
                           ),
                         ),
                       );

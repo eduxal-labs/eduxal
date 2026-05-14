@@ -33,7 +33,7 @@ class PaperGenerationPage extends StatefulWidget {
     required this.subjectName,
     required this.examName,
     this.allStreamsForGrade = const [],
-    this.serverPaperId,
+    required this.serverPaperId,
   });
 
   final String schoolId;
@@ -50,9 +50,9 @@ class PaperGenerationPage extends StatefulWidget {
   /// copy section.
   final List<({int code, String name})> allStreamsForGrade;
 
-  /// The server-side paper UUID (from papers_v2). When provided, used directly
-  /// for all QuestionBank RPC calls. Falls back to the legacy composite key.
-  final String? serverPaperId;
+  /// The server-side paper UUID (from papers_v2). Used directly for all
+  /// QuestionBank RPC calls.
+  final String serverPaperId;
 
   @override
   State<PaperGenerationPage> createState() => _PaperGenerationPageState();
@@ -97,14 +97,8 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
   late final TextEditingController _totalMarksController;
   final List<TextEditingController> _markControllers = [];
 
-  /// The paper ID used for all QuestionBank RPC calls.
-  ///
-  /// Uses the server paper UUID when available; falls back to the legacy
-  /// composite key for old papers that predate papers_v2.
-  String get _rpcPaperId =>
-      widget.serverPaperId ??
-      '${widget.schoolId}|${widget.examId}|${widget.subjectId}|'
-      '${widget.paperId ?? ''}|${widget.grade}|${widget.stream ?? ''}';
+  /// The server paper UUID used for all QuestionBank RPC calls.
+  String get _rpcPaperId => widget.serverPaperId;
 
   @override
   void initState() {
