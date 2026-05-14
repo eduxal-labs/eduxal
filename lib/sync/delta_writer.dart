@@ -1928,6 +1928,27 @@ class DeltaWriter {
     final paperId = delta.rowKey;
 
     if (delta.operation == 2) {
+      // Dual-write: delete from legacy papers first.
+      // Query papers_v2 before deleting to get the composite key values.
+      final pv2 = await (_db.select(_db.papersV2)
+            ..where((t) => t.id.equals(paperId))
+            ..limit(1))
+          .getSingleOrNull();
+      if (pv2 != null) {
+        await _db.customStatement(
+          'DELETE FROM papers'
+          ' WHERE school = ? AND exam = ? AND subject = ?'
+          ' AND (paper IS NULL OR paper = 0)'
+          ' AND grade = ? AND (stream IS NULL OR stream = ?)',
+          [
+            pv2.school,
+            pv2.event ?? '',
+            pv2.subject,
+            pv2.grade,
+            pv2.stream ?? 0,
+          ],
+        );
+      }
       await (_db.delete(_db.papersV2)
             ..where((t) => t.id.equals(paperId)))
           .go();
@@ -1942,51 +1963,107 @@ class DeltaWriter {
     final msKeyVal = row.hasMsKey() ? row.msKey : null;
     final instructionsVal = row.hasInstructions() ? row.instructions : null;
 
-    await _db.customStatement(
-      'INSERT INTO papers_v2 (id, school, event, subject, grade, stream,'
-      ' type_, teacher, name, total_marks, duration_minutes, date, status,'
-      ' pdf_key, ms_key, generation_mode, instructions, created, updated)'
-      ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-      ' ON CONFLICT (id) DO UPDATE SET'
-      ' school = excluded.school,'
-      ' event = excluded.event,'
-      ' subject = excluded.subject,'
-      ' grade = excluded.grade,'
-      ' stream = excluded.stream,'
-      ' type_ = excluded.type_,'
-      ' teacher = excluded.teacher,'
-      ' name = excluded.name,'
-      ' total_marks = excluded.total_marks,'
-      ' duration_minutes = excluded.duration_minutes,'
-      ' date = excluded.date,'
-      ' status = excluded.status,'
-      ' pdf_key = excluded.pdf_key,'
-      ' ms_key = excluded.ms_key,'
-      ' generation_mode = excluded.generation_mode,'
-      ' instructions = excluded.instructions,'
-      ' created = excluded.created,'
-      ' updated = excluded.updated',
-      [
-        paperId,
-        row.school,
-        eventVal,
-        row.subject,
-        row.grade,
-        streamVal,
-        row.type,
-        row.teacher,
-        row.name,
-        row.totalMarks,
-        row.durationMinutes,
-        row.date,
-        row.status,
-        pdfKeyVal,
-        msKeyVal,
-        row.generationMode,
-        instructionsVal,
-        row.created.toInt(),
-        now.toInt(),
-      ],
-    );
+    await _db.transaction(() async {
+      // 1) Upsert into papers_v2.
+      await _db.customStatement(
+        'INSERT INTO papers_v2 (id, school, event, subject, grade, stream,'
+        ' type_, teacher, name, total_marks, duration_minutes, date, status,'
+        ' pdf_key, ms_key, generation_mode, instructions, created, updated)'
+        ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        ' ON CONFLICT (id) DO UPDATE SET'
+        ' school = excluded.school,'
+        ' event = excluded.event,'
+        ' subject = excluded.subject,'
+        ' grade = excluded.grade,'
+        ' stream = excluded.stream,'
+        ' type_ = excluded.type_,'
+        ' teacher = excluded.teacher,'
+        ' name = excluded.name,'
+        ' total_marks = excluded.total_marks,'
+        ' duration_minutes = excluded.duration_minutes,'
+        ' date = excluded.date,'
+        ' status = excluded.status,'
+        ' pdf_key = excluded.pdf_key,'
+        ' ms_key = excluded.ms_key,'
+        ' generation_mode = excluded.generation_mode,'
+        ' instructions = excluded.instructions,'
+        ' created = excluded.created,'
+        ' updated = excluded.updated',
+        [
+          paperId,
+          row.school,
+          eventVal,
+          row.subject,
+          row.grade,
+          streamVal,
+          row.type,
+          row.teacher,
+          row.name,
+          row.totalMarks,
+          row.durationMinutes,
+          row.date,
+          row.status,
+          pdfKeyVal,
+          msKeyVal,
+          row.generationMode,
+          instructionsVal,
+          row.created.toInt(),
+          now.toInt(),
+        ],
+      );
+
+      // 2) Dual-write to legacy papers table for backward-compatible UI.
+      final legacyStatus = _mapPaperV2StatusToLegacy(row.status);
+      final startSecs = row.date * 86400; // days since epoch → seconds
+      final endSecs = row.date * 86400 + 7200; // +2h default duration
+
+      // Delete any existing legacy row by composite key, then insert.
+      await _db.customStatement(
+        'DELETE FROM papers'
+        ' WHERE school = ? AND exam = ? AND subject = ?'
+        ' AND (paper IS NULL OR paper = 0)'
+        ' AND grade = ? AND (stream IS NULL OR stream = ?)',
+        [
+          row.school,
+          eventVal ?? '',
+          row.subject,
+          row.grade,
+          streamVal ?? 0,
+        ],
+      );
+
+      await _db.customStatement(
+        'INSERT INTO papers (school, exam, subject, topic, paper,'
+        ' invigilator, start, "end", status, grade, stream,'
+        ' time_allowed_minutes, custom_instructions, created, updated)'
+        ' VALUES (?, ?, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          row.school,
+          eventVal ?? '',
+          row.subject,
+          row.teacher,
+          startSecs,
+          endSecs,
+          legacyStatus,
+          row.grade,
+          streamVal,
+          row.durationMinutes,
+          instructionsVal,
+          row.created.toInt(),
+          now.toInt(),
+        ],
+      );
+    });
+  }
+
+  /// Map [PaperV2Status] (0–6) to legacy [PaperStatus] (0–3).
+  static int _mapPaperV2StatusToLegacy(int v2Status) {
+    // draft(0), questionsSet(1) → pending(0)
+    // finalized(2), revealed(3), active(4) → progress(1)
+    // completed(5) → done(2)
+    // marked(6) → marked(3)
+    if (v2Status >= 5) return v2Status - 3; // 5→2, 6→3
+    if (v2Status >= 2) return 1;
+    return 0;
   }
 }
