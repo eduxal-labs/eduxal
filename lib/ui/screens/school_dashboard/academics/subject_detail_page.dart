@@ -2082,17 +2082,9 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
         return;
       }
 
-      // 5) Trigger per-student PDF generation.
-      if (_pickedType == ExamType.assessment) {
-        await paperService.generateAssessment(
-            paperId: serverPaperId, accessToken: token);
-      } else {
-        await paperService.generateAssignment(
-            paperId: serverPaperId, accessToken: token);
-      }
-
-      // 5a) Update local paper status so PaperDetailPage doesn't show
-      //     the generate icon — questions are already generated.
+      // 5) Update local paper status — questions are generated but PDFs
+      //    are not. The teacher triggers PDF generation via the gear icon
+      //    in PaperDetailPage.
       await widget.dao.updatePaperStatusAfterGeneration(
         serverPaperId: serverPaperId,
         schoolId: widget.schoolId,

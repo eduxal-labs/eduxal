@@ -54,10 +54,10 @@ Future<void> downloadAndOpenPdf({
   );
 
   try {
-    // 1. Get presigned PDF URL from the question bank service.
+    // 1. Get presigned PDF URL from the paper service.
     final paperId =
         '$school|$exam|$subject|${paper ?? ''}|$grade|${stream ?? ''}';
-    final result = await questionBankService.getPaperPdf(
+    final result = await paperService.getPaperPdfUrl(
       paperId: paperId,
       accessToken: accessToken,
     );
@@ -276,11 +276,11 @@ class _PaperPdfViewerPageState extends State<PaperPdfViewerPage> {
     });
 
     try {
-      // Step 1 — get presigned URL from the question bank service.
+      // Step 1 — get presigned URL from the paper service.
       final paperId =
           '${widget.school}|${widget.exam}|${widget.subject}|'
           '${widget.paper ?? ''}|${widget.grade}|${widget.stream ?? ''}';
-      final urlResult = await questionBankService.getPaperPdf(
+      final urlResult = await paperService.getPaperPdfUrl(
         paperId: paperId,
         accessToken: widget.accessToken,
       );

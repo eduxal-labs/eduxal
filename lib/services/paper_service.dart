@@ -2,6 +2,7 @@ import 'package:grpc/grpc.dart';
 
 import '../models/event.dart';
 import '../models/paper.dart';
+import '../models/paper_generation.dart';
 import '../models/result.dart';
 import '../proto/services/event.pb.dart' as eventpb;
 import '../proto/services/event.pbgrpc.dart' as eventgrpc;
@@ -491,6 +492,37 @@ class PaperService {
       return Err(e);
     } catch (e) {
       return Err(GrpcError.internal('getStudentPaperPdf failed: $e'));
+    }
+  }
+
+  /// Get a presigned PDF URL for the teacher/master paper.
+  ///
+  /// Returns a [PaperPdf] with [PaperPdf.pdfUrl] set to the presigned URL.
+  /// The paper must have been finalized via [QuestionBankService.finalizePaper]
+  /// before calling this method.
+  ///
+  /// NOTE: This calls the paper-service RPC, NOT the question-bank RPC
+  /// (which has been removed from the server API).
+  Future<Result<PaperPdf, GrpcError>> getPaperPdfUrl({
+    required String paperId,
+    required String accessToken,
+  }) async {
+    try {
+      final req = paperpb.GetPaperPdfUrlRequest()..paperId = paperId;
+      final resp = await _paperClient.getPaperPdfUrl(
+        req,
+        options: _opts(accessToken),
+      );
+      return Ok(
+        PaperPdf(
+          pdfUrl: resp.url,
+          pdfExpiry: DateTime.fromMillisecondsSinceEpoch(resp.expiry.toInt()),
+        ),
+      );
+    } on GrpcError catch (e) {
+      return Err(e);
+    } catch (e) {
+      return Err(GrpcError.internal('getPaperPdfUrl failed: $e'));
     }
   }
 }

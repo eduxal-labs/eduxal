@@ -129,6 +129,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   double _bulkProgress = 0.0;
   int _bulkGenerated = 0;
   int _bulkTotal = 0;
+  bool _generatingPdfs = false;
 
   Paper get _paper => widget.paper;
   Exam get _exam => widget.exam.exam;
@@ -248,11 +249,11 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   /// Attempt to load the presigned PDF URL for this paper from the server.
   /// Called on init so returning users can view a previously-generated PDF
   /// without having to re-open the generation wizard.
-  /// Silently ignores errors — not every pending paper has a generated PDF.
+  /// Silently ignores errors — not every paper has a finalized PDF yet.
   Future<void> _tryLoadExistingPdf() async {
     final token = accessToken;
     if (token.isEmpty) return;
-    final result = await questionBankService.getPaperPdf(
+    final result = await paperService.getPaperPdfUrl(
       paperId: _paperId,
       accessToken: token,
     );
@@ -331,6 +332,103 @@ class _PaperDetailPageState extends State<PaperDetailPage>
           SnackBar(content: Text('Error: $e')),
         );
       }
+    }
+  }
+
+  // ── Generate PDFs (gear icon) ──────────────────────────────────────────
+
+  Future<void> _generatePdfs() async {
+    final token = accessToken;
+    if (token.isEmpty || _generatingPdfs) return;
+
+    setState(() => _generatingPdfs = true);
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(width: 12),
+            Text('Generating PDFs…'),
+          ],
+        ),
+        duration: Duration(minutes: 5),
+      ),
+    );
+
+    try {
+      // Step 1 — finalize the teacher/master paper PDF.
+      final finalizeResult = await questionBankService.finalizePaper(
+        paperId: _paperId,
+        accessToken: token,
+      );
+      if (!mounted) return;
+      if (finalizeResult case Err(:final error)) {
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(content: Text('Finalize failed: ${error.message}')),
+        );
+        return;
+      }
+
+      // Step 2 — resolve the storage key to a presigned URL.
+      final urlResult = await paperService.getPaperPdfUrl(
+        paperId: _paperId,
+        accessToken: token,
+      );
+      if (!mounted) return;
+      switch (urlResult) {
+        case Ok(:final value):
+          setState(() => _paperPdf = value);
+        case Err():
+          break;
+      }
+
+      // Step 3 — trigger per-student PDF generation.
+      final examType = widget.exam.exam.type;
+      if (examType == ExamType.assessment) {
+        await paperService.generateAssessment(
+          paperId: _paperId,
+          accessToken: token,
+        );
+      } else if (examType == ExamType.assignment) {
+        await paperService.generateAssignment(
+          paperId: _paperId,
+          accessToken: token,
+        );
+      } else {
+        // Default for exam-type papers — use generateAssessment.
+        await paperService.generateAssessment(
+          paperId: _paperId,
+          accessToken: token,
+        );
+      }
+
+      if (!mounted) return;
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('PDFs generated'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(content: Text('Generation error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _generatingPdfs = false);
     }
   }
 
@@ -704,6 +802,8 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                         bulkGenerated: _bulkGenerated,
                         bulkTotal: _bulkTotal,
                         onPrintAllStudents: _printAllStudentPapers,
+                        generatingPdfs: _generatingPdfs,
+                        onGeneratePdfs: _generatePdfs,
                       ),
                       const SizedBox(height: 16),
 
@@ -901,6 +1001,8 @@ class _PaperHeader extends StatefulWidget {
     this.bulkGenerated = 0,
     this.bulkTotal = 0,
     this.onPrintAllStudents,
+    this.generatingPdfs = false,
+    this.onGeneratePdfs,
   });
 
   final Paper paper;
@@ -932,6 +1034,8 @@ class _PaperHeader extends StatefulWidget {
   final int bulkGenerated;
   final int bulkTotal;
   final VoidCallback? onPrintAllStudents;
+  final bool generatingPdfs;
+  final VoidCallback? onGeneratePdfs;
 
   @override
   State<_PaperHeader> createState() => _PaperHeaderState();
@@ -1679,6 +1783,39 @@ class _PaperHeaderState extends State<_PaperHeader>
                     ),
                     onPressed: () =>
                         _openMarkingScheme(widget.paperPdf!.markingSchemeUrl!),
+                  ),
+                ),
+              ],
+              // ── Generate PDFs (gear icon — when questions are set but
+              //    PDF not yet generated) ──────────────────────────────────
+              if (!isPending &&
+                  widget.paperPdf == null &&
+                  widget.onGeneratePdfs != null) ...[
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: 'Generate Student PDFs',
+                  child: InkWell(
+                    onTap: widget.generatingPdfs
+                        ? null
+                        : widget.onGeneratePdfs,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(5),
+                      child: widget.generatingPdfs
+                          ? SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: cs.primary.withValues(alpha: 0.7),
+                              ),
+                            )
+                          : Icon(
+                              Icons.settings_rounded,
+                              size: 18,
+                              color: cs.primary.withValues(alpha: 0.7),
+                            ),
+                    ),
                   ),
                 ),
               ],
