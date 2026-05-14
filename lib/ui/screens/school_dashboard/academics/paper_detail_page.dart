@@ -65,6 +65,7 @@ class PaperDetailPage extends StatefulWidget {
     required this.schoolContext,
     this.subjectNames = const {},
     this.streamNames = const {},
+    this.serverPaperId,
     this.onBack,
   });
 
@@ -81,6 +82,13 @@ class PaperDetailPage extends StatefulWidget {
   /// Maps streamCode → stream name for all streams in this paper's grade.
   /// Forwarded to [PaperGenerationPage] to populate the multi-stream copy picker.
   final Map<int, String> streamNames;
+
+  /// Server-generated paper UUID (from papers_v2 / papers_v2.id).
+  /// When non-null, used as the paper ID for all server RPC calls instead of
+  /// the composite format. Required for assessments/assignments where the
+  /// local exam ID differs from the server's paper ID.
+  final String? serverPaperId;
+
   final VoidCallback? onBack;
 
   @override
@@ -135,6 +143,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   Exam get _exam => widget.exam.exam;
 
   String get _paperId =>
+      widget.serverPaperId ??
       '${widget.schoolId}|${_exam.id}|${_paper.subject}|'
       '${_paper.paper ?? ''}|${_paper.grade}|${_paper.stream ?? ''}';
 
@@ -804,6 +813,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                         onPrintAllStudents: _printAllStudentPapers,
                         generatingPdfs: _generatingPdfs,
                         onGeneratePdfs: _generatePdfs,
+                        serverPaperId: widget.serverPaperId,
                       ),
                       const SizedBox(height: 16),
 
@@ -1003,6 +1013,7 @@ class _PaperHeader extends StatefulWidget {
     this.onPrintAllStudents,
     this.generatingPdfs = false,
     this.onGeneratePdfs,
+    this.serverPaperId,
   });
 
   final Paper paper;
@@ -1036,6 +1047,10 @@ class _PaperHeader extends StatefulWidget {
   final VoidCallback? onPrintAllStudents;
   final bool generatingPdfs;
   final VoidCallback? onGeneratePdfs;
+
+  /// Server-generated paper UUID. When non-null, used for server RPC calls
+  /// instead of the composite format.
+  final String? serverPaperId;
 
   @override
   State<_PaperHeader> createState() => _PaperHeaderState();
@@ -1226,12 +1241,12 @@ class _PaperHeaderState extends State<_PaperHeader>
 
           try {
             // Update server via RPC.
-            final serverPaperId =
+            final rpcPaperId = widget.serverPaperId ??
                 '${widget.schoolId}|${widget.exam.exam.id}|'
                 '${paper.subject}|${paper.paper ?? ''}|'
                 '${paper.grade}|${paper.stream ?? ''}';
             await paperService.updatePaper(
-              paperId: serverPaperId,
+              paperId: rpcPaperId,
               date: newDateDays,
               durationMinutes: newDuration,
               accessToken: accessToken,
@@ -1828,7 +1843,7 @@ class _PaperHeaderState extends State<_PaperHeader>
                   message: 'View Questions',
                   child: InkWell(
                     onTap: () {
-                      final paperId =
+                      final paperId = widget.serverPaperId ??
                           '${widget.schoolId}|${widget.exam.exam.id}|'
                           '${widget.paper.subject}|${widget.paper.paper ?? ''}|'
                           '${widget.paper.grade}|${widget.paper.stream ?? ''}';

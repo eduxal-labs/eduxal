@@ -42,7 +42,65 @@ typedef GradeRow = ({Grade grade, StudentsData student});
 typedef ExamWithPapers = ({Exam exam, List<Paper> papers, UsersData teacher});
 
 /// A paper row together with its parent exam and the exam's teacher user.
-typedef PaperWithExamInfo = ({Paper paper, Exam exam, UsersData teacher});
+typedef PaperWithExamInfo = ({Paper paper, Exam exam, UsersData teacher, String? serverPaperId});
+
+/// Map [PaperV2Status] (0–6) to legacy [PaperStatus] (0–3).
+PaperStatus _mapV2StatusToLegacy(PaperV2Status s) => switch (s) {
+      PaperV2Status.draft || PaperV2Status.questionsSet => PaperStatus.pending,
+      PaperV2Status.finalized ||
+      PaperV2Status.revealed ||
+      PaperV2Status.active =>
+        PaperStatus.progress,
+      PaperV2Status.completed => PaperStatus.done,
+      PaperV2Status.marked => PaperStatus.marked,
+    };
+
+/// Map [PaperV2Type] to legacy [ExamType].
+ExamType _mapV2TypeToExamType(PaperV2Type t) => switch (t) {
+      PaperV2Type.assessment => ExamType.assessment,
+      PaperV2Type.assignment => ExamType.assignment,
+      _ => ExamType.exam,
+    };
+
+/// Convert a standalone [PapersV2Data] row into the legacy [Paper]+[Exam] shape
+/// so that existing UI (PaperDetailPage, subject tabs) can consume it.
+({Paper paper, Exam exam}) _paperExamFromV2(PapersV2Data pv2) {
+  final startSecs = pv2.date * 86400;
+  final endSecs = startSecs + (pv2.durationMinutes * 60);
+  final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+  final paper = Paper(
+    school: pv2.school,
+    exam: pv2.event ?? '',
+    subject: pv2.subject,
+    topic: null,
+    paper: null,
+    invigilator: pv2.teacher,
+    start: BigInt.from(startSecs),
+    end: BigInt.from(endSecs),
+    status: _mapV2StatusToLegacy(pv2.status),
+    grade: pv2.grade,
+    stream: pv2.stream,
+    timeAllowedMinutes: pv2.durationMinutes,
+    customInstructions: pv2.instructions,
+    created: pv2.created,
+    updated: pv2.updated,
+  );
+  final exam = Exam(
+    id: pv2.event ?? '',
+    school: pv2.school,
+    name: pv2.name,
+    year: 0,
+    term: 0,
+    personalized: false,
+    type: _mapV2TypeToExamType(pv2.type_),
+    start: pv2.date,
+    end: pv2.date + 1,
+    teacher: pv2.teacher,
+    created: pv2.created,
+    updated: now,
+  );
+  return (paper: paper, exam: exam);
+}
 
 /// Analytics snapshot for a single paper — used to drive charts.
 class PaperAnalytics {
@@ -313,8 +371,25 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         userById[u.id] = u;
       }
 
-      // Build result: only papers whose exam passes the type filter.
+      // Load papers_v2 rows for this subject+class to:
+      // a) resolve server paper UUIDs for legacy rows (match by name)
+      // b) include standalone papers (event IS NULL) that have no legacy entry
+      final pv2Rows = await (select(papersV2)
+            ..where((t) =>
+                t.school.equals(schoolId) &
+                t.subject.equals(subject) &
+                t.grade.equals(grade) &
+                t.stream.equals(stream)))
+          .get();
+      // Index by name for matching with legacy exam names.
+      final pv2ByName = <String, PapersV2Data>{};
+      for (final pv2 in pv2Rows) {
+        pv2ByName[pv2.name] = pv2;
+      }
+
+      // Build legacy result entries.
       final result = <PaperWithExamInfo>[];
+      final seenNames = <String>{};
       for (final paper in paperList) {
         final exam = examById[paper.exam];
         if (exam == null) continue;
@@ -329,7 +404,28 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
               created: BigInt.zero,
               updated: BigInt.zero,
             );
-        result.add((paper: paper, exam: exam, teacher: teacher));
+        final pv2 = pv2ByName[exam.name];
+        seenNames.add(exam.name);
+        result.add((paper: paper, exam: exam, teacher: teacher, serverPaperId: pv2?.id));
+      }
+
+      // Add standalone papers_v2 rows not already covered by legacy entries.
+      for (final pv2 in pv2Rows) {
+        if (pv2.event != null && pv2.event!.isNotEmpty) continue; // belongs to an event
+        if (seenNames.contains(pv2.name)) continue; // already in legacy result
+        if (examType != null && _mapV2TypeToExamType(pv2.type_).index != examType) continue;
+        final (:paper, :exam) = _paperExamFromV2(pv2);
+        final teacher = UsersData(
+          id: pv2.teacher,
+          phone: '',
+          name: 'Unknown',
+          email: null,
+          level: UserLevel.normal,
+          status: UserStatus.active,
+          created: BigInt.zero,
+          updated: BigInt.zero,
+        );
+        result.add((paper: paper, exam: exam, teacher: teacher, serverPaperId: pv2.id));
       }
       return result;
     });
@@ -377,7 +473,22 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       userById[u.id] = u;
     }
 
+    // Load papers_v2 rows to resolve server paper UUIDs and include
+    // standalone papers (event IS NULL) that have no legacy entry.
+    final pv2Rows = await (select(papersV2)
+          ..where((t) =>
+              t.school.equals(schoolId) &
+              t.subject.equals(subject) &
+              t.grade.equals(grade) &
+              t.stream.equals(stream)))
+        .get();
+    final pv2ByName = <String, PapersV2Data>{};
+    for (final pv2 in pv2Rows) {
+      pv2ByName[pv2.name] = pv2;
+    }
+
     final result = <PaperWithExamInfo>[];
+    final seenNames = <String>{};
     for (final paper in paperList) {
       final exam = examById[paper.exam];
       if (exam == null) continue;
@@ -392,7 +503,28 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
             created: BigInt.zero,
             updated: BigInt.zero,
           );
-      result.add((paper: paper, exam: exam, teacher: teacher));
+      final pv2 = pv2ByName[exam.name];
+      seenNames.add(exam.name);
+      result.add((paper: paper, exam: exam, teacher: teacher, serverPaperId: pv2?.id));
+    }
+
+    // Add standalone papers_v2 rows not already covered.
+    for (final pv2 in pv2Rows) {
+      if (pv2.event != null && pv2.event!.isNotEmpty) continue;
+      if (seenNames.contains(pv2.name)) continue;
+      if (examType != null && _mapV2TypeToExamType(pv2.type_).index != examType) continue;
+      final (:paper, :exam) = _paperExamFromV2(pv2);
+      final teacher = UsersData(
+        id: pv2.teacher,
+        phone: '',
+        name: 'Unknown',
+        email: null,
+        level: UserLevel.normal,
+        status: UserStatus.active,
+        created: BigInt.zero,
+        updated: BigInt.zero,
+      );
+      result.add((paper: paper, exam: exam, teacher: teacher, serverPaperId: pv2.id));
     }
     return result;
   }
@@ -2309,21 +2441,6 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     await into(papersV2).insert(companion);
   }
 
-  /// Insert into legacy [Exams] and [Papers] tables WITHOUT sync logs.
-  ///
-  /// Used when the paper was already created on the server via
-  /// [PaperService.createPaper] RPC and we only need local data for
-  /// backward-compatible UI ([PaperDetailPage], subject tabs, etc.).
-  Future<void> insertLegacyExamAndPaper({
-    required ExamsCompanion exam,
-    required PapersCompanion paper,
-  }) async {
-    await transaction(() async {
-      await into(exams).insert(exam);
-      await into(papers).insert(paper);
-    });
-  }
-
   // ─────────────────────────────────────────────────────────────────────────
   // Events — new server-aligned schema (migration 0007)
   // ─────────────────────────────────────────────────────────────────────────
@@ -2346,41 +2463,15 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     await into(papers).insert(companion);
   }
 
-  /// Update the status of a paper in both [PapersV2] and legacy [Papers]
-  /// after generation completes. The server paper ID is the papers_v2 PK.
+  /// Update the status of a paper in [PapersV2] after generation completes.
   Future<void> updatePaperStatusAfterGeneration({
     required String serverPaperId,
-    required String schoolId,
-    required String examId,
-    required int subject,
-    required int grade,
-    required int? streamCode,
   }) async {
-    await transaction(() async {
-      // Update papers_v2.
-      await (update(papersV2)
-            ..where((t) => t.id.equals(serverPaperId)))
-          .write(
-            PapersV2Companion(status: const Value(PaperV2Status.questionsSet)),
-          );
-
-      // Update legacy papers by composite key.
-      await customStatement(
-        'UPDATE papers SET status = ?'
-        ' WHERE school = ? AND exam = ? AND subject = ?'
-        ' AND (paper IS NULL OR paper = 0)'
-        ' AND grade = ?'
-        ' AND (stream IS NULL OR stream = ?)',
-        [
-          PaperStatus.progress.index,
-          schoolId,
-          examId,
-          subject,
-          grade,
-          streamCode ?? 0,
-        ],
-      );
-    });
+    await (update(papersV2)
+          ..where((t) => t.id.equals(serverPaperId)))
+        .write(
+          PapersV2Companion(status: const Value(PaperV2Status.questionsSet)),
+        );
   }
 
   /// Update paper start/end times in both legacy [Papers] and [PapersV2].

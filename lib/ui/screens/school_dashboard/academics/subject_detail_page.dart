@@ -445,6 +445,7 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
                 schoolContext: widget.schoolContext,
                 subjectNames: _subjectNames,
                 streamNames: {widget.streamCode: widget.streamName},
+                serverPaperId: entry.serverPaperId,
               ),
             ),
           );
@@ -589,7 +590,7 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
         curriculumType: widget.curriculumType,
         schoolContext: widget.schoolContext,
         dao: _dao,
-        onCreated: (paper, exam, teacher) {
+        onCreated: (paper, exam, teacher, serverPaperId) {
           // Pop the sheet, then push the new paper's detail page.
           Navigator.of(ctx).pop();
           Navigator.push(
@@ -606,6 +607,7 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
                 schoolContext: widget.schoolContext,
                 subjectNames: _subjectNames,
                 streamNames: {widget.streamCode: widget.streamName},
+                serverPaperId: serverPaperId,
               ),
             ),
           );
@@ -864,7 +866,7 @@ class _CreatePaperSheet extends StatefulWidget {
   final CurriculumType curriculumType;
   final SchoolContext schoolContext;
   final ExamsGradesDao dao;
-  final void Function(Paper paper, Exam exam, UsersData teacher) onCreated;
+  final void Function(Paper paper, Exam exam, UsersData teacher, String serverPaperId) onCreated;
 
   @override
   State<_CreatePaperSheet> createState() => _CreatePaperSheetState();
@@ -2029,42 +2031,8 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
         ),
       );
 
-      // 3) Also persist to legacy tables so PaperDetailPage and subject tabs
-      //    can display the paper via existing DAO queries.
+      // 3) Generate a local exam ID for legacy model compatibility.
       final localExamId = _generateId();
-      await widget.dao.insertLegacyExamAndPaper(
-        exam: ExamsCompanion(
-          id: Value(localExamId),
-          school: Value(widget.schoolId),
-          name: Value(name),
-          year: Value(widget.year),
-          term: Value(widget.term),
-          type: Value(_pickedType!),
-          start: Value(startDays),
-          end: Value(endDays),
-          teacher: Value(accountId),
-          personalized: const Value(false),
-          created: Value(now),
-          updated: Value(now),
-        ),
-        paper: PapersCompanion(
-          school: Value(widget.schoolId),
-          exam: Value(localExamId),
-          subject: Value(widget.subjectId),
-          topic: Value(
-              _selectedTopicIds.length == 1 ? _selectedTopicIds.first : null),
-          invigilator: Value(accountId),
-          start: Value(BigInt.from(startSecs)),
-          end: Value(BigInt.from(endSecs)),
-          grade: Value(widget.grade),
-          stream: Value(widget.streamCode),
-          timeAllowedMinutes: const Value.absent(),
-          customInstructions: const Value.absent(),
-          status: const Value(PaperStatus.pending),
-          created: Value(now),
-          updated: Value(now),
-        ),
-      );
 
       // 4) Select questions from the bank and link them to the paper.
       final genResult = await questionBankService.generatePaper(
@@ -2082,16 +2050,11 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
         return;
       }
 
-      // 5) Update local paper status — questions are generated but PDFs
+      // 5) Update paper_v2 status — questions are generated but PDFs
       //    are not. The teacher triggers PDF generation via the gear icon
       //    in PaperDetailPage.
       await widget.dao.updatePaperStatusAfterGeneration(
         serverPaperId: serverPaperId,
-        schoolId: widget.schoolId,
-        examId: localExamId,
-        subject: widget.subjectId,
-        grade: widget.grade,
-        streamCode: widget.streamCode,
       );
 
       // 6) Navigate to PaperDetailPage with old-style types (backward compat).
@@ -2139,7 +2102,7 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
       );
 
       if (!mounted) return;
-      widget.onCreated(paper, exam, teacher);
+      widget.onCreated(paper, exam, teacher, serverPaperId);
     } catch (e) {
       if (!mounted) return;
       setState(() {
