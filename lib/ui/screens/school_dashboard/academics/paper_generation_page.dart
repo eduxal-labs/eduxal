@@ -1549,9 +1549,14 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
         });
       case Err(:final error):
         setState(() => _isFinalizing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to finalize paper: ${error.message}')),
-        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to finalize paper: ${error.message}'),
+              backgroundColor: const Color(0xFFD32F2F),
+            ),
+          );
+        }
     }
   }
 
