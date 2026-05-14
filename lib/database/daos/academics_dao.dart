@@ -16,7 +16,7 @@ import '../tables/students.dart';
 import '../tables/subject_teachers.dart';
 import '../tables/users.dart';
 import '../../models/grade_analytics.dart';
-import 'exams_grades_dao.dart' show ExamWithPapers, PaperWithExamInfo;
+import 'exams_grades_dao.dart' show ExamWithPapers;
 
 part 'academics_dao.g.dart';
 
@@ -901,6 +901,29 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
       }
       return results;
     });
+  }
+
+  /// Loads a legacy [ExamWithPapers] by exam ID for navigation to
+  /// [ExamDetailPage]. Used when the exams tab displays events but navigation
+  /// needs the legacy data type.
+  Future<ExamWithPapers?> getLegacyExamWithPapers(String examId) async {
+    final exam = await (select(exams)
+          ..where((e) => e.id.equals(examId))
+          ..limit(1))
+        .getSingleOrNull();
+    if (exam == null) return null;
+
+    final paperList = await (select(papers)
+          ..where((p) => p.exam.equals(examId))
+          ..orderBy([(p) => OrderingTerm.asc(p.subject)]))
+        .get();
+
+    final teacher = await (select(users)
+          ..where((u) => u.id.equals(exam.teacher))
+          ..limit(1))
+        .getSingleOrNull();
+
+    return (exam: exam, papers: paperList, teacher: teacher!);
   }
 
   // ─────────────────────────────────────────────────────────────────────────

@@ -4,10 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../../../../../core/formatters.dart';
 import '../../../../../database/database.dart';
-import '../../../../../database/daos/academics_dao.dart';
+import '../../../../../database/daos/academics_dao.dart'
+    show AcademicsDao, EventWithPapers;
 import '../../../../../database/daos/catalog_dao.dart';
-import '../../../../../database/daos/exams_grades_dao.dart' show ExamWithPapers;
-import '../../../../../database/tables/enums.dart';
+import '../../../../../database/tables/enums.dart'
+    show EventType;
 
 import '../../../../../models/school_config.dart';
 import '../../../../../models/school_context.dart';
@@ -53,7 +54,7 @@ class _ExamsTabState extends State<ExamsTab>
     with AutomaticKeepAliveClientMixin {
   late final AcademicsDao _dao;
   late final CatalogDao _catalogDao;
-  late Stream<List<ExamWithPapers>> _stream;
+  late Stream<List<EventWithPapers>> _stream;
   StreamSubscription? _subjectSub;
   StreamSubscription? _configSub;
 
@@ -63,7 +64,7 @@ class _ExamsTabState extends State<ExamsTab>
   // ── Filter state ───────────────────────────────────────────────────────────
 
   /// null = All types
-  ExamType? _typeFilter;
+  EventType? _typeFilter;
 
   @override
   bool get wantKeepAlive => true;
@@ -97,8 +98,8 @@ class _ExamsTabState extends State<ExamsTab>
     super.dispose();
   }
 
-  Stream<List<ExamWithPapers>> _buildStream() {
-    return _dao.watchExamsForGradeStream(
+  Stream<List<EventWithPapers>> _buildStream() {
+    return _dao.watchEventsForGradeStream(
       schoolId: widget.schoolId,
       year: widget.year,
       term: widget.term,
@@ -130,9 +131,9 @@ class _ExamsTabState extends State<ExamsTab>
     });
   }
 
-  List<ExamWithPapers> _applyFilters(List<ExamWithPapers> items) {
+  List<EventWithPapers> _applyFilters(List<EventWithPapers> items) {
     return items.where((ep) {
-      if (_typeFilter != null && ep.exam.type != _typeFilter) return false;
+      if (_typeFilter != null && ep.event.type_ != _typeFilter) return false;
       return true;
     }).toList();
   }
@@ -146,9 +147,9 @@ class _ExamsTabState extends State<ExamsTab>
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: StreamBuilder<List<ExamWithPapers>>(
+      body: StreamBuilder<List<EventWithPapers>>(
         stream: _stream,
-        builder: (context, snapshot) {
+        builder: (context, AsyncSnapshot<List<EventWithPapers>> snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting &&
               !snapshot.hasData) {
             return _buildLoading(cs);
@@ -205,25 +206,24 @@ class _ExamsTabState extends State<ExamsTab>
                 const SizedBox(width: 6),
                 _ExamFilterChip(
                   label: 'Exam',
-                  selected: _typeFilter == ExamType.exam,
+                  selected: _typeFilter == EventType.exam,
                   cs: cs,
-                  onTap: () => setState(() => _typeFilter = ExamType.exam),
+                  onTap: () => setState(() => _typeFilter = EventType.exam),
                 ),
                 const SizedBox(width: 6),
                 _ExamFilterChip(
-                  label: 'Assignment',
-                  selected: _typeFilter == ExamType.assignment,
+                  label: 'Mock',
+                  selected: _typeFilter == EventType.mock,
                   cs: cs,
-                  onTap: () =>
-                      setState(() => _typeFilter = ExamType.assignment),
+                  onTap: () => setState(() => _typeFilter = EventType.mock),
                 ),
                 const SizedBox(width: 6),
                 _ExamFilterChip(
-                  label: 'Assessment',
-                  selected: _typeFilter == ExamType.assessment,
+                  label: 'Holiday',
+                  selected: _typeFilter == EventType.holidayRevision,
                   cs: cs,
                   onTap: () =>
-                      setState(() => _typeFilter = ExamType.assessment),
+                      setState(() => _typeFilter = EventType.holidayRevision),
                 ),
               ],
             ),
@@ -260,12 +260,12 @@ class _ExamsTabState extends State<ExamsTab>
     } else {
       // Filters are active but yielded zero results.
       final typeLabel = _typeFilter != null
-          ? _examTypeLabel(_typeFilter!)
+          ? _eventTypeLabel(_typeFilter!)
           : null;
 
       message = typeLabel != null
-          ? 'No ${typeLabel.toLowerCase()} exams found'
-          : 'No exams found';
+          ? 'No ${typeLabel.toLowerCase()} events found'
+          : 'No events found';
       icon = Icons.filter_list_off_rounded;
     }
 
@@ -305,7 +305,7 @@ class _ExamsTabState extends State<ExamsTab>
 
   // ── Exam list ──────────────────────────────────────────────────────────────
 
-  Widget _buildList(ColorScheme cs, List<ExamWithPapers> items) {
+  Widget _buildList(ColorScheme cs, List<EventWithPapers> items) {
     final isDark = cs.brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -343,12 +343,12 @@ class _ExamsTabState extends State<ExamsTab>
 
   // ── Exam row ───────────────────────────────────────────────────────────────
 
-  Widget _buildExamRow(ColorScheme cs, ExamWithPapers ep, bool isDark) {
+  Widget _buildExamRow(ColorScheme cs, EventWithPapers ep, bool isDark) {
     return _ExamRow(
       ep: ep,
       cs: cs,
       isDark: isDark,
-      onTap: () => _onExamTap(ep),
+      onTap: () => _onEventTap(ep),
     );
   }
 
@@ -366,11 +366,25 @@ class _ExamsTabState extends State<ExamsTab>
     return {};
   }
 
-  void _onExamTap(ExamWithPapers ep) {
+  void _onEventTap(EventWithPapers ep) async {
+    // Load legacy ExamWithPapers for ExamDetailPage navigation.
+    // Events are dual-written to legacy exams with the same ID.
+    final legacy = await _dao.getLegacyExamWithPapers(ep.event.id);
+    if (!mounted) return;
+    if (legacy == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Exam data not available locally'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ExamDetailPage(
-          exam: ep,
+          exam: legacy,
           schoolId: widget.schoolId,
           year: widget.year,
           term: widget.term,
@@ -399,7 +413,7 @@ class _ExamRow extends StatefulWidget {
     required this.onTap,
   });
 
-  final ExamWithPapers ep;
+  final EventWithPapers ep;
   final ColorScheme cs;
   final bool isDark;
   final VoidCallback onTap;
@@ -455,15 +469,15 @@ class _ExamRowState extends State<_ExamRow>
     final cs = widget.cs;
     final isDark = widget.isDark;
     final ep = widget.ep;
-    final exam = ep.exam;
-    final typeColor = _examTypeColor(exam.type, cs);
-    final typeLabel = _examTypeLabel(exam.type);
+    final event = ep.event;
+    final typeColor = _eventTypeColor(event.type_, cs);
+    final typeLabel = _eventTypeLabel(event.type_);
 
     final startDate = DateTime.fromMillisecondsSinceEpoch(
-      exam.start * 86400 * 1000,
+      event.startDate * 86400 * 1000,
     );
     final endDate = DateTime.fromMillisecondsSinceEpoch(
-      exam.end * 86400 * 1000,
+      event.endDate * 86400 * 1000,
     );
 
     final idleBg = isDark
@@ -566,7 +580,7 @@ class _ExamRowState extends State<_ExamRow>
                                   children: [
                                     // ── Exam name (primary) ───────────────
                                     Text(
-                                      exam.name,
+                                      event.name,
                                       style: TextStyle(
                                         fontSize: 13.5,
                                         fontWeight: FontWeight.w500,
@@ -603,36 +617,6 @@ class _ExamRowState extends State<_ExamRow>
                               ),
 
                               const SizedBox(width: 8),
-
-                              // ── Scope badges ───────────────────────────
-                              if (exam.personalized)
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 6),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(
-                                        color: cs.outline.withValues(
-                                          alpha: isDark ? 0.15 : 0.12,
-                                        ),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      'Personalized',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w400,
-                                        color: cs.onSurfaceVariant.withValues(
-                                          alpha: 0.55,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
 
                               // ── Paper count badge ───────────────────────
                               Container(
@@ -744,14 +728,14 @@ class _ExamFilterChip extends StatelessWidget {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-String _examTypeLabel(ExamType type) => switch (type) {
-  ExamType.exam => 'Exam',
-  ExamType.assignment => 'Assignment',
-  ExamType.assessment => 'Assessment',
+String _eventTypeLabel(EventType type) => switch (type) {
+  EventType.exam => 'Exam',
+  EventType.mock => 'Mock',
+  EventType.holidayRevision => 'Holiday Revision',
 };
 
-Color _examTypeColor(ExamType type, ColorScheme cs) => switch (type) {
-  ExamType.exam => cs.primary,
-  ExamType.assignment => const Color(0xFFF59E0B),
-  ExamType.assessment => const Color(0xFF4CAF50),
+Color _eventTypeColor(EventType type, ColorScheme cs) => switch (type) {
+  EventType.exam => cs.primary,
+  EventType.mock => const Color(0xFF8B5CF6),
+  EventType.holidayRevision => const Color(0xFF4CAF50),
 };
