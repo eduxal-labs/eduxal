@@ -433,7 +433,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     }
 
     controller = StreamController<List<PaperWithExamInfo>>.broadcast(
-      onListen: (sub) {
+      onListen: () {
         _listenerCount++;
         if (_listenerCount == 1) {
           emit();
@@ -455,7 +455,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
               .listen((_) => emit());
         }
       },
-      onCancel: (sub) {
+      onCancel: () {
         _listenerCount--;
         if (_listenerCount <= 0) {
           _listenerCount = 0;
