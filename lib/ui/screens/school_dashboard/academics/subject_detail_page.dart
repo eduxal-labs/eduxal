@@ -2091,6 +2091,17 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
             paperId: serverPaperId, accessToken: token);
       }
 
+      // 5a) Update local paper status so PaperDetailPage doesn't show
+      //     the generate icon — questions are already generated.
+      await widget.dao.updatePaperStatusAfterGeneration(
+        serverPaperId: serverPaperId,
+        schoolId: widget.schoolId,
+        examId: localExamId,
+        subject: widget.subjectId,
+        grade: widget.grade,
+        streamCode: widget.streamCode,
+      );
+
       // 6) Navigate to PaperDetailPage with old-style types (backward compat).
       final paper = Paper(
         school: widget.schoolId,
@@ -2102,7 +2113,7 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
         invigilator: accountId,
         start: BigInt.from(startSecs),
         end: BigInt.from(endSecs),
-        status: PaperStatus.pending,
+        status: PaperStatus.progress,
         grade: widget.grade,
         stream: widget.streamCode,
         timeAllowedMinutes: null,

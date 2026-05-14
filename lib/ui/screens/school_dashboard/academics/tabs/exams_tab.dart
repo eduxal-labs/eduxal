@@ -63,8 +63,9 @@ class _ExamsTabState extends State<ExamsTab>
 
   // ── Filter state ───────────────────────────────────────────────────────────
 
-  /// null = All types
-  EventType? _typeFilter;
+  /// Defaults to [EventType.exam] — assignments and assessments are
+  /// standalone papers (subject+stream specific) and don't appear here.
+  EventType? _typeFilter = EventType.exam;
 
   @override
   bool get wantKeepAlive => true;
@@ -209,21 +210,6 @@ class _ExamsTabState extends State<ExamsTab>
                   selected: _typeFilter == EventType.exam,
                   cs: cs,
                   onTap: () => setState(() => _typeFilter = EventType.exam),
-                ),
-                const SizedBox(width: 6),
-                _ExamFilterChip(
-                  label: 'Mock',
-                  selected: _typeFilter == EventType.mock,
-                  cs: cs,
-                  onTap: () => setState(() => _typeFilter = EventType.mock),
-                ),
-                const SizedBox(width: 6),
-                _ExamFilterChip(
-                  label: 'Holiday',
-                  selected: _typeFilter == EventType.holidayRevision,
-                  cs: cs,
-                  onTap: () =>
-                      setState(() => _typeFilter = EventType.holidayRevision),
                 ),
               ],
             ),

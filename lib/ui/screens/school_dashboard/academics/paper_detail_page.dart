@@ -1,13 +1,16 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:drift/drift.dart' hide Column;
 
+import 'package:flutter/foundation.dart' show consolidateHttpClientResponseBytes;
 import 'package:flutter/material.dart' hide Action;
 import 'package:flutter/services.dart';
 import 'package:cunning_document_scanner/cunning_document_scanner.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:printing/printing.dart';
 
 import '../../../../core/image_utils.dart';
 
@@ -20,6 +23,7 @@ import '../../../../database/daos/members_dao.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
 
+import '../../../../models/paper.dart' show StudentPaperPdf, StudentPapersStatus;
 import '../../../../models/paper_generation.dart';
 import '../../../../models/result.dart';
 import '../../../../models/membership.dart';
@@ -118,8 +122,18 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   Map<int, List<String>> _childSubmissions = {};
   Set<int> _childDirtySubmissions = {};
 
+  // ── Per-student paper state ──────────────────────────────────────────────
+  bool _bulkPrinting = false;
+  double _bulkProgress = 0.0;
+  int _bulkGenerated = 0;
+  int _bulkTotal = 0;
+
   Paper get _paper => widget.paper;
   Exam get _exam => widget.exam.exam;
+
+  String get _paperId =>
+      '${widget.schoolId}|${_exam.id}|${_paper.subject}|'
+      '${_paper.paper ?? ''}|${_paper.grade}|${_paper.stream ?? ''}';
 
   bool _computeHasUnmarked(Map<int, Grade> gradeMap) {
     final enrolledAdms = {for (final s in _students) s.adm};
@@ -236,11 +250,8 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   Future<void> _tryLoadExistingPdf() async {
     final token = accessToken;
     if (token.isEmpty) return;
-    final paperId =
-        '${widget.schoolId}|${_exam.id}|${_paper.subject}|'
-        '${_paper.paper ?? ''}|${_paper.grade}|${_paper.stream ?? ''}';
     final result = await questionBankService.getPaperPdf(
-      paperId: paperId,
+      paperId: _paperId,
       accessToken: token,
     );
     if (!mounted) return;
@@ -250,6 +261,198 @@ class _PaperDetailPageState extends State<PaperDetailPage>
       case Err():
         // Paper not yet finalized — ignore silently.
         break;
+    }
+  }
+
+  // ── Per-student paper view ───────────────────────────────────────────────
+
+  Future<void> _viewStudentPaper(StudentsData student) async {
+    final token = accessToken;
+    if (token.isEmpty) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text('Loading ${student.name} paper…'),
+          ],
+        ),
+        duration: const Duration(minutes: 5),
+      ),
+    );
+
+    try {
+      final result = await paperService.getStudentPaperPdf(
+        paperId: _paperId,
+        studentId: student.adm.toString(),
+        accessToken: token,
+      );
+
+      if (!mounted) return;
+      messenger.hideCurrentSnackBar();
+
+      switch (result) {
+        case Ok(:final value):
+          if (value.pdfUrl.isEmpty) {
+            messenger.showSnackBar(
+              const SnackBar(content: Text('Paper not yet generated')),
+            );
+            return;
+          }
+          final bytes = await _downloadPdfBytes(value.pdfUrl);
+          if (!mounted) return;
+          if (bytes != null) {
+            await Printing.layoutPdf(
+              onLayout: (_) async => bytes,
+              name: '${student.name} - ${widget.subjectNames[_paper.subject] ?? 'Paper'}',
+            );
+          }
+        case Err(:final error):
+          messenger.showSnackBar(
+            SnackBar(content: Text('Failed: ${error.message}')),
+          );
+      }
+    } catch (e) {
+      if (mounted) {
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  // ── Bulk print all student papers ────────────────────────────────────────
+
+  Future<void> _printAllStudentPapers() async {
+    final token = accessToken;
+    if (token.isEmpty || _bulkPrinting) return;
+
+    setState(() {
+      _bulkPrinting = true;
+      _bulkProgress = 0.0;
+      _bulkGenerated = 0;
+      _bulkTotal = _students.length;
+    });
+
+    try {
+      // Step 1 — trigger per-student PDF generation on the server.
+      final finalizeResult = await paperService.finalizeStudentPapers(
+        paperId: _paperId,
+        accessToken: token,
+      );
+      if (!mounted) return;
+      if (finalizeResult case Err(:final error)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to start generation: ${error.message}')),
+        );
+        setState(() => _bulkPrinting = false);
+        return;
+      }
+
+      // Step 2 — poll until all students are ready.
+      const maxPolls = 60; // 2 minutes max at 2s intervals
+      for (int i = 0; i < maxPolls; i++) {
+        await Future.delayed(const Duration(seconds: 2));
+        if (!mounted) return;
+
+        final statusResult = await paperService.getStudentPapersStatus(
+          paperId: _paperId,
+          accessToken: token,
+        );
+        if (!mounted) return;
+        if (statusResult case Err(:final error)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Status check failed: ${error.message}')),
+          );
+          setState(() => _bulkPrinting = false);
+          return;
+        }
+        final status = (statusResult as Ok<StudentPapersStatus, dynamic>).value;
+        setState(() {
+          _bulkGenerated = status.generated;
+          _bulkTotal = status.total;
+          _bulkProgress = status.total > 0 ? status.generated / status.total : 0;
+        });
+
+        if (status.phase.name == 'complete' || status.generated >= status.total) {
+          break;
+        }
+      }
+
+      if (!mounted) return;
+
+      // Step 3 — download and print each student's PDF.
+      final messenger = ScaffoldMessenger.of(context);
+      for (final student in _students) {
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Downloading ${student.name} paper…'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+
+        final pdfResult = await paperService.getStudentPaperPdf(
+          paperId: _paperId,
+          studentId: student.adm.toString(),
+          accessToken: token,
+        );
+        if (!mounted) return;
+        if (pdfResult case Err(:final error)) {
+          messenger.showSnackBar(
+            SnackBar(content: Text('${student.name}: ${error.message}')),
+          );
+          continue;
+        }
+        final pdf = (pdfResult as Ok<StudentPaperPdf, dynamic>).value;
+        if (pdf.pdfUrl.isEmpty) continue;
+
+        final bytes = await _downloadPdfBytes(pdf.pdfUrl);
+        if (!mounted || bytes == null) continue;
+
+        await Printing.layoutPdf(
+          onLayout: (_) async => bytes,
+          name: '${student.name} - ${widget.subjectNames[_paper.subject] ?? 'Paper'}',
+        );
+        // Small delay between print jobs to avoid overwhelming the system.
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Bulk print error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _bulkPrinting = false);
+      }
+    }
+  }
+
+  Future<Uint8List?> _downloadPdfBytes(String url) async {
+    final httpClient = HttpClient();
+    try {
+      final request = await httpClient.getUrl(Uri.parse(url));
+      final response = await request.close();
+      if (response.statusCode != 200) return null;
+      final bytes = await consolidateHttpClientResponseBytes(response);
+      return bytes;
+    } catch (_) {
+      return null;
+    } finally {
+      httpClient.close();
     }
   }
 
@@ -494,6 +697,11 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                         onPaperGenerated: (pdf) =>
                             setState(() => _paperPdf = pdf),
                         onPdfCleared: () => setState(() => _paperPdf = null),
+                        bulkPrinting: _bulkPrinting,
+                        bulkProgress: _bulkProgress,
+                        bulkGenerated: _bulkGenerated,
+                        bulkTotal: _bulkTotal,
+                        onPrintAllStudents: _printAllStudentPapers,
                       ),
                       const SizedBox(height: 16),
 
@@ -598,6 +806,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           cs: cs,
                           schemeFiles: _schemeFiles,
                           initialDirtySubmissions: _childDirtySubmissions,
+                          onViewStudentPaper: _viewStudentPaper,
                           onDirtyChanged: (dirty) {
                             if (mounted)
                               setState(() => _hasDirtyGrades = dirty);
@@ -685,6 +894,11 @@ class _PaperHeader extends StatefulWidget {
     this.paperPdf,
     this.onPaperGenerated,
     this.onPdfCleared,
+    this.bulkPrinting = false,
+    this.bulkProgress = 0.0,
+    this.bulkGenerated = 0,
+    this.bulkTotal = 0,
+    this.onPrintAllStudents,
   });
 
   final Paper paper;
@@ -711,6 +925,11 @@ class _PaperHeader extends StatefulWidget {
   final PaperPdf? paperPdf;
   final void Function(PaperPdf)? onPaperGenerated;
   final VoidCallback? onPdfCleared;
+  final bool bulkPrinting;
+  final double bulkProgress;
+  final int bulkGenerated;
+  final int bulkTotal;
+  final VoidCallback? onPrintAllStudents;
 
   @override
   State<_PaperHeader> createState() => _PaperHeaderState();
@@ -1358,6 +1577,46 @@ class _PaperHeaderState extends State<_PaperHeader>
                         _openMarkingScheme(widget.paperPdf!.markingSchemeUrl!),
                   ),
                 ),
+              ],
+              // ── Print All Student Papers ──────────────────────────────────
+              if (widget.onPrintAllStudents != null) ...[
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: 'Print All Student Papers',
+                  child: InkWell(
+                    onTap: widget.bulkPrinting ? null : widget.onPrintAllStudents,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(5),
+                      child: widget.bulkPrinting
+                          ? SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: cs.primary.withValues(alpha: 0.7),
+                              ),
+                            )
+                          : Icon(
+                              Icons.print_rounded,
+                              size: 18,
+                              color: cs.primary.withValues(alpha: 0.7),
+                            ),
+                    ),
+                  ),
+                ),
+                if (widget.bulkPrinting &&
+                    widget.bulkTotal > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Text(
+                      '${widget.bulkGenerated}/${widget.bulkTotal}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ),
               ],
               const Spacer(),
               if (widget.canManage)
@@ -2904,6 +3163,7 @@ class _GradeList extends StatefulWidget {
     this.onDirtySubmissionsChanged,
     this.schemeFiles = const [],
     this.initialDirtySubmissions = const {},
+    this.onViewStudentPaper,
   });
 
   final List<StudentsData> students;
@@ -2923,6 +3183,7 @@ class _GradeList extends StatefulWidget {
   final ValueChanged<Set<int>>? onDirtySubmissionsChanged;
   final List<String> schemeFiles;
   final Set<int> initialDirtySubmissions;
+  final void Function(StudentsData)? onViewStudentPaper;
 
   @override
   State<_GradeList> createState() => _GradeListState();
@@ -3655,6 +3916,27 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
                               fontSize: 12,
                               fontWeight: FontWeight.w400,
                               color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                            ),
+                          ),
+                        ],
+                        // ── Per-student print/view icon ──────────────────
+                        if (widget.onViewStudentPaper != null) ...[
+                          const SizedBox(width: 8),
+                          Tooltip(
+                            message: 'View / Print ${student.name} paper',
+                            child: InkWell(
+                              onTap: () =>
+                                  widget.onViewStudentPaper!(student),
+                              borderRadius: BorderRadius.circular(4),
+                              child: Padding(
+                                padding: const EdgeInsets.all(4),
+                                child: Icon(
+                                  Icons.picture_as_pdf_rounded,
+                                  size: 16,
+                                  color: cs.onSurfaceVariant
+                                      .withValues(alpha: 0.4),
+                                ),
+                              ),
                             ),
                           ),
                         ],

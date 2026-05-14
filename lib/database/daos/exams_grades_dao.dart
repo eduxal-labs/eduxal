@@ -2344,4 +2344,41 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
   Future<void> insertLegacyPaper(PapersCompanion companion) async {
     await into(papers).insert(companion);
   }
+
+  /// Update the status of a paper in both [PapersV2] and legacy [Papers]
+  /// after generation completes. The server paper ID is the papers_v2 PK.
+  Future<void> updatePaperStatusAfterGeneration({
+    required String serverPaperId,
+    required String schoolId,
+    required String examId,
+    required int subject,
+    required int grade,
+    required int? streamCode,
+  }) async {
+    await transaction(() async {
+      // Update papers_v2.
+      await (update(papersV2)
+            ..where((t) => t.id.equals(serverPaperId)))
+          .write(
+            PapersV2Companion(status: const Value(PaperV2Status.questionsSet)),
+          );
+
+      // Update legacy papers by composite key.
+      await customStatement(
+        'UPDATE papers SET status = ?'
+        ' WHERE school = ? AND exam = ? AND subject = ?'
+        ' AND (paper IS NULL OR paper = 0)'
+        ' AND grade = ?'
+        ' AND (stream IS NULL OR stream = ?)',
+        [
+          PaperStatus.progress.index,
+          schoolId,
+          examId,
+          subject,
+          grade,
+          streamCode ?? 0,
+        ],
+      );
+    });
+  }
 }
