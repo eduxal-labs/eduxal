@@ -236,6 +236,7 @@ class PaperPdfViewerPage extends StatefulWidget {
     required this.title,
     this.localFilePath,
     this.localPdfBytes,
+    this.serverPaperId,
   });
 
   final String school;
@@ -255,6 +256,10 @@ class PaperPdfViewerPage extends StatefulWidget {
 
   /// Pre-loaded PDF bytes. When provided, used directly without any I/O.
   final Uint8List? localPdfBytes;
+
+  /// Server paper ObjectId hex string. When non-null, used for the gRPC call
+  /// instead of the composite pipe-delimited fallback.
+  final String? serverPaperId;
 
   @override
   State<PaperPdfViewerPage> createState() => _PaperPdfViewerPageState();
@@ -307,11 +312,11 @@ class _PaperPdfViewerPageState extends State<PaperPdfViewerPage> {
       }
 
       // Step 1 — get presigned URL from the paper service.
-      final paperId =
+      final rpcPaperId = widget.serverPaperId ??
           '${widget.school}|${widget.exam}|${widget.subject}|'
           '${widget.paper ?? ''}|${widget.grade}|${widget.stream ?? ''}';
       final urlResult = await paperService.getPaperPdfUrl(
-        paperId: paperId,
+        paperId: rpcPaperId,
         accessToken: widget.accessToken,
       );
 

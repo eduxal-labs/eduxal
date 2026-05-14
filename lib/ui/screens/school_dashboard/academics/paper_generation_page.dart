@@ -1784,6 +1784,7 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
                                 stream: widget.stream,
                                 accessToken: accessToken,
                                 title: widget.subjectName,
+                                serverPaperId: widget.serverPaperId,
                               ),
                             ),
                           ),

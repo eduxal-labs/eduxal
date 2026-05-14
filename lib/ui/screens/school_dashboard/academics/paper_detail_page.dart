@@ -433,6 +433,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
           title:
               '${student.name} - ${widget.subjectNames[_paper.subject] ?? 'Paper'}',
           localFilePath: file.path,
+          serverPaperId: _paperId,
         ),
       ),
     );
@@ -1622,7 +1623,7 @@ class _PaperHeaderState extends State<_PaperHeader>
     final endDt = DateTime.fromMillisecondsSinceEpoch(paper.end.toInt() * 1000);
 
     final status = paper.status;
-    final isPending = status == PaperStatus.pending;
+    final isPending = status == PaperStatus.pending && widget.paperPdf == null;
     final isProgress = status == PaperStatus.progress;
     final isPreFinalized = isPending || isProgress;
     final isMarked = status == PaperStatus.marked;
@@ -1973,6 +1974,7 @@ class _PaperHeaderState extends State<_PaperHeader>
                                 '${widget.subjectNames[widget.paper.subject] ?? 'Paper'}'
                                 '${widget.paper.paper != null ? ' Paper ${widget.paper.paper}' : ''}',
                             localFilePath: localFile?.path,
+                            serverPaperId: widget.serverPaperId,
                           ),
                         ),
                       );
