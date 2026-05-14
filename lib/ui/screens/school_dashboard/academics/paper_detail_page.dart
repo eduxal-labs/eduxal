@@ -24,7 +24,6 @@ import '../../../../database/daos/members_dao.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
 
-import '../../../../models/paper.dart' show StudentPaperPdf, StudentPapersStatus;
 import '../../../../models/paper_generation.dart';
 import '../../../../models/result.dart';
 import '../../../../models/membership.dart';
@@ -134,10 +133,22 @@ class _PaperDetailPageState extends State<PaperDetailPage>
 
   // ── Per-student paper state ──────────────────────────────────────────────
   bool _bulkPrinting = false;
-  double _bulkProgress = 0.0;
   int _bulkGenerated = 0;
   int _bulkTotal = 0;
   bool _generatingPdfs = false;
+
+  // ── Local PDF download state ────────────────────────────────────────────
+  bool _teacherPdfLocal = false;
+  final Set<int> _localStudentPdfs = {};
+  final Set<int> _failedStudentPdfs = {};
+  bool _downloadingPdfs = false;
+  int _pdfDownloadCount = 0;
+  int _pdfDownloadTotal = 0;
+
+  bool get _allPdfsLocal =>
+      _teacherPdfLocal &&
+      _students.isNotEmpty &&
+      _students.every((s) => _localStudentPdfs.contains(s.adm));
 
   Paper get _paper => widget.paper;
   Exam get _exam => widget.exam.exam;
@@ -276,6 +287,36 @@ class _PaperDetailPageState extends State<PaperDetailPage>
     }
   }
 
+  /// Scan FileCache to determine which paper PDFs exist locally.
+  /// Called on init and after downloads complete, so state persists across
+  /// page reopens.
+  Future<void> _checkLocalPdfState() async {
+    final paperId = _paperId;
+    final teacherPath = FileCache.teacherPaperPdfPath(widget.schoolId, paperId);
+    final teacherFile = await FileCache.get(teacherPath);
+
+    final localStudents = <int>{};
+    for (final student in _students) {
+      final path = FileCache.studentPaperPdfPath(
+        widget.schoolId,
+        paperId,
+        student.adm,
+      );
+      if (await FileCache.get(path) != null) {
+        localStudents.add(student.adm);
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _teacherPdfLocal = teacherFile != null;
+      _localStudentPdfs
+        ..clear()
+        ..addAll(localStudents);
+      _failedStudentPdfs.clear();
+    });
+  }
+
   // ── Per-student paper view ───────────────────────────────────────────────
 
   Future<void> _viewStudentPaper(StudentsData student) async {
@@ -344,6 +385,44 @@ class _PaperDetailPageState extends State<PaperDetailPage>
     }
   }
 
+  /// View a locally-cached student paper PDF in-app — no network required.
+  Future<void> _viewStudentPaperLocal(StudentsData student) async {
+    final paperId = _paperId;
+    final localPath = FileCache.studentPaperPdfPath(
+      widget.schoolId,
+      paperId,
+      student.adm,
+    );
+
+    final file = await FileCache.get(localPath);
+    if (file == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('PDF not found locally')),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PaperPdfViewerPage(
+          school: widget.schoolId,
+          exam: _exam.id,
+          subject: _paper.subject,
+          paper: _paper.paper,
+          grade: _paper.grade,
+          stream: _paper.stream,
+          accessToken: accessToken,
+          title:
+              '${student.name} - ${widget.subjectNames[_paper.subject] ?? 'Paper'}',
+          localFilePath: file.path,
+        ),
+      ),
+    );
+  }
+
   // ── Generate PDFs (gear icon) ──────────────────────────────────────────
 
   Future<void> _generatePdfs() async {
@@ -396,7 +475,12 @@ class _PaperDetailPageState extends State<PaperDetailPage>
       if (!mounted) return;
       switch (urlResult) {
         case Ok(:final value):
-          setState(() => _paperPdf = value);
+          setState(() {
+            _paperPdf = value;
+            _teacherPdfLocal = false;
+            _localStudentPdfs.clear();
+            _failedStudentPdfs.clear();
+          });
         case Err():
           break;
       }
@@ -441,114 +525,173 @@ class _PaperDetailPageState extends State<PaperDetailPage>
     }
   }
 
-  // ── Bulk print all student papers ────────────────────────────────────────
+  // ── Batch download all PDFs locally ──────────────────────────────────────
 
-  Future<void> _printAllStudentPapers() async {
+  Future<void> _downloadAllPdfs() async {
     final token = accessToken;
-    if (token.isEmpty || _bulkPrinting) return;
+    if (token.isEmpty || _downloadingPdfs) return;
 
     setState(() {
-      _bulkPrinting = true;
-      _bulkProgress = 0.0;
-      _bulkGenerated = 0;
-      _bulkTotal = _students.length;
+      _downloadingPdfs = true;
+      _pdfDownloadCount = 0;
+      _pdfDownloadTotal = _students.length + 1; // +1 for teacher
+      _failedStudentPdfs.clear();
     });
 
+    final messenger = ScaffoldMessenger.of(context);
+    final paperId = _paperId;
+
     try {
-      // Step 1 — trigger per-student PDF generation on the server.
-      final finalizeResult = await paperService.finalizeStudentPapers(
-        paperId: _paperId,
-        accessToken: token,
-      );
-      if (!mounted) return;
-      if (finalizeResult case Err(:final error)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to start generation: ${error.message}')),
+      // Step 1 — download teacher PDF if not already local.
+      if (!_teacherPdfLocal) {
+        final teacherPath = FileCache.teacherPaperPdfPath(
+          widget.schoolId,
+          paperId,
         );
-        setState(() => _bulkPrinting = false);
-        return;
-      }
-
-      // Step 2 — poll until all students are ready.
-      const maxPolls = 60; // 2 minutes max at 2s intervals
-      for (int i = 0; i < maxPolls; i++) {
-        await Future.delayed(const Duration(seconds: 2));
-        if (!mounted) return;
-
-        final statusResult = await paperService.getStudentPapersStatus(
-          paperId: _paperId,
+        // Teacher PDF URL might already be in _paperPdf, or we resolve it afresh.
+        final urlResult = await paperService.getPaperPdfUrl(
+          paperId: paperId,
           accessToken: token,
         );
         if (!mounted) return;
-        if (statusResult case Err(:final error)) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Status check failed: ${error.message}')),
-          );
-          setState(() => _bulkPrinting = false);
-          return;
+        if (urlResult case Ok(:final value)) {
+          final file = await FileCache.download(value.pdfUrl, teacherPath);
+          if (!mounted) return;
+          setState(() {
+            if (file != null) _teacherPdfLocal = true;
+            _pdfDownloadCount++;
+          });
         }
-        final status = (statusResult as Ok<StudentPapersStatus, dynamic>).value;
-        setState(() {
-          _bulkGenerated = status.generated;
-          _bulkTotal = status.total;
-          _bulkProgress = status.total > 0 ? status.generated / status.total : 0;
-        });
-
-        if (status.phase.name == 'complete' || status.generated >= status.total) {
-          break;
-        }
+      } else {
+        setState(() => _pdfDownloadCount++);
       }
 
-      if (!mounted) return;
-
-      // Step 3 — download and print each student's PDF.
-      final messenger = ScaffoldMessenger.of(context);
+      // Step 2 — download each student PDF.
       for (final student in _students) {
         if (!mounted) return;
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text('Downloading ${student.name} paper…'),
-            duration: const Duration(seconds: 3),
-          ),
+        final studentPath = FileCache.studentPaperPdfPath(
+          widget.schoolId,
+          paperId,
+          student.adm,
         );
 
+        // Skip already-downloaded students.
+        if (_localStudentPdfs.contains(student.adm)) {
+          setState(() => _pdfDownloadCount++);
+          continue;
+        }
+
         final pdfResult = await paperService.getStudentPaperPdf(
-          paperId: _paperId,
+          paperId: paperId,
           studentId: student.adm.toString(),
           accessToken: token,
         );
         if (!mounted) return;
-        if (pdfResult case Err(:final error)) {
-          messenger.showSnackBar(
-            SnackBar(content: Text('${student.name}: ${error.message}')),
-          );
-          continue;
+
+        if (pdfResult case Ok(:final value) when value.pdfUrl.isNotEmpty) {
+          final file = await FileCache.download(value.pdfUrl, studentPath);
+          if (!mounted) return;
+          setState(() {
+            if (file != null) {
+              _localStudentPdfs.add(student.adm);
+            } else {
+              _failedStudentPdfs.add(student.adm);
+            }
+            _pdfDownloadCount++;
+          });
+        } else {
+          setState(() {
+            _failedStudentPdfs.add(student.adm);
+            _pdfDownloadCount++;
+          });
         }
-        final pdf = (pdfResult as Ok<StudentPaperPdf, dynamic>).value;
-        if (pdf.pdfUrl.isEmpty) continue;
+      }
 
-        final bytes = await _downloadPdfBytes(pdf.pdfUrl);
-        if (!mounted || bytes == null) continue;
+      if (!mounted) return;
+      final failed = _failedStudentPdfs.length;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            failed > 0
+                ? 'Downloaded ${_pdfDownloadCount - failed} PDFs ($failed failed)'
+                : 'All PDFs downloaded',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(SnackBar(content: Text('Download error: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _downloadingPdfs = false);
+    }
+  }
 
+  // ── Print all PDFs from local files ──────────────────────────────────────
+
+  Future<void> _printAllLocalPdfs() async {
+    if (_bulkPrinting) return;
+
+    setState(() {
+      _bulkPrinting = true;
+      _bulkGenerated = 0;
+      _bulkTotal = _students.length + 1; // +1 for teacher
+    });
+
+    final paperId = _paperId;
+    final subjectLabel = widget.subjectNames[_paper.subject] ?? 'Paper';
+
+    try {
+      // Print teacher paper from local cache.
+      final teacherPath = FileCache.teacherPaperPdfPath(
+        widget.schoolId,
+        paperId,
+      );
+      final teacherFile = await FileCache.get(teacherPath);
+      if (teacherFile != null) {
+        final bytes = await teacherFile.readAsBytes();
         await Printing.layoutPdf(
           onLayout: (_) async => bytes,
-          name: '${student.name} - ${widget.subjectNames[_paper.subject] ?? 'Paper'}',
+          name: '$subjectLabel Teacher Copy',
         );
-        // Small delay between print jobs to avoid overwhelming the system.
+        setState(() => _bulkGenerated++);
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
+
+      // Print each student paper from local cache.
+      for (final student in _students) {
+        if (!mounted) return;
+        if (!_localStudentPdfs.contains(student.adm)) continue;
+
+        final path = FileCache.studentPaperPdfPath(
+          widget.schoolId,
+          paperId,
+          student.adm,
+        );
+        final file = await FileCache.get(path);
+        if (file == null) continue;
+
+        final bytes = await file.readAsBytes();
+        await Printing.layoutPdf(
+          onLayout: (_) async => bytes,
+          name: '${student.name} - $subjectLabel',
+        );
+        setState(() => _bulkGenerated++);
         await Future.delayed(const Duration(milliseconds: 300));
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Bulk print error: $e')),
+          SnackBar(content: Text('Print error: $e')),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _bulkPrinting = false);
-      }
+      if (mounted) setState(() => _bulkPrinting = false);
     }
   }
+
+  // ── Deprecated — replaced by _downloadAllPdfs + _printAllLocalPdfs ──────
 
   Future<Uint8List?> _downloadPdfBytes(String url) async {
     final httpClient = HttpClient();
@@ -704,10 +847,14 @@ class _PaperDetailPageState extends State<PaperDetailPage>
         )
         .listen((list) {
           if (!mounted) return;
+          final wasLoading = _loadingStudents;
           setState(() {
             _students = list;
             _loadingStudents = false;
           });
+          if (wasLoading && list.isNotEmpty) {
+            _checkLocalPdfState();
+          }
         });
   }
 
@@ -807,13 +954,19 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                             setState(() => _paperPdf = pdf),
                         onPdfCleared: () => setState(() => _paperPdf = null),
                         bulkPrinting: _bulkPrinting,
-                        bulkProgress: _bulkProgress,
                         bulkGenerated: _bulkGenerated,
                         bulkTotal: _bulkTotal,
-                        onPrintAllStudents: _printAllStudentPapers,
                         generatingPdfs: _generatingPdfs,
                         onGeneratePdfs: _generatePdfs,
                         serverPaperId: widget.serverPaperId,
+                        paperId: _paperId,
+                        pdfsGenerated: _paperPdf != null,
+                        localPdfsReady: _allPdfsLocal,
+                        downloadingPdfs: _downloadingPdfs,
+                        pdfDownloadCount: _pdfDownloadCount,
+                        pdfDownloadTotal: _pdfDownloadTotal,
+                        onDownloadAllPdfs: _downloadAllPdfs,
+                        onPrintAllLocal: _printAllLocalPdfs,
                       ),
                       const SizedBox(height: 16),
 
@@ -919,6 +1072,8 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           schemeFiles: _schemeFiles,
                           initialDirtySubmissions: _childDirtySubmissions,
                           onViewStudentPaper: _viewStudentPaper,
+                        localStudentPdfs: _localStudentPdfs,
+                        onViewStudentPaperLocal: _viewStudentPaperLocal,
                           onDirtyChanged: (dirty) {
                             if (mounted)
                               setState(() => _hasDirtyGrades = dirty);
@@ -1007,13 +1162,19 @@ class _PaperHeader extends StatefulWidget {
     this.onPaperGenerated,
     this.onPdfCleared,
     this.bulkPrinting = false,
-    this.bulkProgress = 0.0,
     this.bulkGenerated = 0,
     this.bulkTotal = 0,
-    this.onPrintAllStudents,
     this.generatingPdfs = false,
     this.onGeneratePdfs,
     this.serverPaperId,
+    required this.paperId,
+    this.pdfsGenerated = false,
+    this.localPdfsReady = false,
+    this.downloadingPdfs = false,
+    this.pdfDownloadCount = 0,
+    this.pdfDownloadTotal = 0,
+    this.onDownloadAllPdfs,
+    this.onPrintAllLocal,
   });
 
   final Paper paper;
@@ -1041,16 +1202,32 @@ class _PaperHeader extends StatefulWidget {
   final void Function(PaperPdf)? onPaperGenerated;
   final VoidCallback? onPdfCleared;
   final bool bulkPrinting;
-  final double bulkProgress;
   final int bulkGenerated;
   final int bulkTotal;
-  final VoidCallback? onPrintAllStudents;
   final bool generatingPdfs;
   final VoidCallback? onGeneratePdfs;
 
   /// Server-generated paper UUID. When non-null, used for server RPC calls
   /// instead of the composite format.
   final String? serverPaperId;
+
+  /// Composite paper ID (e.g. "school|exam|subject|paper|grade|stream"),
+  /// used to resolve FileCache paths for offline PDF storage.
+  final String paperId;
+
+  /// True when the teacher paper PDF has been generated (Phase 1 complete).
+  final bool pdfsGenerated;
+
+  /// True when teacher + all student PDFs exist locally (Phase 3 ready).
+  final bool localPdfsReady;
+
+  /// True during batch download of all PDFs (Phase 2 in progress).
+  final bool downloadingPdfs;
+
+  final int pdfDownloadCount;
+  final int pdfDownloadTotal;
+  final VoidCallback? onDownloadAllPdfs;
+  final VoidCallback? onPrintAllLocal;
 
   @override
   State<_PaperHeader> createState() => _PaperHeaderState();
@@ -1745,13 +1922,21 @@ class _PaperHeaderState extends State<_PaperHeader>
                   ),
                 ),
               ],
-              // ── Print Paper (available whenever a PDF URL exists) ─────
+              // ── View / Print Paper (prefers local file when cached) ──
               if (widget.paperPdf != null) ...[
                 const SizedBox(width: 4),
                 Tooltip(
                   message: 'View / Print Paper',
                   child: InkWell(
-                    onTap: () {
+                    onTap: () async {
+                      // Check for local copy first.
+                      final localPath = FileCache.teacherPaperPdfPath(
+                        widget.schoolId,
+                        widget.paperId,
+                      );
+                      final localFile = await FileCache.get(localPath);
+
+                      if (!mounted) return;
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => PaperPdfViewerPage(
@@ -1765,6 +1950,7 @@ class _PaperHeaderState extends State<_PaperHeader>
                             title:
                                 '${widget.subjectNames[widget.paper.subject] ?? 'Paper'}'
                                 '${widget.paper.paper != null ? ' Paper ${widget.paper.paper}' : ''}',
+                            localFilePath: localFile?.path,
                           ),
                         ),
                       );
@@ -1803,38 +1989,120 @@ class _PaperHeaderState extends State<_PaperHeader>
                   ),
                 ),
               ],
-              // ── Generate PDFs (gear icon — when questions are set but
-              //    PDF not yet generated) ──────────────────────────────────
-              if (!isPending &&
-                  widget.paperPdf == null &&
-                  widget.onGeneratePdfs != null) ...[
+              // ── 3-Phase Button: Generate → Download → Print ────────────
+              if (!isPending && widget.canManage) ...[
                 const SizedBox(width: 4),
-                Tooltip(
-                  message: 'Generate Student PDFs',
-                  child: InkWell(
-                    onTap: widget.generatingPdfs
-                        ? null
-                        : widget.onGeneratePdfs,
-                    borderRadius: BorderRadius.circular(4),
-                    child: Padding(
-                      padding: const EdgeInsets.all(5),
-                      child: widget.generatingPdfs
-                          ? SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 1.5,
+                // Phase 1: Generate PDFs on server
+                if (!widget.pdfsGenerated) ...[
+                  Tooltip(
+                    message: 'Generate Student PDFs',
+                    child: InkWell(
+                      onTap: widget.generatingPdfs
+                          ? null
+                          : widget.onGeneratePdfs,
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.all(5),
+                        child: widget.generatingPdfs
+                            ? SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: cs.primary.withValues(alpha: 0.7),
+                                ),
+                              )
+                            : Icon(
+                                Icons.auto_fix_high_rounded,
+                                size: 18,
                                 color: cs.primary.withValues(alpha: 0.7),
                               ),
-                            )
-                          : Icon(
-                              Icons.settings_rounded,
-                              size: 18,
-                              color: cs.primary.withValues(alpha: 0.7),
-                            ),
+                      ),
                     ),
                   ),
-                ),
+                ]
+                // Phase 2: Download all PDFs locally
+                else if (!widget.localPdfsReady &&
+                    widget.onDownloadAllPdfs != null) ...[
+                  Tooltip(
+                    message: 'Download All PDFs',
+                    child: InkWell(
+                      onTap: widget.downloadingPdfs
+                          ? null
+                          : widget.onDownloadAllPdfs,
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.all(5),
+                        child: widget.downloadingPdfs
+                            ? SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: cs.primary.withValues(alpha: 0.7),
+                                ),
+                              )
+                            : Icon(
+                                Icons.download_rounded,
+                                size: 18,
+                                color: cs.primary.withValues(alpha: 0.7),
+                              ),
+                      ),
+                    ),
+                  ),
+                  if (widget.downloadingPdfs && widget.pdfDownloadTotal > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Text(
+                        '${widget.pdfDownloadCount}/${widget.pdfDownloadTotal}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
+                ]
+                // Phase 3: Print all from local files
+                else if (widget.localPdfsReady &&
+                    widget.onPrintAllLocal != null) ...[
+                  Tooltip(
+                    message: 'Print All Student Papers',
+                    child: InkWell(
+                      onTap: widget.bulkPrinting
+                          ? null
+                          : widget.onPrintAllLocal,
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.all(5),
+                        child: widget.bulkPrinting
+                            ? SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: cs.primary.withValues(alpha: 0.7),
+                                ),
+                              )
+                            : Icon(
+                                Icons.print_rounded,
+                                size: 18,
+                                color: cs.primary.withValues(alpha: 0.7),
+                              ),
+                      ),
+                    ),
+                  ),
+                  if (widget.bulkPrinting && widget.bulkTotal > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Text(
+                        '${widget.bulkGenerated}/${widget.bulkTotal}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
+                ],
               ],
               // ── View Questions (when paper has generated questions) ────────
               if (!isPending) ...[
@@ -1868,46 +2136,6 @@ class _PaperHeaderState extends State<_PaperHeader>
                     ),
                   ),
                 ),
-              ],
-              // ── Print All Student Papers ──────────────────────────────────
-              if (widget.onPrintAllStudents != null) ...[
-                const SizedBox(width: 4),
-                Tooltip(
-                  message: 'Print All Student Papers',
-                  child: InkWell(
-                    onTap: widget.bulkPrinting ? null : widget.onPrintAllStudents,
-                    borderRadius: BorderRadius.circular(4),
-                    child: Padding(
-                      padding: const EdgeInsets.all(5),
-                      child: widget.bulkPrinting
-                          ? SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 1.5,
-                                color: cs.primary.withValues(alpha: 0.7),
-                              ),
-                            )
-                          : Icon(
-                              Icons.print_rounded,
-                              size: 18,
-                              color: cs.primary.withValues(alpha: 0.7),
-                            ),
-                    ),
-                  ),
-                ),
-                if (widget.bulkPrinting &&
-                    widget.bulkTotal > 0)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4),
-                    child: Text(
-                      '${widget.bulkGenerated}/${widget.bulkTotal}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                      ),
-                    ),
-                  ),
               ],
               const Spacer(),
               if (widget.canManage)
@@ -3455,6 +3683,8 @@ class _GradeList extends StatefulWidget {
     this.schemeFiles = const [],
     this.initialDirtySubmissions = const {},
     this.onViewStudentPaper,
+    this.localStudentPdfs = const {},
+    this.onViewStudentPaperLocal,
   });
 
   final List<StudentsData> students;
@@ -3475,6 +3705,12 @@ class _GradeList extends StatefulWidget {
   final List<String> schemeFiles;
   final Set<int> initialDirtySubmissions;
   final void Function(StudentsData)? onViewStudentPaper;
+
+  /// Set of student adm values whose paper PDFs have been downloaded locally.
+  final Set<int> localStudentPdfs;
+
+  /// Called when a locally-cached student PDF should be viewed in-app.
+  final void Function(StudentsData)? onViewStudentPaperLocal;
 
   @override
   State<_GradeList> createState() => _GradeListState();
@@ -4210,22 +4446,23 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
                             ),
                           ),
                         ],
-                        // ── Per-student print/view icon ──────────────────
-                        if (widget.onViewStudentPaper != null) ...[
+                        // ── Per-student PDF icon (only when cached locally) ──
+                        if (widget.localStudentPdfs.contains(student.adm) &&
+                            widget.onViewStudentPaperLocal != null) ...[
                           const SizedBox(width: 8),
                           Tooltip(
-                            message: 'View / Print ${student.name} paper',
+                            message: 'View ${student.name} paper',
                             child: InkWell(
                               onTap: () =>
-                                  widget.onViewStudentPaper!(student),
+                                  widget.onViewStudentPaperLocal!(student),
                               borderRadius: BorderRadius.circular(4),
                               child: Padding(
                                 padding: const EdgeInsets.all(4),
                                 child: Icon(
                                   Icons.picture_as_pdf_rounded,
                                   size: 16,
-                                  color: cs.onSurfaceVariant
-                                      .withValues(alpha: 0.4),
+                                  color: AppTheme.brandGreen
+                                      .withValues(alpha: 0.7),
                                 ),
                               ),
                             ),

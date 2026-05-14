@@ -12,11 +12,13 @@ import '../models/timetable_rules.dart';
 /// once via [path_provider] and then cached for the lifetime of the process.
 ///
 /// ### Path conventions
-/// | Entity          | Path helper                        | Full path                                      |
-/// |-----------------|------------------------------------|------------------------------------------------|
-/// | User profile    | [profilePath]                      | `{appDir}/users/{userId}/profile`              |
-/// | Student image   | (future)                           | `{appDir}/schools/{schoolId}/students/{adm}/image` |
-/// | School logo     | (future)                           | `{appDir}/schools/{schoolId}/logo`             |
+/// | Entity            | Path helper                          | Full path                                                     |
+/// |-------------------|--------------------------------------|---------------------------------------------------------------|
+/// | User profile      | [profilePath]                        | `{appDir}/users/{userId}/profile`                             |
+/// | Student image     | [studentImagePath]                   | `{appDir}/schools/{schoolId}/students/{adm}/image`            |
+/// | School logo       | [logoPath]                           | `{appDir}/schools/{schoolId}/logo`                            |
+/// | Teacher paper PDF | [teacherPaperPdfPath]                | `{appDir}/papers/{schoolId}/{paperId}/teacher_paper.pdf`      |
+/// | Student paper PDF | [studentPaperPdfPath]                | `{appDir}/papers/{schoolId}/{paperId}/students/{adm}/paper.pdf` |
 ///
 /// ### Design rules
 /// - No URL expiry tracking — this class only cares about file presence.
@@ -341,6 +343,31 @@ class FileCache {
     int paper,
     int adm,
   ) => 'submissions/$schoolId/$examId/${subject}_$paper/$adm';
+
+  // ── Paper PDF paths ──────────────────────────────────────────────────────
+
+  /// Sanitize a composite paper ID (e.g. "school|exam|subj|paper|grade|stream")
+  /// into a filesystem-safe segment by replacing `|` with `_`.
+  static String _paperIdSlug(String paperId) =>
+      paperId.replaceAll('|', '_');
+
+  /// Relative path for the teacher/master paper PDF.
+  ///
+  /// Resolves to `{appDir}/papers/{schoolId}/{paperIdSlug}/teacher_paper.pdf`.
+  static String teacherPaperPdfPath(String schoolId, String paperId) =>
+      'papers/$schoolId/${_paperIdSlug(paperId)}/teacher_paper.pdf';
+
+  /// Relative path for a single student's generated paper PDF.
+  ///
+  /// Resolves to `{appDir}/papers/{schoolId}/{paperIdSlug}/students/{adm}/paper.pdf`.
+  static String studentPaperPdfPath(String schoolId, String paperId, int adm) =>
+      'papers/$schoolId/${_paperIdSlug(paperId)}/students/$adm/paper.pdf';
+
+  /// Relative directory containing all student paper PDFs for a paper.
+  ///
+  /// Resolves to `{appDir}/papers/{schoolId}/{paperIdSlug}/students`.
+  static String studentPapersDir(String schoolId, String paperId) =>
+      'papers/$schoolId/${_paperIdSlug(paperId)}/students';
 
   // ─────────────────────────────────────────────────────────────────────────
   // Private helpers

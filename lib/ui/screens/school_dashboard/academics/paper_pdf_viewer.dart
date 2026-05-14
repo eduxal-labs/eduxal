@@ -234,6 +234,8 @@ class PaperPdfViewerPage extends StatefulWidget {
     this.stream,
     required this.accessToken,
     required this.title,
+    this.localFilePath,
+    this.localPdfBytes,
   });
 
   final String school;
@@ -246,6 +248,13 @@ class PaperPdfViewerPage extends StatefulWidget {
 
   /// Shown in the AppBar — e.g. "Mathematics Paper 1".
   final String title;
+
+  /// Absolute path to a locally cached PDF file.
+  /// When provided, the viewer loads from disk instead of the network.
+  final String? localFilePath;
+
+  /// Pre-loaded PDF bytes. When provided, used directly without any I/O.
+  final Uint8List? localPdfBytes;
 
   @override
   State<PaperPdfViewerPage> createState() => _PaperPdfViewerPageState();
@@ -276,6 +285,27 @@ class _PaperPdfViewerPageState extends State<PaperPdfViewerPage> {
     });
 
     try {
+      // If local bytes are provided, use directly.
+      if (widget.localPdfBytes != null) {
+        _pdfBytes = widget.localPdfBytes;
+        if (mounted) setState(() => _loading = false);
+        return;
+      }
+
+      // If a local file path is provided and the file exists, load from disk.
+      if (widget.localFilePath != null) {
+        final file = File(widget.localFilePath!);
+        if (await file.exists()) {
+          try {
+            _pdfBytes = await file.readAsBytes();
+            if (mounted) setState(() => _loading = false);
+            return;
+          } catch (_) {
+            // Fall through to network load on read error.
+          }
+        }
+      }
+
       // Step 1 — get presigned URL from the paper service.
       final paperId =
           '${widget.school}|${widget.exam}|${widget.subject}|'
