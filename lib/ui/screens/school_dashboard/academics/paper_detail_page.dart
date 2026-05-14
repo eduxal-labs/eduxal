@@ -1375,6 +1375,7 @@ class _PaperHeaderState extends State<_PaperHeader>
         grade: widget.paper.grade,
         stream: widget.paper.stream,
         accountId: accountId,
+        serverPaperId: widget.serverPaperId,
       );
       widget.onDeleted.call();
     } on PermissionException catch (e) {

@@ -334,9 +334,13 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     // Watch both legacy `papers` and `papers_v2` so that inserts into either
     // table trigger a re-emission.  This is essential because papers created
     // from SubjectDetailPage are written only to `papers_v2`.
+    //
+    // Returns a broadcast stream so multiple StreamBuilder widgets (e.g. in
+    // different TabBarView tabs) can listen simultaneously.
     late final StreamController<List<PaperWithExamInfo>> controller;
     StreamSubscription? papersSub;
     StreamSubscription? pv2Sub;
+    int _listenerCount = 0;
 
     Future<void> emit() async {
       final paperList = await (select(papers)
@@ -428,31 +432,36 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       controller.add(result);
     }
 
-    controller = StreamController<List<PaperWithExamInfo>>(
-      onListen: () {
-        // Emit initial data immediately.
-        emit();
-        // Re-emit whenever either table changes.
-        papersSub = (select(papers)
-              ..where((p) =>
-                  p.school.equals(schoolId) &
-                  p.grade.equals(grade) &
-                  p.stream.equals(stream) &
-                  p.subject.equals(subject)))
-            .watch()
-            .listen((_) => emit());
-        pv2Sub = (select(papersV2)
-              ..where((t) =>
-                  t.school.equals(schoolId) &
-                  t.subject.equals(subject) &
-                  t.grade.equals(grade) &
-                  t.stream.equals(stream)))
-            .watch()
-            .listen((_) => emit());
+    controller = StreamController<List<PaperWithExamInfo>>.broadcast(
+      onListen: (sub) {
+        _listenerCount++;
+        if (_listenerCount == 1) {
+          emit();
+          papersSub = (select(papers)
+                ..where((p) =>
+                    p.school.equals(schoolId) &
+                    p.grade.equals(grade) &
+                    p.stream.equals(stream) &
+                    p.subject.equals(subject)))
+              .watch()
+              .listen((_) => emit());
+          pv2Sub = (select(papersV2)
+                ..where((t) =>
+                    t.school.equals(schoolId) &
+                    t.subject.equals(subject) &
+                    t.grade.equals(grade) &
+                    t.stream.equals(stream)))
+              .watch()
+              .listen((_) => emit());
+        }
       },
-      onCancel: () {
-        papersSub?.cancel();
-        pv2Sub?.cancel();
+      onCancel: (sub) {
+        _listenerCount--;
+        if (_listenerCount <= 0) {
+          _listenerCount = 0;
+          papersSub?.cancel();
+          pv2Sub?.cancel();
+        }
       },
     );
 
@@ -1497,6 +1506,9 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
 
   /// Deletes a paper (cascades to grades) and writes a [SyncAction.deletePaper]
   /// log entry.
+  ///
+  /// When [serverPaperId] is provided, also deletes from [papersV2] so that
+  /// papers created via direct RPC (SubjectDetailPage) are cleaned up locally.
   Future<void> deletePaper({
     required String schoolId,
     required String examId,
@@ -1505,6 +1517,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required int grade,
     required int? stream,
     required String accountId,
+    String? serverPaperId,
   }) async {
     final _authResult = await authorization.check(
       action: SyncAction.deletePaper,
@@ -1543,6 +1556,9 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
                 (stream != null ? p.stream.equals(stream) : p.stream.isNull()),
           ))
           .go();
+      if (serverPaperId != null) {
+        await (delete(papersV2)..where((t) => t.id.equals(serverPaperId))).go();
+      }
     });
     sync.schedulePush();
   }

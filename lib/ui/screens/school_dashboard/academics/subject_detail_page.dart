@@ -2036,10 +2036,12 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
       final localExamId = _generateId();
 
       // 4) Select questions from the bank and link them to the paper.
+      // The server expects the composite paper identity, not the UUID.
       // Retry once after a short delay — the QuestionBank microservice may
       // not immediately see the paper created by the Paper service.
+      final paperKey = '${widget.schoolId}||${widget.subjectId}||${widget.grade}|${widget.streamCode}';
       Result<void, GrpcError> genResult = await questionBankService.generatePaper(
-        paperId: serverPaperId,
+        paperId: paperKey,
         totalMarks: totalMarks,
         allocations: allocations,
         accessToken: token,
@@ -2047,7 +2049,7 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
       if (genResult is Err) {
         await Future<void>.delayed(const Duration(seconds: 1));
         genResult = await questionBankService.generatePaper(
-          paperId: serverPaperId,
+          paperId: paperKey,
           totalMarks: totalMarks,
           allocations: allocations,
           accessToken: token,
