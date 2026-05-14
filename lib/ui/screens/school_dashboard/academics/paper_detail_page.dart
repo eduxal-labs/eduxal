@@ -1411,6 +1411,8 @@ class _PaperHeaderState extends State<_PaperHeader>
 
     final status = paper.status;
     final isPending = status == PaperStatus.pending;
+    final isProgress = status == PaperStatus.progress;
+    final isPreFinalized = isPending || isProgress;
     final isMarked = status == PaperStatus.marked;
     final color = _statusColor(status);
     final next = _nextStatus(status);
@@ -1648,7 +1650,7 @@ class _PaperHeaderState extends State<_PaperHeader>
           const SizedBox(height: 8),
           Row(
             children: [
-              if (widget.canManage && isPending) ...[
+              if (widget.canManage && isPreFinalized) ...[
                 Tooltip(
                   message: 'Delete paper',
                   child: InkWell(
