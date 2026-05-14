@@ -89,6 +89,7 @@ class DeltaWriter {
     34: 'mpesa',
     36: 'scheme_pages',
     37: 'answer_pages',
+    38: 'events',
     39: 'papers_v2',
   };
 
@@ -128,6 +129,7 @@ class DeltaWriter {
     36,
     18,
     37,
+    38,
     39,
     19,
     20,
@@ -319,8 +321,7 @@ class DeltaWriter {
       case 37:
         await _applyAnswerPages(delta);
       case 38:
-        // events — not yet supported locally
-        debugPrint('[DeltaWriter] table=38 (events) — SKIPPED (NYI)');
+        await _applyEvents(delta);
       case 39:
         await _applyPapersV2(delta);
       case 40:
@@ -1833,6 +1834,90 @@ class DeltaWriter {
   // ---------------------------------------------------------------------------
   // 39: papers_v2  — PK: (id)  — rowKey: "{id}"
   // ---------------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------------
+  // 38: events — PK: (id) — rowKey: "{id}"
+  // ---------------------------------------------------------------------------
+
+  Future<void> _applyEvents(SyncDelta delta) async {
+    // rowKey format: "{id}" (UUID string)
+    final eventId = delta.rowKey;
+
+    if (delta.operation == 2) {
+      await (_db.delete(_db.events)
+            ..where((t) => t.id.equals(eventId)))
+          .go();
+      // Also remove from legacy exams table.
+      await (_db.delete(_db.exams)
+            ..where((t) => t.id.equals(eventId)))
+          .go();
+      return;
+    }
+    final row = delta.data.event;
+    final now = _now();
+
+    // 1) Insert into new events table.
+    await _db.customStatement(
+      'INSERT INTO events (id, school, name, type_, term, year,'
+      ' start_date, end_date, status, created, updated)'
+      ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      ' ON CONFLICT (id) DO UPDATE SET'
+      ' school = excluded.school,'
+      ' name = excluded.name,'
+      ' type_ = excluded.type_,'
+      ' term = excluded.term,'
+      ' year = excluded.year,'
+      ' start_date = excluded.start_date,'
+      ' end_date = excluded.end_date,'
+      ' status = excluded.status,'
+      ' created = excluded.created,'
+      ' updated = excluded.updated',
+      [
+        eventId,
+        row.school,
+        row.name,
+        row.type,
+        row.term,
+        row.year,
+        row.startDate,
+        row.endDate,
+        row.status,
+        row.created.toInt(),
+        now.toInt(),
+      ],
+    );
+
+    // 2) Dual-write to legacy exams table for backward compat with Exams tab.
+    // Events don't have a teacher column — use empty string as placeholder.
+    await _db.customStatement(
+      'INSERT INTO exams (id, school, name, year, term, personalized, type,'
+      ' start, "end", teacher, created, updated)'
+      ' VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)'
+      ' ON CONFLICT (id) DO UPDATE SET'
+      ' school = excluded.school,'
+      ' name = excluded.name,'
+      ' year = excluded.year,'
+      ' term = excluded.term,'
+      ' type = excluded.type,'
+      ' start = excluded.start,'
+      ' "end" = excluded."end",'
+      ' created = excluded.created,'
+      ' updated = excluded.updated',
+      [
+        eventId,
+        row.school,
+        row.name,
+        row.year,
+        row.term,
+        row.type, // 0=exam, 1=mock, 2=holiday_revision → maps to ExamType.exam
+        row.startDate,
+        row.endDate,
+        '', // teacher — events have no teacher
+        row.created.toInt(),
+        now.toInt(),
+      ],
+    );
+  }
 
   // ---------------------------------------------------------------------------
   // 39: papers_v2 — PK: (id) — rowKey: "{id}"

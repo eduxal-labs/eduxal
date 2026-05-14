@@ -11,6 +11,8 @@ mixin _$AcademicsDaoMixin on DatabaseAccessor<AppDatabase> {
   $GradesTable get grades => attachedDatabase.grades;
   $ExamsTable get exams => attachedDatabase.exams;
   $PapersTable get papers => attachedDatabase.papers;
+  $EventsTable get events => attachedDatabase.events;
+  $PapersV2Table get papersV2 => attachedDatabase.papersV2;
   $SubjectsTable get subjects => attachedDatabase.subjects;
   $TopicsTable get topics => attachedDatabase.topics;
   $MasteryTable get mastery => attachedDatabase.mastery;
@@ -39,6 +41,10 @@ class AcademicsDaoManager {
       $$ExamsTableTableManager(_db.attachedDatabase, _db.exams);
   $$PapersTableTableManager get papers =>
       $$PapersTableTableManager(_db.attachedDatabase, _db.papers);
+  $$EventsTableTableManager get events =>
+      $$EventsTableTableManager(_db.attachedDatabase, _db.events);
+  $$PapersV2TableTableManager get papersV2 =>
+      $$PapersV2TableTableManager(_db.attachedDatabase, _db.papersV2);
   $$SubjectsTableTableManager get subjects =>
       $$SubjectsTableTableManager(_db.attachedDatabase, _db.subjects);
   $$TopicsTableTableManager get topics =>

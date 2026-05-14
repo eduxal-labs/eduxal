@@ -56,6 +56,7 @@ import 'tables/timetable.dart';
 import 'tables/lessons.dart';
 import 'tables/exams.dart';
 import 'tables/papers.dart';
+import 'tables/events.dart';
 import 'tables/papers_v2.dart';
 import 'tables/grades.dart';
 import 'tables/fees.dart';
@@ -155,6 +156,7 @@ _LegacyInviteLogRewrite? _rewriteLegacyStandaloneInviteLog({
     Exams,
     Papers,
     PaperSubmissions,
+    Events,
     PapersV2,
     Grades,
     Fees,
@@ -267,6 +269,9 @@ class AppDatabase extends _$AppDatabase {
       await delete(papers).go();
       await delete(papersV2).go();
 
+      // ── Events (depend on schools) ──
+      await delete(events).go();
+
       // ── Exams (depend on schools, terms) ──
       await delete(exams).go();
 
@@ -341,7 +346,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   Future<void> _rewriteLegacyInviteLogs() async {
     final rows = await customSelect(
@@ -718,6 +723,9 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 13) {
         await m.createTable(papersV2);
+      }
+      if (from < 14) {
+        await m.createTable(events);
       }
     },
     onCreate: (m) async {

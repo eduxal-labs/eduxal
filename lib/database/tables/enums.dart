@@ -281,6 +281,37 @@ class PaperV2StatusConverter extends TypeConverter<PaperV2Status, int> {
   int toSql(PaperV2Status value) => value.index;
 }
 
+/// Server event type (migration 0007). Stored as smallint in `events.type_`.
+enum EventType {
+  exam, // 0
+  mock, // 1
+  holidayRevision, // 2
+}
+
+class EventTypeConverter extends TypeConverter<EventType, int> {
+  const EventTypeConverter();
+  @override
+  EventType fromSql(int fromDb) => EventType.values[fromDb];
+  @override
+  int toSql(EventType value) => value.index;
+}
+
+/// Server event status (migration 0007). Stored as smallint in `events.status`.
+enum EventStatus {
+  draft, // 0
+  active, // 1
+  completed, // 2
+  cancelled, // 3
+}
+
+class EventStatusConverter extends TypeConverter<EventStatus, int> {
+  const EventStatusConverter();
+  @override
+  EventStatus fromSql(int fromDb) => EventStatus.values[fromDb];
+  @override
+  int toSql(EventStatus value) => value.index;
+}
+
 /// Invoice payment state. Stored as smallint in `invoices.status`.
 enum InvoiceStatus {
   pending, // 0

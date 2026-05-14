@@ -12618,6 +12618,655 @@ class PaperSubmissionsCompanion extends UpdateCompanion<PaperSubmissionData> {
   }
 }
 
+class $EventsTable extends Events with TableInfo<$EventsTable, EventData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $EventsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _schoolMeta = const VerificationMeta('school');
+  @override
+  late final GeneratedColumn<String> school = GeneratedColumn<String>(
+    'school',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES schools (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<EventType, int> type_ =
+      GeneratedColumn<int>(
+        'type',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      ).withConverter<EventType>($EventsTable.$convertertype_);
+  static const VerificationMeta _termMeta = const VerificationMeta('term');
+  @override
+  late final GeneratedColumn<int> term = GeneratedColumn<int>(
+    'term',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _yearMeta = const VerificationMeta('year');
+  @override
+  late final GeneratedColumn<int> year = GeneratedColumn<int>(
+    'year',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startDateMeta = const VerificationMeta(
+    'startDate',
+  );
+  @override
+  late final GeneratedColumn<int> startDate = GeneratedColumn<int>(
+    'start_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _endDateMeta = const VerificationMeta(
+    'endDate',
+  );
+  @override
+  late final GeneratedColumn<int> endDate = GeneratedColumn<int>(
+    'end_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<EventStatus, int> status =
+      GeneratedColumn<int>(
+        'status',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0),
+      ).withConverter<EventStatus>($EventsTable.$converterstatus);
+  static const VerificationMeta _createdMeta = const VerificationMeta(
+    'created',
+  );
+  @override
+  late final GeneratedColumn<BigInt> created = GeneratedColumn<BigInt>(
+    'created',
+    aliasedName,
+    false,
+    type: DriftSqlType.bigInt,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedMeta = const VerificationMeta(
+    'updated',
+  );
+  @override
+  late final GeneratedColumn<BigInt> updated = GeneratedColumn<BigInt>(
+    'updated',
+    aliasedName,
+    false,
+    type: DriftSqlType.bigInt,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    school,
+    name,
+    type_,
+    term,
+    year,
+    startDate,
+    endDate,
+    status,
+    created,
+    updated,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'events';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<EventData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('school')) {
+      context.handle(
+        _schoolMeta,
+        school.isAcceptableOrUnknown(data['school']!, _schoolMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_schoolMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('term')) {
+      context.handle(
+        _termMeta,
+        term.isAcceptableOrUnknown(data['term']!, _termMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_termMeta);
+    }
+    if (data.containsKey('year')) {
+      context.handle(
+        _yearMeta,
+        year.isAcceptableOrUnknown(data['year']!, _yearMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_yearMeta);
+    }
+    if (data.containsKey('start_date')) {
+      context.handle(
+        _startDateMeta,
+        startDate.isAcceptableOrUnknown(data['start_date']!, _startDateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startDateMeta);
+    }
+    if (data.containsKey('end_date')) {
+      context.handle(
+        _endDateMeta,
+        endDate.isAcceptableOrUnknown(data['end_date']!, _endDateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_endDateMeta);
+    }
+    if (data.containsKey('created')) {
+      context.handle(
+        _createdMeta,
+        created.isAcceptableOrUnknown(data['created']!, _createdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdMeta);
+    }
+    if (data.containsKey('updated')) {
+      context.handle(
+        _updatedMeta,
+        updated.isAcceptableOrUnknown(data['updated']!, _updatedMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  EventData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return EventData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      school: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}school'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      type_: $EventsTable.$convertertype_.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}type'],
+        )!,
+      ),
+      term: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}term'],
+      )!,
+      year: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}year'],
+      )!,
+      startDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}start_date'],
+      )!,
+      endDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}end_date'],
+      )!,
+      status: $EventsTable.$converterstatus.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}status'],
+        )!,
+      ),
+      created: attachedDatabase.typeMapping.read(
+        DriftSqlType.bigInt,
+        data['${effectivePrefix}created'],
+      )!,
+      updated: attachedDatabase.typeMapping.read(
+        DriftSqlType.bigInt,
+        data['${effectivePrefix}updated'],
+      )!,
+    );
+  }
+
+  @override
+  $EventsTable createAlias(String alias) {
+    return $EventsTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<EventType, int> $convertertype_ =
+      const EventTypeConverter();
+  static TypeConverter<EventStatus, int> $converterstatus =
+      const EventStatusConverter();
+}
+
+class EventData extends DataClass implements Insertable<EventData> {
+  final String id;
+  final String school;
+  final String name;
+  final EventType type_;
+  final int term;
+  final int year;
+  final int startDate;
+  final int endDate;
+  final EventStatus status;
+  final BigInt created;
+  final BigInt updated;
+  const EventData({
+    required this.id,
+    required this.school,
+    required this.name,
+    required this.type_,
+    required this.term,
+    required this.year,
+    required this.startDate,
+    required this.endDate,
+    required this.status,
+    required this.created,
+    required this.updated,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['school'] = Variable<String>(school);
+    map['name'] = Variable<String>(name);
+    {
+      map['type'] = Variable<int>($EventsTable.$convertertype_.toSql(type_));
+    }
+    map['term'] = Variable<int>(term);
+    map['year'] = Variable<int>(year);
+    map['start_date'] = Variable<int>(startDate);
+    map['end_date'] = Variable<int>(endDate);
+    {
+      map['status'] = Variable<int>(
+        $EventsTable.$converterstatus.toSql(status),
+      );
+    }
+    map['created'] = Variable<BigInt>(created);
+    map['updated'] = Variable<BigInt>(updated);
+    return map;
+  }
+
+  EventsCompanion toCompanion(bool nullToAbsent) {
+    return EventsCompanion(
+      id: Value(id),
+      school: Value(school),
+      name: Value(name),
+      type_: Value(type_),
+      term: Value(term),
+      year: Value(year),
+      startDate: Value(startDate),
+      endDate: Value(endDate),
+      status: Value(status),
+      created: Value(created),
+      updated: Value(updated),
+    );
+  }
+
+  factory EventData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return EventData(
+      id: serializer.fromJson<String>(json['id']),
+      school: serializer.fromJson<String>(json['school']),
+      name: serializer.fromJson<String>(json['name']),
+      type_: serializer.fromJson<EventType>(json['type_']),
+      term: serializer.fromJson<int>(json['term']),
+      year: serializer.fromJson<int>(json['year']),
+      startDate: serializer.fromJson<int>(json['startDate']),
+      endDate: serializer.fromJson<int>(json['endDate']),
+      status: serializer.fromJson<EventStatus>(json['status']),
+      created: serializer.fromJson<BigInt>(json['created']),
+      updated: serializer.fromJson<BigInt>(json['updated']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'school': serializer.toJson<String>(school),
+      'name': serializer.toJson<String>(name),
+      'type_': serializer.toJson<EventType>(type_),
+      'term': serializer.toJson<int>(term),
+      'year': serializer.toJson<int>(year),
+      'startDate': serializer.toJson<int>(startDate),
+      'endDate': serializer.toJson<int>(endDate),
+      'status': serializer.toJson<EventStatus>(status),
+      'created': serializer.toJson<BigInt>(created),
+      'updated': serializer.toJson<BigInt>(updated),
+    };
+  }
+
+  EventData copyWith({
+    String? id,
+    String? school,
+    String? name,
+    EventType? type_,
+    int? term,
+    int? year,
+    int? startDate,
+    int? endDate,
+    EventStatus? status,
+    BigInt? created,
+    BigInt? updated,
+  }) => EventData(
+    id: id ?? this.id,
+    school: school ?? this.school,
+    name: name ?? this.name,
+    type_: type_ ?? this.type_,
+    term: term ?? this.term,
+    year: year ?? this.year,
+    startDate: startDate ?? this.startDate,
+    endDate: endDate ?? this.endDate,
+    status: status ?? this.status,
+    created: created ?? this.created,
+    updated: updated ?? this.updated,
+  );
+  EventData copyWithCompanion(EventsCompanion data) {
+    return EventData(
+      id: data.id.present ? data.id.value : this.id,
+      school: data.school.present ? data.school.value : this.school,
+      name: data.name.present ? data.name.value : this.name,
+      type_: data.type_.present ? data.type_.value : this.type_,
+      term: data.term.present ? data.term.value : this.term,
+      year: data.year.present ? data.year.value : this.year,
+      startDate: data.startDate.present ? data.startDate.value : this.startDate,
+      endDate: data.endDate.present ? data.endDate.value : this.endDate,
+      status: data.status.present ? data.status.value : this.status,
+      created: data.created.present ? data.created.value : this.created,
+      updated: data.updated.present ? data.updated.value : this.updated,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('EventData(')
+          ..write('id: $id, ')
+          ..write('school: $school, ')
+          ..write('name: $name, ')
+          ..write('type_: $type_, ')
+          ..write('term: $term, ')
+          ..write('year: $year, ')
+          ..write('startDate: $startDate, ')
+          ..write('endDate: $endDate, ')
+          ..write('status: $status, ')
+          ..write('created: $created, ')
+          ..write('updated: $updated')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    school,
+    name,
+    type_,
+    term,
+    year,
+    startDate,
+    endDate,
+    status,
+    created,
+    updated,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is EventData &&
+          other.id == this.id &&
+          other.school == this.school &&
+          other.name == this.name &&
+          other.type_ == this.type_ &&
+          other.term == this.term &&
+          other.year == this.year &&
+          other.startDate == this.startDate &&
+          other.endDate == this.endDate &&
+          other.status == this.status &&
+          other.created == this.created &&
+          other.updated == this.updated);
+}
+
+class EventsCompanion extends UpdateCompanion<EventData> {
+  final Value<String> id;
+  final Value<String> school;
+  final Value<String> name;
+  final Value<EventType> type_;
+  final Value<int> term;
+  final Value<int> year;
+  final Value<int> startDate;
+  final Value<int> endDate;
+  final Value<EventStatus> status;
+  final Value<BigInt> created;
+  final Value<BigInt> updated;
+  final Value<int> rowid;
+  const EventsCompanion({
+    this.id = const Value.absent(),
+    this.school = const Value.absent(),
+    this.name = const Value.absent(),
+    this.type_ = const Value.absent(),
+    this.term = const Value.absent(),
+    this.year = const Value.absent(),
+    this.startDate = const Value.absent(),
+    this.endDate = const Value.absent(),
+    this.status = const Value.absent(),
+    this.created = const Value.absent(),
+    this.updated = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  EventsCompanion.insert({
+    required String id,
+    required String school,
+    required String name,
+    required EventType type_,
+    required int term,
+    required int year,
+    required int startDate,
+    required int endDate,
+    this.status = const Value.absent(),
+    required BigInt created,
+    required BigInt updated,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       school = Value(school),
+       name = Value(name),
+       type_ = Value(type_),
+       term = Value(term),
+       year = Value(year),
+       startDate = Value(startDate),
+       endDate = Value(endDate),
+       created = Value(created),
+       updated = Value(updated);
+  static Insertable<EventData> custom({
+    Expression<String>? id,
+    Expression<String>? school,
+    Expression<String>? name,
+    Expression<int>? type_,
+    Expression<int>? term,
+    Expression<int>? year,
+    Expression<int>? startDate,
+    Expression<int>? endDate,
+    Expression<int>? status,
+    Expression<BigInt>? created,
+    Expression<BigInt>? updated,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (school != null) 'school': school,
+      if (name != null) 'name': name,
+      if (type_ != null) 'type': type_,
+      if (term != null) 'term': term,
+      if (year != null) 'year': year,
+      if (startDate != null) 'start_date': startDate,
+      if (endDate != null) 'end_date': endDate,
+      if (status != null) 'status': status,
+      if (created != null) 'created': created,
+      if (updated != null) 'updated': updated,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  EventsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? school,
+    Value<String>? name,
+    Value<EventType>? type_,
+    Value<int>? term,
+    Value<int>? year,
+    Value<int>? startDate,
+    Value<int>? endDate,
+    Value<EventStatus>? status,
+    Value<BigInt>? created,
+    Value<BigInt>? updated,
+    Value<int>? rowid,
+  }) {
+    return EventsCompanion(
+      id: id ?? this.id,
+      school: school ?? this.school,
+      name: name ?? this.name,
+      type_: type_ ?? this.type_,
+      term: term ?? this.term,
+      year: year ?? this.year,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      status: status ?? this.status,
+      created: created ?? this.created,
+      updated: updated ?? this.updated,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (school.present) {
+      map['school'] = Variable<String>(school.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (type_.present) {
+      map['type'] = Variable<int>(
+        $EventsTable.$convertertype_.toSql(type_.value),
+      );
+    }
+    if (term.present) {
+      map['term'] = Variable<int>(term.value);
+    }
+    if (year.present) {
+      map['year'] = Variable<int>(year.value);
+    }
+    if (startDate.present) {
+      map['start_date'] = Variable<int>(startDate.value);
+    }
+    if (endDate.present) {
+      map['end_date'] = Variable<int>(endDate.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<int>(
+        $EventsTable.$converterstatus.toSql(status.value),
+      );
+    }
+    if (created.present) {
+      map['created'] = Variable<BigInt>(created.value);
+    }
+    if (updated.present) {
+      map['updated'] = Variable<BigInt>(updated.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('EventsCompanion(')
+          ..write('id: $id, ')
+          ..write('school: $school, ')
+          ..write('name: $name, ')
+          ..write('type_: $type_, ')
+          ..write('term: $term, ')
+          ..write('year: $year, ')
+          ..write('startDate: $startDate, ')
+          ..write('endDate: $endDate, ')
+          ..write('status: $status, ')
+          ..write('created: $created, ')
+          ..write('updated: $updated, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $PapersV2Table extends PapersV2
     with TableInfo<$PapersV2Table, PapersV2Data> {
   @override
@@ -21645,6 +22294,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PaperSubmissionsTable paperSubmissions = $PaperSubmissionsTable(
     this,
   );
+  late final $EventsTable events = $EventsTable(this);
   late final $PapersV2Table papersV2 = $PapersV2Table(this);
   late final $GradesTable grades = $GradesTable(this);
   late final $FeesTable fees = $FeesTable(this);
@@ -21722,6 +22372,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     exams,
     papers,
     paperSubmissions,
+    events,
     papersV2,
     grades,
     fees,
@@ -21914,6 +22565,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('papers', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'schools',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('events', kind: UpdateKind.delete)],
     ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
@@ -23586,6 +24244,25 @@ final class $$SchoolsTableReferences
     );
   }
 
+  static MultiTypedResultKey<$EventsTable, List<EventData>> _eventsRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.events,
+    aliasName: $_aliasNameGenerator(db.schools.id, db.events.school),
+  );
+
+  $$EventsTableProcessedTableManager get eventsRefs {
+    final manager = $$EventsTableTableManager(
+      $_db,
+      $_db.events,
+    ).filter((f) => f.school.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_eventsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
   static MultiTypedResultKey<$PapersV2Table, List<PapersV2Data>>
   _papersV2RefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.papersV2,
@@ -24332,6 +25009,31 @@ class $$SchoolsTableFilterComposer
           }) => $$PapersTableFilterComposer(
             $db: $db,
             $table: $db.papers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> eventsRefs(
+    Expression<bool> Function($$EventsTableFilterComposer f) f,
+  ) {
+    final $$EventsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.events,
+      getReferencedColumn: (t) => t.school,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$EventsTableFilterComposer(
+            $db: $db,
+            $table: $db.events,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -25226,6 +25928,31 @@ class $$SchoolsTableAnnotationComposer
     return f(composer);
   }
 
+  Expression<T> eventsRefs<T extends Object>(
+    Expression<T> Function($$EventsTableAnnotationComposer a) f,
+  ) {
+    final $$EventsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.events,
+      getReferencedColumn: (t) => t.school,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$EventsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.events,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<T> papersV2Refs<T extends Object>(
     Expression<T> Function($$PapersV2TableAnnotationComposer a) f,
   ) {
@@ -25584,6 +26311,7 @@ class $$SchoolsTableTableManager
             bool lessonsRefs,
             bool examsRefs,
             bool papersRefs,
+            bool eventsRefs,
             bool papersV2Refs,
             bool gradesRefs,
             bool feesRefs,
@@ -25694,6 +26422,7 @@ class $$SchoolsTableTableManager
                 lessonsRefs = false,
                 examsRefs = false,
                 papersRefs = false,
+                eventsRefs = false,
                 papersV2Refs = false,
                 gradesRefs = false,
                 feesRefs = false,
@@ -25729,6 +26458,7 @@ class $$SchoolsTableTableManager
                     if (lessonsRefs) db.lessons,
                     if (examsRefs) db.exams,
                     if (papersRefs) db.papers,
+                    if (eventsRefs) db.events,
                     if (papersV2Refs) db.papersV2,
                     if (gradesRefs) db.grades,
                     if (feesRefs) db.fees,
@@ -26104,6 +26834,27 @@ class $$SchoolsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (eventsRefs)
+                        await $_getPrefetchedData<
+                          SchoolsData,
+                          $SchoolsTable,
+                          EventData
+                        >(
+                          currentTable: table,
+                          referencedTable: $$SchoolsTableReferences
+                              ._eventsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$SchoolsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).eventsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.school == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                       if (papersV2Refs)
                         await $_getPrefetchedData<
                           SchoolsData,
@@ -26412,6 +27163,7 @@ typedef $$SchoolsTableProcessedTableManager =
         bool lessonsRefs,
         bool examsRefs,
         bool papersRefs,
+        bool eventsRefs,
         bool papersV2Refs,
         bool gradesRefs,
         bool feesRefs,
@@ -35764,6 +36516,438 @@ typedef $$PaperSubmissionsTableProcessedTableManager =
       PaperSubmissionData,
       PrefetchHooks Function()
     >;
+typedef $$EventsTableCreateCompanionBuilder =
+    EventsCompanion Function({
+      required String id,
+      required String school,
+      required String name,
+      required EventType type_,
+      required int term,
+      required int year,
+      required int startDate,
+      required int endDate,
+      Value<EventStatus> status,
+      required BigInt created,
+      required BigInt updated,
+      Value<int> rowid,
+    });
+typedef $$EventsTableUpdateCompanionBuilder =
+    EventsCompanion Function({
+      Value<String> id,
+      Value<String> school,
+      Value<String> name,
+      Value<EventType> type_,
+      Value<int> term,
+      Value<int> year,
+      Value<int> startDate,
+      Value<int> endDate,
+      Value<EventStatus> status,
+      Value<BigInt> created,
+      Value<BigInt> updated,
+      Value<int> rowid,
+    });
+
+final class $$EventsTableReferences
+    extends BaseReferences<_$AppDatabase, $EventsTable, EventData> {
+  $$EventsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $SchoolsTable _schoolTable(_$AppDatabase db) => db.schools.createAlias(
+    $_aliasNameGenerator(db.events.school, db.schools.id),
+  );
+
+  $$SchoolsTableProcessedTableManager get school {
+    final $_column = $_itemColumn<String>('school')!;
+
+    final manager = $$SchoolsTableTableManager(
+      $_db,
+      $_db.schools,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_schoolTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$EventsTableFilterComposer
+    extends Composer<_$AppDatabase, $EventsTable> {
+  $$EventsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<EventType, EventType, int> get type_ =>
+      $composableBuilder(
+        column: $table.type_,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<int> get term => $composableBuilder(
+    column: $table.term,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get year => $composableBuilder(
+    column: $table.year,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get startDate => $composableBuilder(
+    column: $table.startDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get endDate => $composableBuilder(
+    column: $table.endDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<EventStatus, EventStatus, int> get status =>
+      $composableBuilder(
+        column: $table.status,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<BigInt> get created => $composableBuilder(
+    column: $table.created,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<BigInt> get updated => $composableBuilder(
+    column: $table.updated,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$SchoolsTableFilterComposer get school {
+    final $$SchoolsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.school,
+      referencedTable: $db.schools,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SchoolsTableFilterComposer(
+            $db: $db,
+            $table: $db.schools,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$EventsTableOrderingComposer
+    extends Composer<_$AppDatabase, $EventsTable> {
+  $$EventsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get type_ => $composableBuilder(
+    column: $table.type_,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get term => $composableBuilder(
+    column: $table.term,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get year => $composableBuilder(
+    column: $table.year,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get startDate => $composableBuilder(
+    column: $table.startDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get endDate => $composableBuilder(
+    column: $table.endDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<BigInt> get created => $composableBuilder(
+    column: $table.created,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<BigInt> get updated => $composableBuilder(
+    column: $table.updated,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$SchoolsTableOrderingComposer get school {
+    final $$SchoolsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.school,
+      referencedTable: $db.schools,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SchoolsTableOrderingComposer(
+            $db: $db,
+            $table: $db.schools,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$EventsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $EventsTable> {
+  $$EventsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<EventType, int> get type_ =>
+      $composableBuilder(column: $table.type_, builder: (column) => column);
+
+  GeneratedColumn<int> get term =>
+      $composableBuilder(column: $table.term, builder: (column) => column);
+
+  GeneratedColumn<int> get year =>
+      $composableBuilder(column: $table.year, builder: (column) => column);
+
+  GeneratedColumn<int> get startDate =>
+      $composableBuilder(column: $table.startDate, builder: (column) => column);
+
+  GeneratedColumn<int> get endDate =>
+      $composableBuilder(column: $table.endDate, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<EventStatus, int> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<BigInt> get created =>
+      $composableBuilder(column: $table.created, builder: (column) => column);
+
+  GeneratedColumn<BigInt> get updated =>
+      $composableBuilder(column: $table.updated, builder: (column) => column);
+
+  $$SchoolsTableAnnotationComposer get school {
+    final $$SchoolsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.school,
+      referencedTable: $db.schools,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SchoolsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.schools,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$EventsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $EventsTable,
+          EventData,
+          $$EventsTableFilterComposer,
+          $$EventsTableOrderingComposer,
+          $$EventsTableAnnotationComposer,
+          $$EventsTableCreateCompanionBuilder,
+          $$EventsTableUpdateCompanionBuilder,
+          (EventData, $$EventsTableReferences),
+          EventData,
+          PrefetchHooks Function({bool school})
+        > {
+  $$EventsTableTableManager(_$AppDatabase db, $EventsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$EventsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$EventsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$EventsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> school = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<EventType> type_ = const Value.absent(),
+                Value<int> term = const Value.absent(),
+                Value<int> year = const Value.absent(),
+                Value<int> startDate = const Value.absent(),
+                Value<int> endDate = const Value.absent(),
+                Value<EventStatus> status = const Value.absent(),
+                Value<BigInt> created = const Value.absent(),
+                Value<BigInt> updated = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => EventsCompanion(
+                id: id,
+                school: school,
+                name: name,
+                type_: type_,
+                term: term,
+                year: year,
+                startDate: startDate,
+                endDate: endDate,
+                status: status,
+                created: created,
+                updated: updated,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String school,
+                required String name,
+                required EventType type_,
+                required int term,
+                required int year,
+                required int startDate,
+                required int endDate,
+                Value<EventStatus> status = const Value.absent(),
+                required BigInt created,
+                required BigInt updated,
+                Value<int> rowid = const Value.absent(),
+              }) => EventsCompanion.insert(
+                id: id,
+                school: school,
+                name: name,
+                type_: type_,
+                term: term,
+                year: year,
+                startDate: startDate,
+                endDate: endDate,
+                status: status,
+                created: created,
+                updated: updated,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) =>
+                    (e.readTable(table), $$EventsTableReferences(db, table, e)),
+              )
+              .toList(),
+          prefetchHooksCallback: ({school = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (school) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.school,
+                                referencedTable: $$EventsTableReferences
+                                    ._schoolTable(db),
+                                referencedColumn: $$EventsTableReferences
+                                    ._schoolTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$EventsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $EventsTable,
+      EventData,
+      $$EventsTableFilterComposer,
+      $$EventsTableOrderingComposer,
+      $$EventsTableAnnotationComposer,
+      $$EventsTableCreateCompanionBuilder,
+      $$EventsTableUpdateCompanionBuilder,
+      (EventData, $$EventsTableReferences),
+      EventData,
+      PrefetchHooks Function({bool school})
+    >;
 typedef $$PapersV2TableCreateCompanionBuilder =
     PapersV2Companion Function({
       required String id,
@@ -43238,6 +44422,8 @@ class $AppDatabaseManager {
       $$PapersTableTableManager(_db, _db.papers);
   $$PaperSubmissionsTableTableManager get paperSubmissions =>
       $$PaperSubmissionsTableTableManager(_db, _db.paperSubmissions);
+  $$EventsTableTableManager get events =>
+      $$EventsTableTableManager(_db, _db.events);
   $$PapersV2TableTableManager get papersV2 =>
       $$PapersV2TableTableManager(_db, _db.papersV2);
   $$GradesTableTableManager get grades =>

@@ -5,18 +5,27 @@ import '../tables/attendance.dart';
 import '../tables/class_teachers.dart';
 import '../tables/enrollments.dart';
 import '../tables/enums.dart';
+import '../tables/events.dart';
 import '../tables/exams.dart';
 import '../tables/grades.dart';
 import '../tables/logs.dart';
 import '../tables/mastery.dart';
 import '../tables/papers.dart';
+import '../tables/papers_v2.dart';
 import '../tables/students.dart';
 import '../tables/subject_teachers.dart';
 import '../tables/users.dart';
 import '../../models/grade_analytics.dart';
-import 'exams_grades_dao.dart' show ExamWithPapers;
+import 'exams_grades_dao.dart' show ExamWithPapers, PaperWithExamInfo;
 
 part 'academics_dao.g.dart';
+
+/// An event with its papers and the first paper's teacher.
+typedef EventWithPapers = ({
+  EventData event,
+  List<PapersV2Data> papers,
+  UsersData? teacher,
+});
 
 @DriftAccessor(
   tables: [
@@ -26,6 +35,8 @@ part 'academics_dao.g.dart';
     Grades,
     Exams,
     Papers,
+    Events,
+    PapersV2,
     Mastery,
     Attendance,
     SubjectTeachers,
@@ -828,6 +839,65 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
         if (teacherUser != null) {
           results.add((exam: exam, papers: paperList, teacher: teacherUser));
         }
+      }
+      return results;
+    });
+  }
+
+  /// Watches events for a specific grade, with their papers_v2 joined.
+  ///
+  /// Returns events filtered by [schoolId], [year], [term], [grade].
+  /// When [streamCode] is given, includes events whose papers match that stream
+  /// (or where the paper has NULL stream — grade-wide).
+  ///
+  /// Uses the new events + papers_v2 tables (migration 0007).
+  Stream<List<EventWithPapers>> watchEventsForGradeStream({
+    required String schoolId,
+    required int year,
+    required int term,
+    required int grade,
+    int? streamCode,
+  }) {
+    // Watch events for this school + year + term.
+    return (select(events)
+          ..where(
+            (e) =>
+                e.school.equals(schoolId) &
+                e.year.equals(year) &
+                e.term.equals(term),
+          )
+          ..orderBy([(e) => OrderingTerm.desc(e.startDate)]))
+        .watch()
+        .asyncMap((eventList) async {
+      if (eventList.isEmpty) return [];
+
+      final results = <EventWithPapers>[];
+      for (final event in eventList) {
+        // Query papers_v2 linked to this event, filtered by grade/stream.
+        final paperQuery = select(papersV2)
+          ..where((p) {
+            Expression<bool> f =
+                p.event.equals(event.id) & p.grade.equals(grade);
+            if (streamCode != null) {
+              f = f & (p.stream.equals(streamCode) | p.stream.isNull());
+            }
+            return f;
+          })
+          ..orderBy([(p) => OrderingTerm.asc(p.subject)]);
+
+        final paperList = await paperQuery.get();
+        if (paperList.isEmpty) continue;
+
+        // Use the first paper's teacher for display.
+        UsersData? teacher;
+        if (paperList.isNotEmpty) {
+          teacher = await (select(users)
+                ..where((u) => u.id.equals(paperList.first.teacher))
+                ..limit(1))
+              .getSingleOrNull();
+        }
+
+        results.add((event: event, papers: paperList, teacher: teacher));
       }
       return results;
     });
