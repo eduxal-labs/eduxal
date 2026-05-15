@@ -1853,13 +1853,13 @@ class DeltaWriter {
     final now = _now();
 
     await _db.customStatement(
-      'INSERT INTO events (id, school, name, type_, term, year,'
+      'INSERT INTO events (id, school, name, type, term, year,'
       ' start_date, end_date, status, created, updated)'
       ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ' ON CONFLICT (id) DO UPDATE SET'
       ' school = excluded.school,'
       ' name = excluded.name,'
-      ' type_ = excluded.type_,'
+      ' type = excluded.type,'
       ' term = excluded.term,'
       ' year = excluded.year,'
       ' start_date = excluded.start_date,'
@@ -1908,7 +1908,7 @@ class DeltaWriter {
 
     await _db.customStatement(
       'INSERT INTO papers_v2 (id, school, event, subject, grade, stream,'
-      ' type_, teacher, name, total_marks, duration_minutes, date, status,'
+      ' type, teacher, name, total_marks, duration_minutes, date, status,'
       ' pdf_key, ms_key, generation_mode, instructions, created, updated)'
       ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ' ON CONFLICT (id) DO UPDATE SET'
@@ -1917,7 +1917,7 @@ class DeltaWriter {
       ' subject = excluded.subject,'
       ' grade = excluded.grade,'
       ' stream = excluded.stream,'
-      ' type_ = excluded.type_,'
+      ' type = excluded.type,'
       ' teacher = excluded.teacher,'
       ' name = excluded.name,'
       ' total_marks = excluded.total_marks,'
