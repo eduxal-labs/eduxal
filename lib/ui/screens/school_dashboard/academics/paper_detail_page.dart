@@ -1110,8 +1110,8 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           schemeFiles: _schemeFiles,
                           initialDirtySubmissions: _childDirtySubmissions,
                           onViewStudentPaper: _viewStudentPaper,
-                        localStudentPdfs: _localStudentPdfs,
-                        onViewStudentPaperLocal: _viewStudentPaperLocal,
+                          localStudentPdfs: _localStudentPdfs,
+                          onViewStudentPaperLocal: _viewStudentPaperLocal,
                           onDirtyChanged: (dirty) {
                             if (mounted)
                               setState(() => _hasDirtyGrades = dirty);
