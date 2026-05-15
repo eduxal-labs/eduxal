@@ -744,6 +744,10 @@ final $typed_data.Uint8List deleteQuestionResponseDescriptor =
 const BulkImportRequest$json = {
   '1': 'BulkImportRequest',
   '2': [
+    {'1': 'subject_name', '3': 2, '4': 1, '5': 9, '10': 'subjectName'},
+    {'1': 'curriculum', '3': 3, '4': 1, '5': 5, '10': 'curriculum'},
+    {'1': 'grade', '3': 4, '4': 1, '5': 5, '10': 'grade'},
+    {'1': 'topic_name', '3': 5, '4': 1, '5': 9, '10': 'topicName'},
     {
       '1': 'questions',
       '3': 1,
@@ -757,8 +761,10 @@ const BulkImportRequest$json = {
 
 /// Descriptor for `BulkImportRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List bulkImportRequestDescriptor = $convert.base64Decode(
-    'ChFCdWxrSW1wb3J0UmVxdWVzdBJCCglxdWVzdGlvbnMYASADKAsyJC5xdWVzdGlvbl9iYW5rLk'
-    'NyZWF0ZVF1ZXN0aW9uUmVxdWVzdFIJcXVlc3Rpb25z');
+    'ChFCdWxrSW1wb3J0UmVxdWVzdBIhCgxzdWJqZWN0X25hbWUYAiABKAlSC3N1YmplY3ROYW1lEh'
+    '4KCmN1cnJpY3VsdW0YAyABKAVSCmN1cnJpY3VsdW0SFAoFZ3JhZGUYBCABKAVSBWdyYWRlEh0K'
+    'CnRvcGljX25hbWUYBSABKAlSCXRvcGljTmFtZRJCCglxdWVzdGlvbnMYASADKAsyJC5xdWVzdG'
+    'lvbl9iYW5rLkNyZWF0ZVF1ZXN0aW9uUmVxdWVzdFIJcXVlc3Rpb25z');
 
 @$core.Deprecated('Use bulkImportResponseDescriptor instead')
 const BulkImportResponse$json = {

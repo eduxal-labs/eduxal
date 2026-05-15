@@ -1,6 +1,6 @@
 // This is a generated file - do not edit.
 //
-// Generated from sync.proto.
+// Generated from services/sync.proto.
 
 // @dart = 3.3
 
@@ -10,7 +10,6 @@
 // ignore_for_file: deprecated_member_use_from_same_package, library_prefixes
 // ignore_for_file: non_constant_identifier_names, prefer_relative_imports
 
-import 'dart:async' as $async;
 import 'dart:core' as $core;
 
 import 'package:fixnum/fixnum.dart' as $fixnum;
@@ -16581,24 +16580,6 @@ class TaughtTopicInsert extends $pb.GeneratedMessage {
   $core.bool hasUpdated() => $_has(8);
   @$pb.TagNumber(9)
   void clearUpdated() => $_clearField(9);
-}
-
-class SyncApi {
-  final $pb.RpcClient _client;
-
-  SyncApi(this._client);
-
-  /// Client streams actions one at a time, server responds to each
-  $async.Future<ActionResponse> pushActions(
-          $pb.ClientContext? ctx, ActionRequest request) =>
-      _client.invoke<ActionResponse>(
-          ctx, 'Sync', 'PushActions', request, ActionResponse());
-
-  /// Server streams changes to client (UNCHANGED from current)
-  $async.Future<SyncDelta> watchChanges(
-          $pb.ClientContext? ctx, WatchRequest request) =>
-      _client.invoke<SyncDelta>(
-          ctx, 'Sync', 'WatchChanges', request, SyncDelta());
 }
 
 const $core.bool _omitFieldNames =

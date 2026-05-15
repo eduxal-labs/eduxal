@@ -330,3 +330,25 @@ final $typed_data.Uint8List forceSetPaperStatusResponseDescriptor =
     $convert.base64Decode(
         'ChtGb3JjZVNldFBhcGVyU3RhdHVzUmVzcG9uc2USIgoFcGFwZXIYASABKAsyDC5wYXBlci5QYX'
         'BlclIFcGFwZXI=');
+
+@$core.Deprecated('Use deletePaperRequestDescriptor instead')
+const DeletePaperRequest$json = {
+  '1': 'DeletePaperRequest',
+  '2': [
+    {'1': 'paper_id', '3': 1, '4': 1, '5': 9, '10': 'paperId'},
+  ],
+};
+
+/// Descriptor for `DeletePaperRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List deletePaperRequestDescriptor =
+    $convert.base64Decode(
+        'ChJEZWxldGVQYXBlclJlcXVlc3QSGQoIcGFwZXJfaWQYASABKAlSB3BhcGVySWQ=');
+
+@$core.Deprecated('Use deletePaperResponseDescriptor instead')
+const DeletePaperResponse$json = {
+  '1': 'DeletePaperResponse',
+};
+
+/// Descriptor for `DeletePaperResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List deletePaperResponseDescriptor =
+    $convert.base64Decode('ChNEZWxldGVQYXBlclJlc3BvbnNl');

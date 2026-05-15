@@ -360,6 +360,36 @@ class PaperService {
   ///
   /// [date] is days since epoch. [durationMinutes] is total exam duration.
   /// Returns the updated paper from the server.
+  Future<Result<void, GrpcError>> deleteEvent({
+    required String eventId,
+    required String accessToken,
+  }) async {
+    try {
+      final req = eventpb.DeleteEventRequest()..eventId = eventId;
+      await _eventClient.deleteEvent(req, options: _opts(accessToken));
+      return const Ok(null);
+    } on GrpcError catch (e) {
+      return Err(e);
+    } catch (e) {
+      return Err(GrpcError.internal('deleteEvent failed: '));
+    }
+  }
+
+  Future<Result<void, GrpcError>> deletePaper({
+    required String paperId,
+    required String accessToken,
+  }) async {
+    try {
+      final req = paperpb.DeletePaperRequest()..paperId = paperId;
+      await _paperClient.deletePaper(req, options: _opts(accessToken));
+      return const Ok(null);
+    } on GrpcError catch (e) {
+      return Err(e);
+    } catch (e) {
+      return Err(GrpcError.internal('deletePaper failed: '));
+    }
+  }
+
   Future<Result<void, GrpcError>> updatePaper({
     required String paperId,
     String? name,

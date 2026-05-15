@@ -81,6 +81,13 @@ class PaperServiceClient extends $grpc.Client {
     return $createUnaryCall(_$forceSetPaperStatus, request, options: options);
   }
 
+  $grpc.ResponseFuture<$0.DeletePaperResponse> deletePaper(
+    $0.DeletePaperRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$deletePaper, request, options: options);
+  }
+
   // method descriptors
 
   static final _$createPaper =
@@ -118,6 +125,11 @@ class PaperServiceClient extends $grpc.Client {
       '/paper_service.PaperService/ForceSetPaperStatus',
       ($0.ForceSetPaperStatusRequest value) => value.writeToBuffer(),
       $0.ForceSetPaperStatusResponse.fromBuffer);
+  static final _$deletePaper =
+      $grpc.ClientMethod<$0.DeletePaperRequest, $0.DeletePaperResponse>(
+          '/paper_service.PaperService/DeletePaper',
+          ($0.DeletePaperRequest value) => value.writeToBuffer(),
+          $0.DeletePaperResponse.fromBuffer);
 }
 
 @$pb.GrpcServiceName('paper_service.PaperService')
@@ -184,6 +196,15 @@ abstract class PaperServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.ForceSetPaperStatusRequest.fromBuffer(value),
         ($0.ForceSetPaperStatusResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.DeletePaperRequest, $0.DeletePaperResponse>(
+            'DeletePaper',
+            deletePaper_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.DeletePaperRequest.fromBuffer(value),
+            ($0.DeletePaperResponse value) => value.writeToBuffer()));
   }
 
   $async.Future<$0.CreatePaperResponse> createPaper_Pre($grpc.ServiceCall $call,
@@ -244,4 +265,12 @@ abstract class PaperServiceBase extends $grpc.Service {
 
   $async.Future<$0.ForceSetPaperStatusResponse> forceSetPaperStatus(
       $grpc.ServiceCall call, $0.ForceSetPaperStatusRequest request);
+
+  $async.Future<$0.DeletePaperResponse> deletePaper_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.DeletePaperRequest> $request) async {
+    return deletePaper($call, await $request);
+  }
+
+  $async.Future<$0.DeletePaperResponse> deletePaper(
+      $grpc.ServiceCall call, $0.DeletePaperRequest request);
 }

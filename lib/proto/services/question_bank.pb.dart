@@ -1738,8 +1738,8 @@ class BulkImportRequest extends $pb.GeneratedMessage {
     ..pPM<CreateQuestionRequest>(1, _omitFieldNames ? '' : 'questions',
         subBuilder: CreateQuestionRequest.create)
     ..aOS(2, _omitFieldNames ? '' : 'subjectName')
-    ..a<$core.int>(3, _omitFieldNames ? '' : 'curriculum', $pb.PbFieldType.O3)
-    ..a<$core.int>(4, _omitFieldNames ? '' : 'grade', $pb.PbFieldType.O3)
+    ..aI(3, _omitFieldNames ? '' : 'curriculum')
+    ..aI(4, _omitFieldNames ? '' : 'grade')
     ..aOS(5, _omitFieldNames ? '' : 'topicName')
     ..hasRequiredFields = false;
 
@@ -1765,41 +1765,45 @@ class BulkImportRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   $pb.PbList<CreateQuestionRequest> get questions => $_getList(0);
 
+  /// Natural key for topic resolution — the server resolves the correct
+  /// topic_id from these fields instead of trusting per-question topic_id
+  /// values, which are client-local auto-increment IDs that don't match
+  /// server-side IDs.
   @$pb.TagNumber(2)
   $core.String get subjectName => $_getSZ(1);
   @$pb.TagNumber(2)
-  set subjectName($core.String v) { $_setString(1, v); }
+  set subjectName($core.String value) => $_setString(1, value);
   @$pb.TagNumber(2)
   $core.bool hasSubjectName() => $_has(1);
   @$pb.TagNumber(2)
-  void clearSubjectName() => clearField(2);
+  void clearSubjectName() => $_clearField(2);
 
   @$pb.TagNumber(3)
   $core.int get curriculum => $_getIZ(2);
   @$pb.TagNumber(3)
-  set curriculum($core.int v) { $_setSignedInt32(2, v); }
+  set curriculum($core.int value) => $_setSignedInt32(2, value);
   @$pb.TagNumber(3)
   $core.bool hasCurriculum() => $_has(2);
   @$pb.TagNumber(3)
-  void clearCurriculum() => clearField(3);
+  void clearCurriculum() => $_clearField(3);
 
   @$pb.TagNumber(4)
   $core.int get grade => $_getIZ(3);
   @$pb.TagNumber(4)
-  set grade($core.int v) { $_setSignedInt32(3, v); }
+  set grade($core.int value) => $_setSignedInt32(3, value);
   @$pb.TagNumber(4)
   $core.bool hasGrade() => $_has(3);
   @$pb.TagNumber(4)
-  void clearGrade() => clearField(4);
+  void clearGrade() => $_clearField(4);
 
   @$pb.TagNumber(5)
   $core.String get topicName => $_getSZ(4);
   @$pb.TagNumber(5)
-  set topicName($core.String v) { $_setString(4, v); }
+  set topicName($core.String value) => $_setString(4, value);
   @$pb.TagNumber(5)
   $core.bool hasTopicName() => $_has(4);
   @$pb.TagNumber(5)
-  void clearTopicName() => clearField(5);
+  void clearTopicName() => $_clearField(5);
 }
 
 class BulkImportResponse extends $pb.GeneratedMessage {

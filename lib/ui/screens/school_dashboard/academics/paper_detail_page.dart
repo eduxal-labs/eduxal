@@ -5,7 +5,8 @@ import 'dart:typed_data';
 
 import 'package:drift/drift.dart' hide Column;
 
-import 'package:flutter/foundation.dart' show consolidateHttpClientResponseBytes;
+import 'package:flutter/foundation.dart'
+    show consolidateHttpClientResponseBytes;
 import 'package:flutter/material.dart' hide Action;
 import 'package:flutter/services.dart';
 import 'package:grpc/grpc.dart' show GrpcError;
@@ -159,7 +160,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   String get _paperId =>
       widget.serverPaperId ??
       '${widget.schoolId}|${_exam.id}|${_paper.subject}|'
-      '${_paper.paper ?? ''}|${_paper.grade}|${_paper.stream ?? ''}';
+          '${_paper.paper ?? ''}|${_paper.grade}|${_paper.stream ?? ''}';
 
   bool _computeHasUnmarked(Map<int, Grade> gradeMap) {
     final enrolledAdms = {for (final s in _students) s.adm};
@@ -382,7 +383,8 @@ class _PaperDetailPageState extends State<PaperDetailPage>
           if (bytes != null) {
             await Printing.layoutPdf(
               onLayout: (_) async => bytes,
-              name: '${student.name} - ${widget.subjectNames[_paper.subject] ?? 'Paper'}',
+              name:
+                  '${student.name} - ${widget.subjectNames[_paper.subject] ?? 'Paper'}',
             );
           }
         case Err(:final error):
@@ -393,9 +395,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
     } catch (e) {
       if (mounted) {
         messenger.hideCurrentSnackBar();
-        messenger.showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -412,9 +412,9 @@ class _PaperDetailPageState extends State<PaperDetailPage>
     final file = await FileCache.get(localPath);
     if (file == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('PDF not found locally')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('PDF not found locally')));
       }
       return;
     }
@@ -532,9 +532,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
     } catch (e) {
       if (mounted) {
         messenger.hideCurrentSnackBar();
-        messenger.showSnackBar(
-          SnackBar(content: Text('Generation error: $e')),
-        );
+        messenger.showSnackBar(SnackBar(content: Text('Generation error: $e')));
       }
     } finally {
       if (mounted) setState(() => _generatingPdfs = false);
@@ -718,9 +716,9 @@ class _PaperDetailPageState extends State<PaperDetailPage>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Print error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Print error: $e')));
       }
     } finally {
       if (mounted) setState(() => _bulkPrinting = false);
@@ -1429,10 +1427,10 @@ class _PaperHeaderState extends State<_PaperHeader>
 
   void _showEditTimeSheet(BuildContext context) {
     final paper = widget.paper;
-    final startDt =
-        DateTime.fromMillisecondsSinceEpoch(paper.start.toInt() * 1000);
-    final endDt =
-        DateTime.fromMillisecondsSinceEpoch(paper.end.toInt() * 1000);
+    final startDt = DateTime.fromMillisecondsSinceEpoch(
+      paper.start.toInt() * 1000,
+    );
+    final endDt = DateTime.fromMillisecondsSinceEpoch(paper.end.toInt() * 1000);
     final durationMinutes = endDt.difference(startDt).inMinutes;
 
     showEduSheet(
@@ -1461,10 +1459,11 @@ class _PaperHeaderState extends State<_PaperHeader>
 
           try {
             // Update server via RPC.
-            final rpcPaperId = widget.serverPaperId ??
+            final rpcPaperId =
+                widget.serverPaperId ??
                 '${widget.schoolId}|${widget.exam.exam.id}|'
-                '${paper.subject}|${paper.paper ?? ''}|'
-                '${paper.grade}|${paper.stream ?? ''}';
+                    '${paper.subject}|${paper.paper ?? ''}|'
+                    '${paper.grade}|${paper.stream ?? ''}';
             await paperService.updatePaper(
               paperId: rpcPaperId,
               date: newDateDays,
@@ -1501,9 +1500,9 @@ class _PaperHeaderState extends State<_PaperHeader>
             }
           } catch (e) {
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Failed to update: $e')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('Failed to update: $e')));
             }
           } finally {
             if (mounted) setState(() => _busy = false);
@@ -1645,7 +1644,8 @@ class _PaperHeaderState extends State<_PaperHeader>
     final endDt = DateTime.fromMillisecondsSinceEpoch(paper.end.toInt() * 1000);
 
     final status = paper.status;
-    final isPending = status == PaperStatus.pending &&
+    final isPending =
+        status == PaperStatus.pending &&
         widget.paperPdf == null &&
         !widget.pdfsGenerated &&
         !widget.localPdfsReady;
@@ -1921,7 +1921,9 @@ class _PaperHeaderState extends State<_PaperHeader>
                 ),
               ],
               // ── Generate Paper (pending only) ─────────────────────────
-              if (widget.canManage && isPending && widget.serverPaperId != null) ...[
+              if (widget.canManage &&
+                  isPending &&
+                  widget.serverPaperId != null) ...[
                 const SizedBox(width: 4),
                 Tooltip(
                   message: 'Generate Paper',
@@ -2159,10 +2161,11 @@ class _PaperHeaderState extends State<_PaperHeader>
                   message: 'View Questions',
                   child: InkWell(
                     onTap: () {
-                      final paperId = widget.serverPaperId ??
+                      final paperId =
+                          widget.serverPaperId ??
                           '${widget.schoolId}|${widget.exam.exam.id}|'
-                          '${widget.paper.subject}|${widget.paper.paper ?? ''}|'
-                          '${widget.paper.grade}|${widget.paper.stream ?? ''}';
+                              '${widget.paper.subject}|${widget.paper.paper ?? ''}|'
+                              '${widget.paper.grade}|${widget.paper.stream ?? ''}';
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => QuestionViewerPage(
@@ -4540,8 +4543,9 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
                                 child: Icon(
                                   Icons.picture_as_pdf_rounded,
                                   size: 16,
-                                  color: AppTheme.brandGreen
-                                      .withValues(alpha: 0.7),
+                                  color: AppTheme.brandGreen.withValues(
+                                    alpha: 0.7,
+                                  ),
                                 ),
                               ),
                             ),
@@ -6403,7 +6407,7 @@ class _EditTimeSheet extends StatefulWidget {
   final int currentDurationMinutes;
   final String subjectName;
   final void Function(DateTime date, TimeOfDay startTime, int durationMinutes)
-      onSave;
+  onSave;
 
   @override
   State<_EditTimeSheet> createState() => _EditTimeSheetState();
@@ -6431,14 +6435,13 @@ class _EditTimeSheetState extends State<_EditTimeSheet> {
     super.dispose();
   }
 
-  DateTime get _endDateTime =>
-      DateTime(
-        _date.year,
-        _date.month,
-        _date.day,
-        _startTime.hour,
-        _startTime.minute,
-      ).add(Duration(minutes: int.tryParse(_durationCtrl.text) ?? 60));
+  DateTime get _endDateTime => DateTime(
+    _date.year,
+    _date.month,
+    _date.day,
+    _startTime.hour,
+    _startTime.minute,
+  ).add(Duration(minutes: int.tryParse(_durationCtrl.text) ?? 60));
 
   @override
   Widget build(BuildContext context) {
@@ -6503,8 +6506,10 @@ class _EditTimeSheetState extends State<_EditTimeSheet> {
                 },
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     border: Border.all(
                       color: cs.outline.withValues(alpha: isDark ? 0.15 : 0.12),
@@ -6513,19 +6518,22 @@ class _EditTimeSheetState extends State<_EditTimeSheet> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.calendar_today_rounded,
-                          size: 16, color: cs.primary),
+                      Icon(
+                        Icons.calendar_today_rounded,
+                        size: 16,
+                        color: cs.primary,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         '${_date.day} ${_months[_date.month - 1]} ${_date.year}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: cs.onSurface,
-                        ),
+                        style: TextStyle(fontSize: 14, color: cs.onSurface),
                       ),
                       const Spacer(),
-                      Icon(Icons.arrow_drop_down_rounded,
-                          size: 20, color: cs.onSurfaceVariant),
+                      Icon(
+                        Icons.arrow_drop_down_rounded,
+                        size: 20,
+                        color: cs.onSurfaceVariant,
+                      ),
                     ],
                   ),
                 ),
@@ -6547,8 +6555,10 @@ class _EditTimeSheetState extends State<_EditTimeSheet> {
                 },
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     border: Border.all(
                       color: cs.outline.withValues(alpha: isDark ? 0.15 : 0.12),
@@ -6557,19 +6567,22 @@ class _EditTimeSheetState extends State<_EditTimeSheet> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.access_time_rounded,
-                          size: 16, color: cs.primary),
+                      Icon(
+                        Icons.access_time_rounded,
+                        size: 16,
+                        color: cs.primary,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         _startTime.format(context),
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: cs.onSurface,
-                        ),
+                        style: TextStyle(fontSize: 14, color: cs.onSurface),
                       ),
                       const Spacer(),
-                      Icon(Icons.arrow_drop_down_rounded,
-                          size: 20, color: cs.onSurfaceVariant),
+                      Icon(
+                        Icons.arrow_drop_down_rounded,
+                        size: 20,
+                        color: cs.onSurfaceVariant,
+                      ),
                     ],
                   ),
                 ),
@@ -6587,8 +6600,10 @@ class _EditTimeSheetState extends State<_EditTimeSheet> {
                 style: TextStyle(fontSize: 14, color: cs.onSurface),
                 decoration: InputDecoration(
                   isDense: true,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide(
@@ -6626,13 +6641,12 @@ class _EditTimeSheetState extends State<_EditTimeSheet> {
               onPressed: _saving
                   ? null
                   : () {
-                      final duration =
-                          int.tryParse(_durationCtrl.text) ?? 60;
+                      final duration = int.tryParse(_durationCtrl.text) ?? 60;
                       if (duration < 1) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                              content:
-                                  Text('Duration must be at least 1 minute')),
+                            content: Text('Duration must be at least 1 minute'),
+                          ),
                         );
                         return;
                       }
@@ -6643,8 +6657,7 @@ class _EditTimeSheetState extends State<_EditTimeSheet> {
                   ? const SizedBox(
                       width: 16,
                       height: 16,
-                      child:
-                          CircularProgressIndicator(strokeWidth: 1.5),
+                      child: CircularProgressIndicator(strokeWidth: 1.5),
                     )
                   : const Text('Save Changes'),
             ),

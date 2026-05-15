@@ -1143,6 +1143,98 @@ class ForceSetPaperStatusResponse extends $pb.GeneratedMessage {
   $1.Paper ensurePaper() => $_ensure(0);
 }
 
+class DeletePaperRequest extends $pb.GeneratedMessage {
+  factory DeletePaperRequest({
+    $core.String? paperId,
+  }) {
+    final result = create();
+    if (paperId != null) result.paperId = paperId;
+    return result;
+  }
+
+  DeletePaperRequest._();
+
+  factory DeletePaperRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeletePaperRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeletePaperRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'paper_service'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'paperId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeletePaperRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeletePaperRequest copyWith(void Function(DeletePaperRequest) updates) =>
+      super.copyWith((message) => updates(message as DeletePaperRequest))
+          as DeletePaperRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeletePaperRequest create() => DeletePaperRequest._();
+  @$core.override
+  DeletePaperRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeletePaperRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeletePaperRequest>(create);
+  static DeletePaperRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get paperId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set paperId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPaperId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPaperId() => $_clearField(1);
+}
+
+class DeletePaperResponse extends $pb.GeneratedMessage {
+  factory DeletePaperResponse() => create();
+
+  DeletePaperResponse._();
+
+  factory DeletePaperResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory DeletePaperResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DeletePaperResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'paper_service'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeletePaperResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DeletePaperResponse copyWith(void Function(DeletePaperResponse) updates) =>
+      super.copyWith((message) => updates(message as DeletePaperResponse))
+          as DeletePaperResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static DeletePaperResponse create() => DeletePaperResponse._();
+  @$core.override
+  DeletePaperResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static DeletePaperResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DeletePaperResponse>(create);
+  static DeletePaperResponse? _defaultInstance;
+}
+
 const $core.bool _omitFieldNames =
     $core.bool.fromEnvironment('protobuf.omit_field_names');
 const $core.bool _omitMessageNames =

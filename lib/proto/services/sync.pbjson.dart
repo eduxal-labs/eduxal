@@ -1,6 +1,6 @@
 // This is a generated file - do not edit.
 //
-// Generated from sync.proto.
+// Generated from services/sync.proto.
 
 // @dart = 3.3
 
@@ -4230,79 +4230,3 @@ final $typed_data.Uint8List taughtTopicInsertDescriptor = $convert.base64Decode(
     'dodEJ5EhYKBnN0YXR1cxgHIAEoBVIGc3RhdHVzEiQKC3RhdWdodF9kYXRlGAggASgFSAFSCnRh'
     'dWdodERhdGWIAQESGAoHdXBkYXRlZBgJIAEoA1IHdXBkYXRlZEIJCgdfc3RyZWFtQg4KDF90YX'
     'VnaHRfZGF0ZQ==');
-
-const $core.Map<$core.String, $core.dynamic> SyncServiceBase$json = {
-  '1': 'Sync',
-  '2': [
-    {
-      '1': 'PushActions',
-      '2': '.sync.ActionRequest',
-      '3': '.sync.ActionResponse',
-      '5': true,
-      '6': true
-    },
-    {
-      '1': 'WatchChanges',
-      '2': '.sync.WatchRequest',
-      '3': '.sync.SyncDelta',
-      '6': true
-    },
-  ],
-};
-
-@$core.Deprecated('Use syncServiceDescriptor instead')
-const $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>>
-    SyncServiceBase$messageJson = {
-  '.sync.ActionRequest': ActionRequest$json,
-  '.sync.ActionResponse': ActionResponse$json,
-  '.sync.ActionRow': ActionRow$json,
-  '.sync.InsertData': InsertData$json,
-  '.sync.UserInsert': UserInsert$json,
-  '.sync.SchoolInsert': SchoolInsert$json,
-  '.sync.OwnerInsert': OwnerInsert$json,
-  '.sync.StudentInsert': StudentInsert$json,
-  '.sync.GuardianInsert': GuardianInsert$json,
-  '.sync.DepartmentInsert': DepartmentInsert$json,
-  '.sync.TeacherInsert': TeacherInsert$json,
-  '.sync.StaffInsert': StaffInsert$json,
-  '.sync.TermInsert': TermInsert$json,
-  '.sync.ClassTeacherInsert': ClassTeacherInsert$json,
-  '.sync.EnrollmentInsert': EnrollmentInsert$json,
-  '.sync.SubjectTeacherInsert': SubjectTeacherInsert$json,
-  '.sync.AttendanceInsert': AttendanceInsert$json,
-  '.sync.TimetableInsert': TimetableInsert$json,
-  '.sync.LessonInsert': LessonInsert$json,
-  '.sync.ExamInsert': ExamInsert$json,
-  '.sync.PaperInsert': PaperInsert$json,
-  '.sync.GradeInsert': GradeInsert$json,
-  '.sync.FeeInsert': FeeInsert$json,
-  '.sync.InvoiceInsert': InvoiceInsert$json,
-  '.sync.PaymentInsert': PaymentInsert$json,
-  '.sync.AnnouncementInsert': AnnouncementInsert$json,
-  '.sync.MasteryInsert': MasteryInsert$json,
-  '.sync.AiUsageInsert': AiUsageInsert$json,
-  '.sync.RoleInsert': RoleInsert$json,
-  '.sync.ScopeInsert': ScopeInsert$json,
-  '.sync.PlanInsert': PlanInsert$json,
-  '.sync.SubscriptionInsert': SubscriptionInsert$json,
-  '.sync.DiscountInsert': DiscountInsert$json,
-  '.sync.SubjectInsert': SubjectInsert$json,
-  '.sync.TopicInsert': TopicInsert$json,
-  '.sync.StreamInsert': StreamInsert$json,
-  '.sync.MpesaInsert': MpesaInsert$json,
-  '.sync.SchemePageInsert': SchemePageInsert$json,
-  '.sync.AnswerPageInsert': AnswerPageInsert$json,
-  '.sync.EventInsert': EventInsert$json,
-  '.sync.PaperV2Insert': PaperV2Insert$json,
-  '.sync.PaperScheduleInsert': PaperScheduleInsert$json,
-  '.sync.TaughtTopicInsert': TaughtTopicInsert$json,
-  '.sync.FileUrl': FileUrl$json,
-  '.sync.WatchRequest': WatchRequest$json,
-  '.sync.SyncDelta': SyncDelta$json,
-};
-
-/// Descriptor for `Sync`. Decode as a `google.protobuf.ServiceDescriptorProto`.
-final $typed_data.Uint8List syncServiceDescriptor = $convert.base64Decode(
-    'CgRTeW5jEjwKC1B1c2hBY3Rpb25zEhMuc3luYy5BY3Rpb25SZXF1ZXN0GhQuc3luYy5BY3Rpb2'
-    '5SZXNwb25zZSgBMAESNQoMV2F0Y2hDaGFuZ2VzEhIuc3luYy5XYXRjaFJlcXVlc3QaDy5zeW5j'
-    'LlN5bmNEZWx0YTAB');
