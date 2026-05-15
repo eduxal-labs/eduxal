@@ -42,25 +42,29 @@ typedef GradeRow = ({Grade grade, StudentsData student});
 typedef ExamWithPapers = ({Exam exam, List<Paper> papers, UsersData teacher});
 
 /// A paper row together with its parent exam and the exam's teacher user.
-typedef PaperWithExamInfo = ({Paper paper, Exam exam, UsersData teacher, String? serverPaperId});
+typedef PaperWithExamInfo = ({
+  Paper paper,
+  Exam exam,
+  UsersData teacher,
+  String? serverPaperId,
+});
 
 /// Map [PaperV2Status] (0–6) to legacy [PaperStatus] (0–3).
 PaperStatus _mapV2StatusToLegacy(PaperV2Status s) => switch (s) {
-      PaperV2Status.draft || PaperV2Status.questionsSet => PaperStatus.pending,
-      PaperV2Status.finalized ||
-      PaperV2Status.revealed ||
-      PaperV2Status.active =>
-        PaperStatus.progress,
-      PaperV2Status.completed => PaperStatus.done,
-      PaperV2Status.marked => PaperStatus.marked,
-    };
+  PaperV2Status.draft || PaperV2Status.questionsSet => PaperStatus.pending,
+  PaperV2Status.finalized ||
+  PaperV2Status.revealed ||
+  PaperV2Status.active => PaperStatus.progress,
+  PaperV2Status.completed => PaperStatus.done,
+  PaperV2Status.marked => PaperStatus.marked,
+};
 
 /// Map [PaperV2Type] to legacy [ExamType].
 ExamType _mapV2TypeToExamType(PaperV2Type t) => switch (t) {
-      PaperV2Type.assessment => ExamType.assessment,
-      PaperV2Type.assignment => ExamType.assignment,
-      _ => ExamType.exam,
-    };
+  PaperV2Type.assessment => ExamType.assessment,
+  PaperV2Type.assignment => ExamType.assignment,
+  _ => ExamType.exam,
+};
 
 /// Convert a standalone [PapersV2Data] row into the legacy [Paper]+[Exam] shape
 /// so that existing UI (PaperDetailPage, subject tabs) can consume it.
@@ -343,26 +347,30 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     int _listenerCount = 0;
 
     Future<void> emit() async {
-      final paperList = await (select(papers)
-            ..where((p) =>
-                p.school.equals(schoolId) &
-                p.grade.equals(grade) &
-                p.stream.equals(stream) &
-                p.subject.equals(subject)))
-          .get();
-      final pv2Rows = await (select(papersV2)
-            ..where((t) =>
-                t.school.equals(schoolId) &
-                t.subject.equals(subject) &
-                t.grade.equals(grade) &
-                t.stream.equals(stream)))
-          .get();
+      final paperList =
+          await (select(papers)..where(
+                (p) =>
+                    p.school.equals(schoolId) &
+                    p.grade.equals(grade) &
+                    p.stream.equals(stream) &
+                    p.subject.equals(subject),
+              ))
+              .get();
+      final pv2Rows =
+          await (select(papersV2)..where(
+                (t) =>
+                    t.school.equals(schoolId) &
+                    t.subject.equals(subject) &
+                    t.grade.equals(grade) &
+                    t.stream.equals(stream),
+              ))
+              .get();
 
       // ── Legacy exam lookup ──────────────────────────────────────────
       final examIds = paperList.map((p) => p.exam).toSet();
-      final examRows = await (select(exams)
-            ..where((e) => e.id.isIn(examIds)))
-          .get();
+      final examRows = await (select(
+        exams,
+      )..where((e) => e.id.isIn(examIds))).get();
       final filteredExams = examType != null
           ? examRows.where((e) => e.type.index == examType).toList()
           : examRows;
@@ -372,9 +380,9 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       }
 
       final teacherIds = filteredExams.map((e) => e.teacher).toSet();
-      final userRows = await (select(users)
-            ..where((u) => u.id.isIn(teacherIds)))
-          .get();
+      final userRows = await (select(
+        users,
+      )..where((u) => u.id.isIn(teacherIds))).get();
       final userById = <String, UsersData>{};
       for (final u in userRows) {
         userById[u.id] = u;
@@ -392,7 +400,8 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       for (final paper in paperList) {
         final exam = examById[paper.exam];
         if (exam == null) continue;
-        final teacher = userById[exam.teacher] ??
+        final teacher =
+            userById[exam.teacher] ??
             UsersData(
               id: exam.teacher,
               phone: '',
@@ -405,7 +414,12 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
             );
         final pv2 = pv2ByName[exam.name];
         seenNames.add(exam.name);
-        result.add((paper: paper, exam: exam, teacher: teacher, serverPaperId: pv2?.id));
+        result.add((
+          paper: paper,
+          exam: exam,
+          teacher: teacher,
+          serverPaperId: pv2?.id,
+        ));
       }
 
       // Add remaining papers_v2 rows that weren't matched to legacy records
@@ -413,7 +427,8 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       for (final pv2 in pv2Rows) {
         if (seenNames.contains(pv2.name)) continue;
         if (examType != null &&
-            _mapV2TypeToExamType(pv2.type_).index != examType) continue;
+            _mapV2TypeToExamType(pv2.type_).index != examType)
+          continue;
         final (:paper, :exam) = _paperExamFromV2(pv2);
         final teacher = UsersData(
           id: pv2.teacher,
@@ -425,7 +440,12 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
           created: BigInt.zero,
           updated: BigInt.zero,
         );
-        result.add((paper: paper, exam: exam, teacher: teacher, serverPaperId: pv2.id));
+        result.add((
+          paper: paper,
+          exam: exam,
+          teacher: teacher,
+          serverPaperId: pv2.id,
+        ));
       }
 
       result.sort((a, b) => a.paper.start.compareTo(b.paper.start));
@@ -437,22 +457,26 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         _listenerCount++;
         if (_listenerCount == 1) {
           emit();
-          papersSub = (select(papers)
-                ..where((p) =>
-                    p.school.equals(schoolId) &
-                    p.grade.equals(grade) &
-                    p.stream.equals(stream) &
-                    p.subject.equals(subject)))
-              .watch()
-              .listen((_) => emit());
-          pv2Sub = (select(papersV2)
-                ..where((t) =>
-                    t.school.equals(schoolId) &
-                    t.subject.equals(subject) &
-                    t.grade.equals(grade) &
-                    t.stream.equals(stream)))
-              .watch()
-              .listen((_) => emit());
+          papersSub =
+              (select(papers)..where(
+                    (p) =>
+                        p.school.equals(schoolId) &
+                        p.grade.equals(grade) &
+                        p.stream.equals(stream) &
+                        p.subject.equals(subject),
+                  ))
+                  .watch()
+                  .listen((_) => emit());
+          pv2Sub =
+              (select(papersV2)..where(
+                    (t) =>
+                        t.school.equals(schoolId) &
+                        t.subject.equals(subject) &
+                        t.grade.equals(grade) &
+                        t.stream.equals(stream),
+                  ))
+                  .watch()
+                  .listen((_) => emit());
         }
       },
       onCancel: () {
@@ -476,21 +500,24 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required int subject,
     int? examType,
   }) async {
-    final paperList = await (select(papers)
-          ..where((p) =>
-              p.school.equals(schoolId) &
-              p.grade.equals(grade) &
-              p.stream.equals(stream) &
-              p.subject.equals(subject))
-          ..orderBy([(p) => OrderingTerm.asc(p.start)]))
-        .get();
+    final paperList =
+        await (select(papers)
+              ..where(
+                (p) =>
+                    p.school.equals(schoolId) &
+                    p.grade.equals(grade) &
+                    p.stream.equals(stream) &
+                    p.subject.equals(subject),
+              )
+              ..orderBy([(p) => OrderingTerm.asc(p.start)]))
+            .get();
 
     if (paperList.isEmpty) return [];
 
     final examIds = paperList.map((p) => p.exam).toSet();
-    final examRows = await (select(exams)
-          ..where((e) => e.id.isIn(examIds)))
-        .get();
+    final examRows = await (select(
+      exams,
+    )..where((e) => e.id.isIn(examIds))).get();
 
     final filteredExams = examType != null
         ? examRows.where((e) => e.type.index == examType).toList()
@@ -502,9 +529,9 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     }
 
     final teacherIds = filteredExams.map((e) => e.teacher).toSet();
-    final userRows = await (select(users)
-          ..where((u) => u.id.isIn(teacherIds)))
-        .get();
+    final userRows = await (select(
+      users,
+    )..where((u) => u.id.isIn(teacherIds))).get();
     final userById = <String, UsersData>{};
     for (final u in userRows) {
       userById[u.id] = u;
@@ -512,13 +539,15 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
 
     // Load papers_v2 rows to resolve server paper UUIDs and include
     // standalone papers (event IS NULL) that have no legacy entry.
-    final pv2Rows = await (select(papersV2)
-          ..where((t) =>
-              t.school.equals(schoolId) &
-              t.subject.equals(subject) &
-              t.grade.equals(grade) &
-              t.stream.equals(stream)))
-        .get();
+    final pv2Rows =
+        await (select(papersV2)..where(
+              (t) =>
+                  t.school.equals(schoolId) &
+                  t.subject.equals(subject) &
+                  t.grade.equals(grade) &
+                  t.stream.equals(stream),
+            ))
+            .get();
     final pv2ByName = <String, PapersV2Data>{};
     for (final pv2 in pv2Rows) {
       pv2ByName[pv2.name] = pv2;
@@ -529,7 +558,8 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     for (final paper in paperList) {
       final exam = examById[paper.exam];
       if (exam == null) continue;
-      final teacher = userById[exam.teacher] ??
+      final teacher =
+          userById[exam.teacher] ??
           UsersData(
             id: exam.teacher,
             phone: '',
@@ -542,13 +572,19 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
           );
       final pv2 = pv2ByName[exam.name];
       seenNames.add(exam.name);
-      result.add((paper: paper, exam: exam, teacher: teacher, serverPaperId: pv2?.id));
+      result.add((
+        paper: paper,
+        exam: exam,
+        teacher: teacher,
+        serverPaperId: pv2?.id,
+      ));
     }
 
     // Add remaining papers_v2 rows not already covered.
     for (final pv2 in pv2Rows) {
       if (seenNames.contains(pv2.name)) continue;
-      if (examType != null && _mapV2TypeToExamType(pv2.type_).index != examType) continue;
+      if (examType != null && _mapV2TypeToExamType(pv2.type_).index != examType)
+        continue;
       final (:paper, :exam) = _paperExamFromV2(pv2);
       final teacher = UsersData(
         id: pv2.teacher,
@@ -560,7 +596,12 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         created: BigInt.zero,
         updated: BigInt.zero,
       );
-      result.add((paper: paper, exam: exam, teacher: teacher, serverPaperId: pv2.id));
+      result.add((
+        paper: paper,
+        exam: exam,
+        teacher: teacher,
+        serverPaperId: pv2.id,
+      ));
     }
     return result;
   }
@@ -1313,10 +1354,11 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       )..where((ps) => ps.exam.equals(examId))).go();
       await (delete(papers)..where((p) => p.exam.equals(examId))).go();
       await (delete(exams)..where((e) => e.id.equals(examId))).go();
+      await (delete(papersV2)..where((p) => p.event.equals(examId))).go();
+      await (delete(events)..where((e) => e.id.equals(examId))).go();
     });
     sync.schedulePush();
   }
-
   // ───────────────────────────────────────────────────────────────────────────
   // Paper mutations
   // ───────────────────────────────────────────────────────────────────────────
@@ -1530,8 +1572,10 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         school: schoolId,
         exam: examId,
         subject: subject,
+        grade: grade,
       );
       if (paperNum != null) payload.paper = paperNum;
+      if (stream != null) payload.stream = stream;
 
       final paperLabel = paperNum != null ? 'Paper $paperNum' : 'Paper';
       await into(logs).insert(
@@ -2508,9 +2552,9 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
 
   /// Look up a single paper in [PapersV2] by server-issued UUID.
   Future<PapersV2Data?> getPaperV2ById(String serverPaperId) async {
-    final rows = await (select(papersV2)
-          ..where((t) => t.id.equals(serverPaperId)))
-        .get();
+    final rows = await (select(
+      papersV2,
+    )..where((t) => t.id.equals(serverPaperId))).get();
     return rows.isNotEmpty ? rows.first : null;
   }
 
@@ -2518,11 +2562,9 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
   Future<void> updatePaperStatusAfterGeneration({
     required String serverPaperId,
   }) async {
-    await (update(papersV2)
-          ..where((t) => t.id.equals(serverPaperId)))
-        .write(
-          PapersV2Companion(status: const Value(PaperV2Status.questionsSet)),
-        );
+    await (update(papersV2)..where((t) => t.id.equals(serverPaperId))).write(
+      PapersV2Companion(status: const Value(PaperV2Status.questionsSet)),
+    );
   }
 
   /// Update paper start/end times in both legacy [Papers] and [PapersV2].
@@ -2571,12 +2613,14 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
 
       // Update papers_v2 using the server-issued UUID.
       if (serverPaperId.isNotEmpty) {
-        await (update(papersV2)
-              ..where((t) => t.id.equals(serverPaperId)))
-            .write(PapersV2Companion(
-              date: Value(date),
-              durationMinutes: Value(durationMinutes),
-            ));
+        await (update(
+          papersV2,
+        )..where((t) => t.id.equals(serverPaperId))).write(
+          PapersV2Companion(
+            date: Value(date),
+            durationMinutes: Value(durationMinutes),
+          ),
+        );
       }
     });
   }
