@@ -582,7 +582,27 @@ class _PaperDetailPageState extends State<PaperDetailPage>
         setState(() => _pdfDownloadCount++);
       }
 
-      // Step 2 — download each student PDF.
+      // Step 2 — ensure per-student PDFs are generated on the server.
+      // This is a no-op if already generated; callers may have skipped Phase 1.
+      final examType = widget.exam.exam.type;
+      if (examType == ExamType.assessment) {
+        await paperService.generateAssessment(
+          paperId: paperId,
+          accessToken: token,
+        );
+      } else if (examType == ExamType.assignment) {
+        await paperService.generateAssignment(
+          paperId: paperId,
+          accessToken: token,
+        );
+      } else {
+        await paperService.generateAssessment(
+          paperId: paperId,
+          accessToken: token,
+        );
+      }
+
+      // Step 3 — download each student PDF.
       for (final student in _students) {
         if (!mounted) return;
         final studentPath = FileCache.studentPaperPdfPath(
@@ -977,7 +997,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                         onGeneratePdfs: _generatePdfs,
                         serverPaperId: widget.serverPaperId,
                         paperId: _paperId,
-                        pdfsGenerated: _paperPdf != null,
+                        pdfsGenerated: _paperPdf != null || _teacherPdfLocal,
                         localPdfsReady: _allPdfsLocal,
                         downloadingPdfs: _downloadingPdfs,
                         pdfDownloadCount: _pdfDownloadCount,
@@ -1623,7 +1643,10 @@ class _PaperHeaderState extends State<_PaperHeader>
     final endDt = DateTime.fromMillisecondsSinceEpoch(paper.end.toInt() * 1000);
 
     final status = paper.status;
-    final isPending = status == PaperStatus.pending && widget.paperPdf == null;
+    final isPending = status == PaperStatus.pending &&
+        widget.paperPdf == null &&
+        !widget.pdfsGenerated &&
+        !widget.localPdfsReady;
     final isProgress = status == PaperStatus.progress;
     final isPreFinalized = isPending || isProgress;
     final isMarked = status == PaperStatus.marked;
