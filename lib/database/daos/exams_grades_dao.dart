@@ -408,9 +408,9 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         result.add((paper: paper, exam: exam, teacher: teacher, serverPaperId: pv2?.id));
       }
 
-      // Add standalone papers_v2 rows (no event / no legacy match).
+      // Add remaining papers_v2 rows that weren't matched to legacy records
+      // above (e.g. synced from other devices, or standalone assessments).
       for (final pv2 in pv2Rows) {
-        if (pv2.event != null && pv2.event!.isNotEmpty) continue;
         if (seenNames.contains(pv2.name)) continue;
         if (examType != null &&
             _mapV2TypeToExamType(pv2.type_).index != examType) continue;
@@ -545,9 +545,8 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       result.add((paper: paper, exam: exam, teacher: teacher, serverPaperId: pv2?.id));
     }
 
-    // Add standalone papers_v2 rows not already covered.
+    // Add remaining papers_v2 rows not already covered.
     for (final pv2 in pv2Rows) {
-      if (pv2.event != null && pv2.event!.isNotEmpty) continue;
       if (seenNames.contains(pv2.name)) continue;
       if (examType != null && _mapV2TypeToExamType(pv2.type_).index != examType) continue;
       final (:paper, :exam) = _paperExamFromV2(pv2);
