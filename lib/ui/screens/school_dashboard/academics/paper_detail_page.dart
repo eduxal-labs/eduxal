@@ -1095,6 +1095,8 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                               setState(() => _aiProgress = p),
                           onAiMarkedCountChanged: (c) =>
                               setState(() => _aiMarkedCount = c),
+                          localStudentPdfs: _localStudentPdfs,
+                          onViewStudentPaperLocal: _viewStudentPaperLocal,
                         )
                       else
                         _GradeList(
@@ -2656,6 +2658,8 @@ class _GradeSpreadsheet extends StatefulWidget {
     this.onDirtySubmissionsChanged,
     this.schemeFiles = const [],
     this.initialDirtySubmissions = const {},
+    this.localStudentPdfs = const {},
+    this.onViewStudentPaperLocal,
   });
 
   final List<StudentsData> students;
@@ -2675,6 +2679,8 @@ class _GradeSpreadsheet extends StatefulWidget {
   final ValueChanged<Set<int>>? onDirtySubmissionsChanged;
   final List<String> schemeFiles;
   final Set<int> initialDirtySubmissions;
+  final Set<int> localStudentPdfs;
+  final void Function(StudentsData)? onViewStudentPaperLocal;
 
   @override
   State<_GradeSpreadsheet> createState() => _GradeSpreadsheetState();
@@ -3372,6 +3378,10 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
                 isDirtySubmission: _dirtySubmissions.contains(adm),
                 flashController: _flashControllers[adm]!,
                 cs: cs,
+                isPdfLocal: widget.localStudentPdfs.contains(adm),
+                onViewPdf: widget.onViewStudentPaperLocal != null
+                    ? () => widget.onViewStudentPaperLocal!(student)
+                    : null,
                 onChanged: (v) {
                   final wasDirty = hasDirtyGrades;
                   setState(() => _drafts[adm] = v);
@@ -3445,6 +3455,8 @@ class _SpreadsheetRow extends StatefulWidget {
     required this.onSubmitted,
     required this.onSubmitTap,
     this.onBreakdownTap,
+    this.isPdfLocal = false,
+    this.onViewPdf,
   });
 
   final StudentsData student;
@@ -3466,6 +3478,8 @@ class _SpreadsheetRow extends StatefulWidget {
   final ValueChanged<String> onSubmitted;
   final VoidCallback? onSubmitTap;
   final VoidCallback? onBreakdownTap;
+  final bool isPdfLocal;
+  final VoidCallback? onViewPdf;
 
   double? get _pct {
     if (existingGrade == null) return null;
@@ -3690,6 +3704,25 @@ class _SpreadsheetRowState extends State<_SpreadsheetRow> {
                 ),
               ),
             if (showSubmit) const SizedBox(width: 4),
+            // Per-student PDF view button
+            if (widget.isPdfLocal && widget.onViewPdf != null) ...[
+              Tooltip(
+                message: 'View ${widget.student.name} paper',
+                child: InkWell(
+                  onTap: widget.onViewPdf,
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.picture_as_pdf_rounded,
+                      size: 16,
+                      color: AppTheme.brandGreen.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+            ],
             // Save button
             if (widget.canGrade)
               AnimatedSaveButton(
