@@ -390,6 +390,24 @@ class PaperService {
     }
   }
 
+  Future<Result<void, GrpcError>> forceSetPaperStatus({
+    required String paperId,
+    required int status,
+    required String accessToken,
+  }) async {
+    try {
+      final req = paperpb.ForceSetPaperStatusRequest()
+        ..paperId = paperId
+        ..status = status;
+      await _paperClient.forceSetPaperStatus(req, options: _opts(accessToken));
+      return const Ok(null);
+    } on GrpcError catch (e) {
+      return Err(e);
+    } catch (e) {
+      return Err(GrpcError.internal('forceSetPaperStatus failed: $e'));
+    }
+  }
+
   Future<Result<void, GrpcError>> updatePaper({
     required String paperId,
     String? name,

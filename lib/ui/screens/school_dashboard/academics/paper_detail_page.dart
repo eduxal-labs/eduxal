@@ -1424,7 +1424,8 @@ class _PaperHeaderState extends State<_PaperHeader>
           accessToken: accessToken,
         );
         if (res case Err(:final error)) {
-          if (mounted) showPermissionDenied(context, error.message ?? 'Permission denied');
+          if (mounted)
+            showPermissionDenied(context, error.message ?? 'Permission denied');
           return;
         }
       }
@@ -1552,6 +1553,36 @@ class _PaperHeaderState extends State<_PaperHeader>
     _scaleCtrl.forward(from: 0);
     try {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+
+      final accessToken = cache.currentUser?.accessToken;
+      if (accessToken != null) {
+        String? actualServerId = widget.serverPaperId;
+        if (actualServerId == null) {
+          actualServerId = await widget.dao.getServerPaperId(
+            schoolId: widget.schoolId,
+            examId: widget.exam.exam.id,
+            subject: paper.subject,
+            grade: paper.grade,
+            stream: paper.stream,
+          );
+        }
+        if (actualServerId != null) {
+          final res = await paperService.forceSetPaperStatus(
+            paperId: actualServerId,
+            status: next.index,
+            accessToken: accessToken,
+          );
+          if (res case Err(:final error)) {
+            if (mounted)
+              showPermissionDenied(
+                context,
+                error.message ?? 'Permission denied',
+              );
+            return;
+          }
+        }
+      }
+
       await widget.dao.updatePaper(
         schoolId: widget.schoolId,
         examId: widget.exam.exam.id,

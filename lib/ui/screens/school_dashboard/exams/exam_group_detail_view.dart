@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 import '../../../../models/result.dart';
 
-
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart' hide Action;
 
@@ -630,9 +629,9 @@ class _ExamGroupDetailViewState extends State<ExamGroupDetailView>
         eventId: id,
         accessToken: accessToken,
       );
-      if (res is Err) {
-          final error = (res as Err).error;
-        if (mounted) showPermissionDenied(context, error.message ?? 'Permission denied');
+      if (res case Err(:final error)) {
+        if (mounted)
+          showPermissionDenied(context, error.message ?? 'Permission denied');
         return;
       }
       await _dao.deleteExam(examId: id, accountId: accountId);
