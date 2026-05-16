@@ -45,6 +45,7 @@ jobs:
           name: android-build
           path: eduxal-android.apk
           retention-days: 1
+        continue-on-error: true
 
   build-linux:
     runs-on: ubuntu-22.04
@@ -88,6 +89,7 @@ jobs:
           name: linux-build
           path: packaging/eduxal-linux-x64.tar.gz
           retention-days: 1
+        continue-on-error: true
 
   build-windows:
     runs-on: windows-latest
@@ -120,6 +122,7 @@ jobs:
           name: windows-build
           path: eduxal-windows-x64.zip
           retention-days: 1
+        continue-on-error: true
 
   upload-r2:
     needs: [build-android, build-linux, build-windows]
