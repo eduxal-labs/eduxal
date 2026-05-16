@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
+import '../../../../models/result.dart';
+
 
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart' hide Action;
@@ -21,6 +23,7 @@ import '../../../theme/app_theme.dart';
 import '../../../widgets/animated_save_button.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_sheet.dart';
+import '../../../widgets/permission_denied_handler.dart';
 import '../../../widgets/edu_tab_bar.dart';
 import '../academics/paper_detail_page.dart';
 import 'add_grade_to_exam_sheet.dart';
@@ -627,8 +630,9 @@ class _ExamGroupDetailViewState extends State<ExamGroupDetailView>
         eventId: id,
         accessToken: accessToken,
       );
-      if (res case Err(:final error)) {
-        if (mounted) showPermissionDenied(context, error.message);
+      if (res is Err) {
+          final error = (res as Err).error;
+        if (mounted) showPermissionDenied(context, error.message ?? 'Permission denied');
         return;
       }
       await _dao.deleteExam(examId: id, accountId: accountId);

@@ -1424,7 +1424,7 @@ class _PaperHeaderState extends State<_PaperHeader>
           accessToken: accessToken,
         );
         if (res case Err(:final error)) {
-          if (mounted) showPermissionDenied(context, error.message);
+          if (mounted) showPermissionDenied(context, error.message ?? 'Permission denied');
           return;
         }
       }
