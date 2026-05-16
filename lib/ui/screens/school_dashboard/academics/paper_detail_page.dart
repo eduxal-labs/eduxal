@@ -1567,9 +1567,15 @@ class _PaperHeaderState extends State<_PaperHeader>
           );
         }
         if (actualServerId != null) {
+          final v2StatusInt = switch (next) {
+            PaperStatus.pending => 0,
+            PaperStatus.progress => 4,
+            PaperStatus.done => 5,
+            PaperStatus.marked => 6,
+          };
           final res = await paperService.forceSetPaperStatus(
             paperId: actualServerId,
-            status: next.index,
+            status: v2StatusInt,
             accessToken: accessToken,
           );
           if (res case Err(:final error)) {
