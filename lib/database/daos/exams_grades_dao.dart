@@ -1529,19 +1529,6 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         payload.instructions = customInstructions;
         hasChanges = true;
       }
-      if (!hasChanges) return;
-
-      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-      final paperLabel = paperNum != null ? 'Paper $paperNum' : 'Paper';
-      await into(logs).insert(
-        LogsCompanion(
-          account: Value(accountId),
-          action: Value(SyncAction.updatePaper),
-          resource: Value(paperLabel),
-          payload: Value(payload.writeToBuffer()),
-          created: Value(now),
-        ),
-      );
     });
     sync.schedulePush();
   }
