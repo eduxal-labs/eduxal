@@ -49,7 +49,4 @@ abstract class SyncServiceBase extends $pb.GeneratedService {
     }
   }
 
-  // $core.Map<$core.String, $core.dynamic> get $json => SyncServiceBase$json;
-  $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>>
-      // get $messageJson => SyncServiceBase$messageJson;
 }

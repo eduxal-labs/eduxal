@@ -764,7 +764,6 @@ class _PaperDetailPageState extends State<PaperDetailPage>
       stream: _paper.stream,
     );
     _subscribeStudents();
-    _loadSchemeFiles();
     _tryLoadExistingPdf();
     _loadPaperTotalMarks();
 
@@ -971,8 +970,6 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                         hasUnmarkedSubmissions: _computeHasUnmarked(gradeMap),
                         onAiMark: _runAiMarking,
                         aiProgress: _aiMarking ? _aiProgress : null,
-                        schemeFiles: _schemeFiles,
-                        onSchemeUpdated: _loadSchemeFiles,
                         paperPdf: _paperPdf,
                         onPaperGenerated: (pdf) =>
                             setState(() => _paperPdf = pdf),
@@ -1663,13 +1660,6 @@ class _PaperHeaderState extends State<_PaperHeader>
 
   // ── Build ───────────────────────────────────────────────────────────────
 
-  void _openMarkingScheme(String url) {
-    downloadAndOpenDirectUrl(
-      url: url,
-      title: 'Marking Scheme',
-      context: context,
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -1827,88 +1817,7 @@ class _PaperHeaderState extends State<_PaperHeader>
               ],
             ),
           ),
-
-          // ── Scheme button (full-width, below invigilator) ─────────────
-          if (widget.canGrade) ...[
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (_) => _SchemeUploadSheet(
-                    schoolId: widget.schoolId,
-                    examId: widget.exam.exam.id,
-                    subject: paper.subject,
-                    paperNum: paper.paper,
-                    existingPaths: widget.schemeFiles,
-                    onUpdated: () => widget.onSchemeUpdated?.call(),
-                    cs: cs,
-                  ),
-                );
-              },
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  color: widget.schemeFiles.isNotEmpty
-                      ? cs.primaryContainer.withValues(
-                          alpha: isDark ? 0.2 : 0.18,
-                        )
-                      : cs.surfaceContainerHighest.withValues(
-                          alpha: isDark ? 0.3 : 0.35,
-                        ),
-                  borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
-                  border: Border.all(
-                    color: widget.schemeFiles.isNotEmpty
-                        ? cs.primary.withValues(alpha: 0.25)
-                        : cs.outlineVariant.withValues(alpha: 0.35),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      widget.schemeFiles.isNotEmpty
-                          ? Icons.description_outlined
-                          : Icons.note_add_outlined,
-                      size: 14,
-                      color: widget.schemeFiles.isNotEmpty
-                          ? cs.primary.withValues(alpha: 0.75)
-                          : cs.onSurfaceVariant.withValues(alpha: 0.5),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        widget.schemeFiles.isNotEmpty
-                            ? 'Marking scheme · ${widget.schemeFiles.length} ${widget.schemeFiles.length == 1 ? 'page' : 'pages'}'
-                            : 'Add marking scheme',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                          color: widget.schemeFiles.isNotEmpty
-                              ? cs.primary.withValues(alpha: 0.85)
-                              : cs.onSurfaceVariant.withValues(alpha: 0.55),
-                        ),
-                      ),
-                    ),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      size: 16,
-                      color: widget.schemeFiles.isNotEmpty
-                          ? cs.primary.withValues(alpha: 0.4)
-                          : cs.onSurfaceVariant.withValues(alpha: 0.3),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-
-          // ── Row 5: Analytics (when gradeRows not empty) ───────────────
+            // ── Row 5: Analytics (when gradeRows not empty) ───────────────
           if (widget.gradeRows.isNotEmpty) ...[
             const SizedBox(height: 10),
             Divider(
@@ -2352,7 +2261,7 @@ class _PaperHeaderState extends State<_PaperHeader>
     }
 
     // State 3: Has unmarked submissions and scheme exists → indigo AI button
-    if (widget.hasUnmarkedSubmissions && widget.schemeFiles.isNotEmpty) {
+    if (widget.hasUnmarkedSubmissions) {
       return _buildAiMarkButton();
     }
 
@@ -2963,7 +2872,6 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
         '${widget.paper.paper ?? ''}|${widget.paper.grade}|${widget.paper.stream ?? ''}';
     final urlResult = await client.aiMarking.requestUploadUrls(
       paperId: _paperId,
-      schemeCount: widget.schemeFiles.length,
       studentSheetCounts: studentSheetCounts,
       accessToken: token,
     );
@@ -3052,7 +2960,6 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
     final markResult = await client.aiMarking.markPaper(
       paperId: _paperId,
       totalMarks: _maxScore,
-      schemeKeys: [for (final u in urlResponse.schemeUrls) u.key],
       studentKeys: studentKeys,
       accessToken: token,
     );
@@ -3947,7 +3854,6 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
         '${widget.paper.paper ?? ''}|${widget.paper.grade}|${widget.paper.stream ?? ''}';
     final urlResult = await client.aiMarking.requestUploadUrls(
       paperId: _paperId,
-      schemeCount: widget.schemeFiles.length,
       studentSheetCounts: studentSheetCounts,
       accessToken: token,
     );
@@ -4036,7 +3942,6 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
     final markResult = await client.aiMarking.markPaper(
       paperId: _paperId,
       totalMarks: _maxScore,
-      schemeKeys: [for (final u in urlResponse.schemeUrls) u.key],
       studentKeys: studentKeys,
       accessToken: token,
     );
