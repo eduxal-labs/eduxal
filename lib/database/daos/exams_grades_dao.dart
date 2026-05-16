@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../cache/file_cache.dart' as eduxal_file_cache;
 import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
@@ -2197,7 +2198,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required int subject,
     required int? paperNum,
   }) async {
-    final query = select(paperSubmissions)
+    final localQuery = select(paperSubmissions)
       ..where(
         (s) =>
             s.school.equals(schoolId) &
@@ -2208,12 +2209,43 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
                 : s.paperNum.equals(paperNum)),
       )
       ..orderBy([(s) => OrderingTerm.asc(s.createdAt)]);
-    final rows = await query.get();
-    final result = <int, List<String>>{};
-    for (final row in rows) {
-      result.putIfAbsent(row.student, () => []).add(row.path);
+    final localRows = await localQuery.get();
+
+    final map = <int, List<String>>{};
+    final baseDir = await eduxal_file_cache.FileCache.baseDir();
+
+    final serverRows = await customSelect(
+      'SELECT school, exam, student, subject, paper, page, key FROM answer_pages WHERE school = ? AND exam = ? AND subject = ? AND (paper IS NULL OR paper = ?) ORDER BY page ASC',
+      variables: [
+        Variable.withString(schoolId),
+        Variable.withString(examId),
+        Variable.withInt(subject),
+        Variable.withInt(paperNum ?? 0),
+      ],
+    ).get();
+
+    for (final row in serverRows) {
+      final student = row.read<int>('student');
+      final page = row.read<int>('page');
+      final school = row.read<String>('school');
+      final exam = row.read<String>('exam');
+      final subj = row.read<int>('subject');
+      final paper = row.read<int?>('paper');
+      final paperStr = paper ?? 0;
+      final localPath = '$baseDir/submissions/$school/$exam/${subj}_$paperStr/students/$student/$page.jpg';
+      map.putIfAbsent(student, () => []).add(localPath);
     }
-    return result;
+    
+    // Add local-only rows (e.g. ones waiting to be AI marked/uploaded)
+    for (final row in localRows) {
+      map.putIfAbsent(row.student, () => []).add(row.path);
+    }
+    
+    // Dedup and sort
+    for (final key in map.keys) {
+      map[key] = map[key]!.toSet().toList()..sort();
+    }
+    return map;
   }
 
   /// Inserts a new submission path row. Silently replaces on conflict.
