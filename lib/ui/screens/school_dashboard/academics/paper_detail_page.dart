@@ -1408,9 +1408,19 @@ class _PaperHeaderState extends State<_PaperHeader>
     if (accountId == null || accessToken == null) return;
     setState(() => _busy = true);
     try {
-      if (widget.serverPaperId != null) {
+      String? actualServerId = widget.serverPaperId;
+      if (actualServerId == null) {
+        actualServerId = await widget.dao.getServerPaperId(
+          schoolId: widget.schoolId,
+          examId: widget.exam.exam.id,
+          subject: widget.paper.subject,
+          grade: widget.paper.grade,
+          stream: widget.paper.stream,
+        );
+      }
+      if (actualServerId != null) {
         final res = await paperService.deletePaper(
-          paperId: widget.serverPaperId!,
+          paperId: actualServerId,
           accessToken: accessToken,
         );
         if (res case Err(:final error)) {
@@ -1426,7 +1436,7 @@ class _PaperHeaderState extends State<_PaperHeader>
         grade: widget.paper.grade,
         stream: widget.paper.stream,
         accountId: accountId,
-        serverPaperId: widget.serverPaperId,
+        serverPaperId: actualServerId,
       );
       widget.onDeleted.call();
     } on PermissionException catch (e) {

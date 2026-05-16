@@ -1317,6 +1317,18 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     sync.schedulePush();
   }
 
+  Future<List<String>> getServerEventIds({
+    required String schoolId,
+    required String examId,
+  }) async {
+    final query = select(events)
+      ..where((e) => e.school.equals(schoolId) & e.id.equals(examId));
+    final eventList = await query.get();
+    return eventList
+        .map((e) => e.id)
+        .toList(); // Actually examId is eventId here
+  }
+
   /// Deletes an exam (cascades to papers and grades via FK) and writes a
   /// [SyncAction.deleteExam] log entry.
   Future<void> deleteExam({
@@ -1532,6 +1544,26 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       );
     });
     sync.schedulePush();
+  }
+
+  Future<String?> getServerPaperId({
+    required String schoolId,
+    required String examId,
+    required int subject,
+    required int grade,
+    int? stream,
+  }) async {
+    final query = select(papersV2)
+      ..where(
+        (p) =>
+            p.school.equals(schoolId) &
+            p.event.equals(examId) &
+            p.subject.equals(subject) &
+            p.grade.equals(grade) &
+            (stream == null ? p.stream.isNull() : p.stream.equals(stream)),
+      );
+    final result = await query.getSingleOrNull();
+    return result?.id;
   }
 
   /// Deletes a paper (cascades to grades) and writes a [SyncAction.deletePaper]
