@@ -120,7 +120,6 @@ class _PaperDetailPageState extends State<PaperDetailPage>
   double _aiProgress = 0.0;
 
   // ── Marking scheme state ────────────────────────────────────────────────
-  List<String> _schemeFiles = [];
 
   // ── Generated paper PDF (populated when returning from PaperGenerationPage) ──
   PaperPdf? _paperPdf;
@@ -247,17 +246,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
     return false;
   }
 
-  Future<void> _loadSchemeFiles() async {
-    final dir = await _schemeDirectory();
-    if (!await dir.exists()) {
-      if (mounted) setState(() => _schemeFiles = []);
-      return;
-    }
-    final entries = await dir.list().where((e) => e is File).toList();
-    entries.sort((a, b) => a.path.compareTo(b.path));
-    if (mounted)
-      setState(() => _schemeFiles = entries.map((f) => f.path).toList());
-  }
+
 
   Future<Directory> _schemeDirectory() async {
     final base = await FileCache.baseDir();
@@ -1049,7 +1038,6 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           dao: _dao,
                           canGrade: _canGradeContent,
                           cs: cs,
-                          schemeFiles: _schemeFiles,
                           initialDirtySubmissions: _childDirtySubmissions,
                           onDirtyChanged: (dirty) {
                             if (mounted)
@@ -1107,7 +1095,6 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           dao: _dao,
                           canGrade: _canGradeContent,
                           cs: cs,
-                          schemeFiles: _schemeFiles,
                           initialDirtySubmissions: _childDirtySubmissions,
                           onViewStudentPaper: _viewStudentPaper,
                           localStudentPdfs: _localStudentPdfs,
@@ -1194,8 +1181,6 @@ class _PaperHeader extends StatefulWidget {
     this.hasUnmarkedSubmissions = false,
     this.onAiMark,
     this.aiProgress,
-    this.schemeFiles = const [],
-    this.onSchemeUpdated,
     this.paperPdf,
     this.onPaperGenerated,
     this.onPdfCleared,
@@ -1235,8 +1220,6 @@ class _PaperHeader extends StatefulWidget {
   final bool hasUnmarkedSubmissions;
   final VoidCallback? onAiMark;
   final double? aiProgress;
-  final List<String> schemeFiles;
-  final VoidCallback? onSchemeUpdated;
   final PaperPdf? paperPdf;
   final void Function(PaperPdf)? onPaperGenerated;
   final VoidCallback? onPdfCleared;
@@ -2717,7 +2700,6 @@ class _GradeSpreadsheet extends StatefulWidget {
     this.onSubmissionsChanged,
     this.onSubmissionsMapChanged,
     this.onDirtySubmissionsChanged,
-    this.schemeFiles = const [],
     this.initialDirtySubmissions = const {},
     this.localStudentPdfs = const {},
     this.onViewStudentPaperLocal,
@@ -2738,7 +2720,6 @@ class _GradeSpreadsheet extends StatefulWidget {
   final VoidCallback? onSubmissionsChanged;
   final ValueChanged<Map<int, List<String>>>? onSubmissionsMapChanged;
   final ValueChanged<Set<int>>? onDirtySubmissionsChanged;
-  final List<String> schemeFiles;
   final Set<int> initialDirtySubmissions;
   final Set<int> localStudentPdfs;
   final void Function(StudentsData)? onViewStudentPaperLocal;
@@ -2915,15 +2896,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
     final token = cache.currentUser?.accessToken;
     if (token == null) return;
 
-    // Check scheme files
-    if (widget.schemeFiles.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please add a marking scheme first')),
-        );
-      }
-      return;
-    }
+
 
     // ── Diagnostic: log full state before filtering ──────────────────────
     print('[AI-REMARK-SPREAD] === runAiMarking START ===');
@@ -3009,45 +2982,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
         break;
     }
     final urlResponse = (urlResult as Ok).value;
-
-    // ── Phase 2: Upload scheme files (0% → 25%) ──────────────────────────
-    final totalFiles =
-        widget.schemeFiles.length +
-        studentsWithSubmissions.fold<int>(
-          0,
-          (sum, s) => sum + (_submissions[s.adm] ?? []).length,
-        );
-    int uploaded = 0;
-
-    for (
-      int i = 0;
-      i < urlResponse.schemeUrls.length && i < widget.schemeFiles.length;
-      i++
-    ) {
-      final ok = await client.aiMarking.uploadFile(
-        urlResponse.schemeUrls[i].url,
-        widget.schemeFiles[i],
-      );
-      if (!ok) {
-        if (mounted) {
-          _resetAi();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to upload scheme page ${i + 1}')),
-          );
-        } else {
-          // Widget unmounted — notify parent so it can reset its _aiMarking flag.
-          widget.onAiPhaseChanged?.call(_AiPhase.idle);
-          widget.onAiProgressChanged?.call(0.0);
-        }
-        return;
-      }
-      uploaded++;
-      if (mounted) {
-        widget.onAiProgressChanged?.call((uploaded / totalFiles) * 0.5);
-      }
-    }
-
-    // ── Phase 3: Upload student answer sheets (25% → 50%) ────────────────
+      // ── Phase 3: Upload student answer sheets (25% → 50%) ────────────────
     final studentKeys = <int, List<String>>{};
     for (final studentUrl in urlResponse.studentUrls) {
       final adm = studentUrl.adm;
@@ -3820,7 +3755,6 @@ class _GradeList extends StatefulWidget {
     this.onSubmissionsChanged,
     this.onSubmissionsMapChanged,
     this.onDirtySubmissionsChanged,
-    this.schemeFiles = const [],
     this.initialDirtySubmissions = const {},
     this.onViewStudentPaper,
     this.localStudentPdfs = const {},
@@ -3842,7 +3776,6 @@ class _GradeList extends StatefulWidget {
   final VoidCallback? onSubmissionsChanged;
   final ValueChanged<Map<int, List<String>>>? onSubmissionsMapChanged;
   final ValueChanged<Set<int>>? onDirtySubmissionsChanged;
-  final List<String> schemeFiles;
   final Set<int> initialDirtySubmissions;
   final void Function(StudentsData)? onViewStudentPaper;
 
@@ -3947,15 +3880,7 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
     final token = cache.currentUser?.accessToken;
     if (token == null) return;
 
-    // Check scheme files
-    if (widget.schemeFiles.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please add a marking scheme first')),
-        );
-      }
-      return;
-    }
+
 
     // ── Diagnostic: log full state before filtering ──────────────────────
     print('[AI-REMARK-LIST] === runAiMarking START ===');
@@ -4041,45 +3966,7 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
         break;
     }
     final urlResponse = (urlResult as Ok).value;
-
-    // ── Phase 2: Upload scheme files (0% → 25%) ──────────────────────────
-    final totalFiles =
-        widget.schemeFiles.length +
-        studentsWithSubmissions.fold<int>(
-          0,
-          (sum, s) => sum + (_submissions[s.adm] ?? []).length,
-        );
-    int uploaded = 0;
-
-    for (
-      int i = 0;
-      i < urlResponse.schemeUrls.length && i < widget.schemeFiles.length;
-      i++
-    ) {
-      final ok = await client.aiMarking.uploadFile(
-        urlResponse.schemeUrls[i].url,
-        widget.schemeFiles[i],
-      );
-      if (!ok) {
-        if (mounted) {
-          _resetAi();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to upload scheme page ${i + 1}')),
-          );
-        } else {
-          // Widget unmounted — notify parent so it can reset its _aiMarking flag.
-          widget.onAiPhaseChanged?.call(_AiPhase.idle);
-          widget.onAiProgressChanged?.call(0.0);
-        }
-        return;
-      }
-      uploaded++;
-      if (mounted) {
-        widget.onAiProgressChanged?.call((uploaded / totalFiles) * 0.5);
-      }
-    }
-
-    // ── Phase 3: Upload student answer sheets (25% → 50%) ────────────────
+      // ── Phase 3: Upload student answer sheets (25% → 50%) ────────────────
     final studentKeys = <int, List<String>>{};
     for (final studentUrl in urlResponse.studentUrls) {
       final adm = studentUrl.adm;
@@ -4700,548 +4587,6 @@ class _ActionSheetRow extends StatelessWidget {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Scheme Upload Sheet — upload/manage marking scheme images
-// ═════════════════════════════════════════════════════════════════════════════
-
-class _SchemeUploadSheet extends StatefulWidget {
-  const _SchemeUploadSheet({
-    required this.schoolId,
-    required this.examId,
-    required this.subject,
-    required this.paperNum,
-    required this.existingPaths,
-    required this.onUpdated,
-    required this.cs,
-  });
-
-  final String schoolId;
-  final String examId;
-  final int subject;
-  final int? paperNum;
-  final List<String> existingPaths;
-  final VoidCallback onUpdated;
-  final ColorScheme cs;
-
-  @override
-  State<_SchemeUploadSheet> createState() => _SchemeUploadSheetState();
-}
-
-class _SchemeUploadSheetState extends State<_SchemeUploadSheet> {
-  late List<String> _paths;
-  bool _picking = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _paths = List.from(widget.existingPaths);
-  }
-
-  Future<void> _savePickedFiles(List<XFile> picked) async {
-    if (picked.isEmpty) return;
-
-    final dir = await _schemeDirectory();
-    await dir.create(recursive: true);
-
-    int nextIndex = _paths.length;
-    final newPaths = <String>[];
-    for (final xFile in picked) {
-      final dest = File('${dir.path}/$nextIndex.jpg');
-      await ImageUtils.compressAndSave(xFile.path, dest.path);
-      newPaths.add(dest.path);
-      nextIndex++;
-    }
-
-    if (!mounted) return;
-    setState(() => _paths = [..._paths, ...newPaths]);
-    widget.onUpdated();
-
-    final accountId = cache.currentUser?.user.id;
-    if (accountId != null) {
-      await ExamsGradesDao(db).logUploadScheme(
-        schoolId: widget.schoolId,
-        examId: widget.examId,
-        subject: widget.subject,
-        paper: widget.paperNum,
-        count: _paths.length,
-        accountId: accountId,
-      );
-    }
-  }
-
-  Future<void> _takePhoto() async {
-    if (_picking) return;
-    setState(() => _picking = true);
-    try {
-      final pictures = await CunningDocumentScanner.getPictures(
-        isGalleryImportAllowed: false,
-      );
-      if (pictures == null || pictures.isEmpty) return;
-      final xFiles = pictures.map((p) => XFile(p)).toList();
-      await _savePickedFiles(xFiles);
-    } catch (e) {
-      // Fallback to regular camera if scanner is unavailable.
-      debugPrint(
-        '[SchemeUpload] scanner unavailable, falling back to camera: $e',
-      );
-      final picker = ImagePicker();
-      final picked = await picker.pickImage(
-        source: ImageSource.camera,
-        maxWidth: 1500,
-        maxHeight: 1500,
-        imageQuality: 80,
-      );
-      if (picked != null) await _savePickedFiles([picked]);
-    } finally {
-      if (mounted) setState(() => _picking = false);
-    }
-  }
-
-  Future<void> _addPhotos() async {
-    if (_picking) return;
-    setState(() => _picking = true);
-    try {
-      final picker = ImagePicker();
-      final picked = await picker.pickMultiImage(
-        maxWidth: 1500,
-        maxHeight: 1500,
-        imageQuality: 85,
-      );
-      await _savePickedFiles(picked);
-    } finally {
-      if (mounted) setState(() => _picking = false);
-    }
-  }
-
-  Future<void> _removePhoto(int index) async {
-    final removedPath = _paths[index];
-    try {
-      final file = File(removedPath);
-      if (await file.exists()) await file.delete();
-    } catch (_) {}
-    setState(() => _paths.removeAt(index));
-
-    // Re-index remaining files on disk to fill the gap.
-    final dir = await _schemeDirectory();
-    for (int i = index; i < _paths.length; i++) {
-      final oldFile = File(_paths[i]);
-      final newDest = File('${dir.path}/$i.jpg');
-      if (oldFile.path != newDest.path && await oldFile.exists()) {
-        await oldFile.rename(newDest.path);
-        _paths[i] = newDest.path;
-      }
-    }
-
-    final accountId = cache.currentUser?.user.id;
-    if (accountId != null) {
-      final dao = ExamsGradesDao(db);
-      if (_paths.isEmpty) {
-        await dao.logDeleteScheme(
-          schoolId: widget.schoolId,
-          examId: widget.examId,
-          subject: widget.subject,
-          paper: widget.paperNum,
-          accountId: accountId,
-        );
-      } else {
-        await dao.logUploadScheme(
-          schoolId: widget.schoolId,
-          examId: widget.examId,
-          subject: widget.subject,
-          paper: widget.paperNum,
-          count: _paths.length,
-          accountId: accountId,
-        );
-      }
-    }
-    widget.onUpdated();
-  }
-
-  Future<void> _replaceAll() async {
-    if (_picking) return;
-    // Log deleteScheme before clearing so the server purges its copy first.
-    // The subsequent _takePhoto → _savePickedFiles call will log uploadScheme
-    // with the new count if new photos are taken.
-    final accountId = cache.currentUser?.user.id;
-    if (accountId != null) {
-      await ExamsGradesDao(db).logDeleteScheme(
-        schoolId: widget.schoolId,
-        examId: widget.examId,
-        subject: widget.subject,
-        paper: widget.paperNum,
-        accountId: accountId,
-      );
-    }
-    // Delete all existing files
-    for (final path in _paths) {
-      try {
-        final file = File(path);
-        if (await file.exists()) await file.delete();
-      } catch (_) {}
-    }
-    setState(() => _paths = []);
-    widget.onUpdated();
-    // Immediately open camera for new files
-    await _takePhoto();
-  }
-
-  Future<Directory> _schemeDirectory() async {
-    final base = await FileCache.baseDir();
-    final rel = FileCache.schemeDir(
-      widget.schoolId,
-      widget.examId,
-      widget.subject,
-      widget.paperNum ?? 0,
-    );
-    return Directory('$base/$rel');
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = widget.cs;
-    final isDark = cs.brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF1A2435) : cs.surface;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-      ),
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Handle
-          Center(
-            child: Container(
-              margin: const EdgeInsets.only(top: 12, bottom: 16),
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: cs.onSurfaceVariant.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          // Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Text(
-              'Marking Scheme',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: cs.onSurface,
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Text(
-              'Upload photos of the rubric or answer key for this paper.',
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          // Image grid
-          Flexible(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 360),
-              child: _paths.isEmpty
-                  ? _buildEmptyPlaceholder(cs)
-                  : Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: GridView.builder(
-                        shrinkWrap: true,
-                        itemCount: _paths.length,
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 3,
-                              crossAxisSpacing: 8,
-                              mainAxisSpacing: 8,
-                              childAspectRatio: 1 / 1.3,
-                            ),
-                        itemBuilder: (context, i) => _buildThumbnail(cs, i),
-                      ),
-                    ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Action buttons row: Camera + Gallery (+ Replace All)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                // Camera button (primary)
-                Expanded(
-                  flex: 3,
-                  child: GestureDetector(
-                    onTap: _picking ? null : _takePhoto,
-                    child: Container(
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: cs.primary.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: cs.primary.withValues(alpha: 0.25),
-                        ),
-                      ),
-                      alignment: Alignment.center,
-                      child: _picking
-                          ? SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 1.5,
-                                color: cs.primary,
-                              ),
-                            )
-                          : Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.camera_alt_outlined,
-                                  size: 16,
-                                  color: cs.primary.withValues(alpha: 0.8),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Camera',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w400,
-                                    color: cs.primary.withValues(alpha: 0.8),
-                                  ),
-                                ),
-                              ],
-                            ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Gallery button (secondary)
-                Expanded(
-                  flex: 2,
-                  child: GestureDetector(
-                    onTap: _picking ? null : _addPhotos,
-                    child: CustomPaint(
-                      painter: _DashedBorderPainter(
-                        color: cs.outline.withValues(alpha: 0.35),
-                        radius: 4,
-                      ),
-                      child: Container(
-                        height: 44,
-                        alignment: Alignment.center,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.photo_library_outlined,
-                              size: 16,
-                              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Gallery',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w400,
-                                color: cs.onSurfaceVariant.withValues(
-                                  alpha: 0.6,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                // Replace All button (only when scheme already has pages)
-                if (_paths.isNotEmpty) ...[
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: _picking ? null : _replaceAll,
-                    child: CustomPaint(
-                      painter: _DashedBorderPainter(
-                        color: cs.error.withValues(alpha: 0.3),
-                        radius: 4,
-                      ),
-                      child: Container(
-                        height: 44,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        alignment: Alignment.center,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.refresh_rounded,
-                              size: 15,
-                              color: cs.error.withValues(alpha: 0.6),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Replace',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w400,
-                                color: cs.error.withValues(alpha: 0.6),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Done button
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: GestureDetector(
-              onTap: () => Navigator.of(context).pop(),
-              child: Container(
-                height: 44,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: cs.primary,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Text(
-                  'Done',
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyPlaceholder(ColorScheme cs) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: CustomPaint(
-        painter: _DashedBorderPainter(
-          color: cs.outline.withValues(alpha: 0.25),
-          radius: 4,
-        ),
-        child: Container(
-          height: 120,
-          alignment: Alignment.center,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.description_outlined,
-                size: 28,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.25),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'No scheme pages yet',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.35),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildThumbnail(ColorScheme cs, int index) {
-    final path = _paths[index];
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        GestureDetector(
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) =>
-                  _ImagePreviewPage(paths: _paths, initialIndex: index),
-            ),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: Image.file(
-              File(path),
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-                child: Icon(
-                  Icons.broken_image_outlined,
-                  size: 24,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-                ),
-              ),
-            ),
-          ),
-        ),
-        // Delete button
-        Positioned(
-          top: 4,
-          right: 4,
-          child: GestureDetector(
-            onTap: () => _removePhoto(index),
-            child: Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.55),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.close, size: 12, color: Colors.white),
-            ),
-          ),
-        ),
-        // Page number label
-        Positioned(
-          bottom: 4,
-          left: 4,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.45),
-              borderRadius: BorderRadius.circular(3),
-            ),
-            child: Text(
-              '${index + 1}',
-              style: const TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w500,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-// Answer Submission Sheet
-// ═════════════════════════════════════════════════════════════════════════════
-
 class _AnswerSubmissionSheet extends StatefulWidget {
   const _AnswerSubmissionSheet({
     required this.student,

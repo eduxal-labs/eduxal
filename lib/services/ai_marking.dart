@@ -40,7 +40,6 @@ class AiMarkingService {
   /// Request presigned PUT URLs for marking scheme and student answer sheets.
   Future<Result<UploadUrlsResponse, GrpcError>> requestUploadUrls({
     required String paperId,
-    required int schemeCount,
     required Map<int, int> studentSheetCounts,
     required String accessToken,
   }) async {
@@ -48,12 +47,11 @@ class AiMarkingService {
     // is never throttled or dropped by Flutter's debugPrint buffer.
     print(
       '[AI] requestUploadUrls → paperId=$paperId '
-      'schemeCount=$schemeCount students=${studentSheetCounts.length}',
+      'students=${studentSheetCounts.length}',
     );
     try {
       final req = UploadUrlsRequest()
-        ..paperId = paperId
-        ..schemeCount = schemeCount;
+        ..paperId = paperId;
       for (final entry in studentSheetCounts.entries) {
         req.students.add(
           StudentSheetCount()
@@ -68,7 +66,7 @@ class AiMarkingService {
       final client = AiMarkingClient(_mainChannel);
       final resp = await client.requestUploadUrls(req, options: options);
       print(
-        '[AI] requestUploadUrls ← OK (scheme=${resp.schemeUrls.length} students=${resp.studentUrls.length})',
+        '[AI] requestUploadUrls ← OK (students=${resp.studentUrls.length})',
       );
       return Ok(resp);
     } on GrpcError catch (e) {
@@ -135,20 +133,19 @@ class AiMarkingService {
   Future<Result<MarkPaperResponse, GrpcError>> markPaper({
     required String paperId,
     required int totalMarks,
-    required List<String> schemeKeys,
     required Map<int, List<String>> studentKeys,
     required String accessToken,
   }) async {
     print(
       '[AI] markPaper → paperId=$paperId totalMarks=$totalMarks '
-      'schemeKeys=${schemeKeys.length} studentKeys=${studentKeys.length}',
+      'studentKeys=${studentKeys.length}',
     );
 
     // Build the proto request once — reused across attempts.
     final req = MarkPaperRequest()
       ..paperId = paperId
       ..totalMarks = totalMarks;
-    req.schemeKeys.addAll(schemeKeys);
+
     for (final entry in studentKeys.entries) {
       req.students.add(
         StudentMarkTarget()
