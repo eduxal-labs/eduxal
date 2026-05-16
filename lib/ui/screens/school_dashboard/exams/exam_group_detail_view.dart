@@ -620,8 +620,17 @@ class _ExamGroupDetailViewState extends State<ExamGroupDetailView>
     );
     if (!confirmed || !mounted) return;
     final accountId = cache.currentUser?.user.id;
-    if (accountId == null) return;
+    final accessToken = cache.currentUser?.accessToken;
+    if (accountId == null || accessToken == null) return;
     for (final id in widget.group.examIds) {
+      final res = await paperService.deleteEvent(
+        eventId: id,
+        accessToken: accessToken,
+      );
+      if (res case Err(:final error)) {
+        if (mounted) showPermissionDenied(context, error.message);
+        return;
+      }
       await _dao.deleteExam(examId: id, accountId: accountId);
     }
     widget.onDeleted();

@@ -1331,17 +1331,6 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
-      final payload = sync_pb.DeleteExamPayload(id: examId);
-
-      await into(logs).insert(
-        LogsCompanion(
-          account: Value(accountId),
-          action: Value(SyncAction.deleteExam),
-          resource: Value('Exam $examId'),
-          payload: Value(payload.writeToBuffer()),
-          created: Value(now),
-        ),
-      );
       // Manually cascade-delete child rows. SQLite's ON DELETE CASCADE
       // requires PRAGMA foreign_keys = ON on the active connection, which
       // is not guaranteed inside Drift transactions. Explicit deletes are
@@ -1575,18 +1564,6 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         grade: grade,
       );
       if (paperNum != null) payload.paper = paperNum;
-      if (stream != null) payload.stream = stream;
-
-      final paperLabel = paperNum != null ? 'Paper $paperNum' : 'Paper';
-      await into(logs).insert(
-        LogsCompanion(
-          account: Value(accountId),
-          action: Value(SyncAction.deletePaper),
-          resource: Value(paperLabel),
-          payload: Value(payload.writeToBuffer()),
-          created: Value(now),
-        ),
-      );
       await (delete(papers)..where(
             (p) =>
                 p.school.equals(schoolId) &

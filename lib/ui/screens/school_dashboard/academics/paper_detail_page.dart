@@ -1404,9 +1404,20 @@ class _PaperHeaderState extends State<_PaperHeader>
     );
     if (!confirmed) return;
     final accountId = cache.currentUser?.user.id;
-    if (accountId == null) return;
+    final accessToken = cache.currentUser?.accessToken;
+    if (accountId == null || accessToken == null) return;
     setState(() => _busy = true);
     try {
+      if (widget.serverPaperId != null) {
+        final res = await paperService.deletePaper(
+          paperId: widget.serverPaperId!,
+          accessToken: accessToken,
+        );
+        if (res case Err(:final error)) {
+          if (mounted) showPermissionDenied(context, error.message);
+          return;
+        }
+      }
       await widget.dao.deletePaper(
         schoolId: widget.schoolId,
         examId: widget.exam.exam.id,
