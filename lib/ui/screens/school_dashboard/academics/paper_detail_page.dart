@@ -2846,11 +2846,20 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
       studentSheetCounts[s.adm] = (_submissions[s.adm] ?? []).length;
     }
 
-    final _paperId =
+    // Resolve the server UUID paper ID; fall back to composite format only
+    // when the paper hasn't been synced to the server yet.
+    final resolvedPaperId =
+        await widget.dao.getServerPaperId(
+          schoolId: widget.schoolId,
+          examId: widget.exam.id,
+          subject: widget.paper.subject,
+          grade: widget.paper.grade,
+          stream: widget.paper.stream,
+        ) ??
         '${widget.schoolId}|${widget.exam.id}|${widget.paper.subject}|'
         '${widget.paper.paper ?? ''}|${widget.paper.grade}|${widget.paper.stream ?? ''}';
     final urlResult = await client.aiMarking.requestUploadUrls(
-      paperId: _paperId,
+      paperId: resolvedPaperId,
       studentSheetCounts: studentSheetCounts,
       accessToken: token,
     );
@@ -2937,10 +2946,10 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
     widget.onAiProgressChanged?.call(0.5);
 
     print(
-      '[SPREADSHEET] calling markPaper — paperId=$_paperId totalMarks=$_maxScore',
+      '[SPREADSHEET] calling markPaper — paperId=$resolvedPaperId totalMarks=$_maxScore',
     );
     final markResult = await client.aiMarking.markPaper(
-      paperId: _paperId,
+      paperId: resolvedPaperId,
       totalMarks: _maxScore,
       studentKeys: studentKeys,
       accessToken: token,
@@ -3831,11 +3840,20 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
       studentSheetCounts[s.adm] = (_submissions[s.adm] ?? []).length;
     }
 
-    final _paperId =
+    // Resolve the server UUID paper ID; fall back to composite format only
+    // when the paper hasn't been synced to the server yet.
+    final resolvedPaperId =
+        await widget.dao.getServerPaperId(
+          schoolId: widget.schoolId,
+          examId: widget.exam.id,
+          subject: widget.paper.subject,
+          grade: widget.paper.grade,
+          stream: widget.paper.stream,
+        ) ??
         '${widget.schoolId}|${widget.exam.id}|${widget.paper.subject}|'
         '${widget.paper.paper ?? ''}|${widget.paper.grade}|${widget.paper.stream ?? ''}';
     final urlResult = await client.aiMarking.requestUploadUrls(
-      paperId: _paperId,
+      paperId: resolvedPaperId,
       studentSheetCounts: studentSheetCounts,
       accessToken: token,
     );
@@ -3922,10 +3940,10 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
     widget.onAiProgressChanged?.call(0.5);
 
     print(
-      '[GRADELIST] calling markPaper — paperId=$_paperId totalMarks=$_maxScore',
+      '[GRADELIST] calling markPaper — paperId=$resolvedPaperId totalMarks=$_maxScore',
     );
     final markResult = await client.aiMarking.markPaper(
-      paperId: _paperId,
+      paperId: resolvedPaperId,
       totalMarks: _maxScore,
       studentKeys: studentKeys,
       accessToken: token,
