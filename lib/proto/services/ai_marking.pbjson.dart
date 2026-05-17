@@ -20,7 +20,6 @@ const UploadUrlsRequest$json = {
   '1': 'UploadUrlsRequest',
   '2': [
     {'1': 'paper_id', '3': 1, '4': 1, '5': 9, '10': 'paperId'},
-    {'1': 'scheme_count', '3': 2, '4': 1, '5': 5, '10': 'schemeCount'},
     {
       '1': 'students',
       '3': 3,
@@ -34,9 +33,8 @@ const UploadUrlsRequest$json = {
 
 /// Descriptor for `UploadUrlsRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List uploadUrlsRequestDescriptor = $convert.base64Decode(
-    'ChFVcGxvYWRVcmxzUmVxdWVzdBIZCghwYXBlcl9pZBgBIAEoCVIHcGFwZXJJZBIhCgxzY2hlbW'
-    'VfY291bnQYAiABKAVSC3NjaGVtZUNvdW50EjkKCHN0dWRlbnRzGAMgAygLMh0uYWlfbWFya2lu'
-    'Zy5TdHVkZW50U2hlZXRDb3VudFIIc3R1ZGVudHM=');
+    'ChFVcGxvYWRVcmxzUmVxdWVzdBIZCghwYXBlcl9pZBgBIAEoCVIHcGFwZXJJZBI5CghzdHVkZW'
+    '50cxgDIAMoCzIdLmFpX21hcmtpbmcuU3R1ZGVudFNoZWV0Q291bnRSCHN0dWRlbnRz');
 
 @$core.Deprecated('Use studentSheetCountDescriptor instead')
 const StudentSheetCount$json = {
@@ -57,14 +55,6 @@ const UploadUrlsResponse$json = {
   '1': 'UploadUrlsResponse',
   '2': [
     {
-      '1': 'scheme_urls',
-      '3': 1,
-      '4': 3,
-      '5': 11,
-      '6': '.ai_marking.SignedUrl',
-      '10': 'schemeUrls'
-    },
-    {
       '1': 'student_urls',
       '3': 2,
       '4': 3,
@@ -77,9 +67,8 @@ const UploadUrlsResponse$json = {
 
 /// Descriptor for `UploadUrlsResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List uploadUrlsResponseDescriptor = $convert.base64Decode(
-    'ChJVcGxvYWRVcmxzUmVzcG9uc2USNgoLc2NoZW1lX3VybHMYASADKAsyFS5haV9tYXJraW5nLl'
-    'NpZ25lZFVybFIKc2NoZW1lVXJscxJACgxzdHVkZW50X3VybHMYAiADKAsyHS5haV9tYXJraW5n'
-    'LlN0dWRlbnRTaWduZWRVcmxzUgtzdHVkZW50VXJscw==');
+    'ChJVcGxvYWRVcmxzUmVzcG9uc2USQAoMc3R1ZGVudF91cmxzGAIgAygLMh0uYWlfbWFya2luZy'
+    '5TdHVkZW50U2lnbmVkVXJsc1ILc3R1ZGVudFVybHM=');
 
 @$core.Deprecated('Use signedUrlDescriptor instead')
 const SignedUrl$json = {
@@ -121,7 +110,6 @@ const MarkPaperRequest$json = {
   '2': [
     {'1': 'paper_id', '3': 1, '4': 1, '5': 9, '10': 'paperId'},
     {'1': 'total_marks', '3': 2, '4': 1, '5': 5, '10': 'totalMarks'},
-    {'1': 'scheme_keys', '3': 3, '4': 3, '5': 9, '10': 'schemeKeys'},
     {
       '1': 'students',
       '3': 4,
@@ -136,9 +124,8 @@ const MarkPaperRequest$json = {
 /// Descriptor for `MarkPaperRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List markPaperRequestDescriptor = $convert.base64Decode(
     'ChBNYXJrUGFwZXJSZXF1ZXN0EhkKCHBhcGVyX2lkGAEgASgJUgdwYXBlcklkEh8KC3RvdGFsX2'
-    '1hcmtzGAIgASgFUgp0b3RhbE1hcmtzEh8KC3NjaGVtZV9rZXlzGAMgAygJUgpzY2hlbWVLZXlz'
-    'EjkKCHN0dWRlbnRzGAQgAygLMh0uYWlfbWFya2luZy5TdHVkZW50TWFya1RhcmdldFIIc3R1ZG'
-    'VudHM=');
+    '1hcmtzGAIgASgFUgp0b3RhbE1hcmtzEjkKCHN0dWRlbnRzGAQgAygLMh0uYWlfbWFya2luZy5T'
+    'dHVkZW50TWFya1RhcmdldFIIc3R1ZGVudHM=');
 
 @$core.Deprecated('Use studentMarkTargetDescriptor instead')
 const StudentMarkTarget$json = {

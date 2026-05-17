@@ -2241,9 +2241,16 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       map.putIfAbsent(row.student, () => []).add(row.path);
     }
     
-    // Dedup and sort
+    // Dedup and sort numerically by page index (not lexicographically,
+    // so 2.jpg comes before 10.jpg).
     for (final key in map.keys) {
-      map[key] = map[key]!.toSet().toList()..sort();
+      final paths = map[key]!.toSet().toList();
+      paths.sort((a, b) {
+        final aPage = _extractPageIndex(a);
+        final bPage = _extractPageIndex(b);
+        return aPage.compareTo(bPage);
+      });
+      map[key] = paths;
     }
     return map;
   }
@@ -2652,4 +2659,14 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       }
     });
   }
+}
+
+/// Extracts the numeric page index from an answer-sheet file path.
+/// Paths end with `/{page}.jpg` (e.g. `.../students/101/0.jpg` → 0).
+int _extractPageIndex(String path) {
+  final lastSlash = path.lastIndexOf('/');
+  final filename = lastSlash >= 0 ? path.substring(lastSlash + 1) : path;
+  final lastDot = filename.lastIndexOf('.');
+  final base = lastDot >= 0 ? filename.substring(0, lastDot) : filename;
+  return int.tryParse(base) ?? 0;
 }

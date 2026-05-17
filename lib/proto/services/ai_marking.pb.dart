@@ -19,12 +19,10 @@ export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 class UploadUrlsRequest extends $pb.GeneratedMessage {
   factory UploadUrlsRequest({
     $core.String? paperId,
-    $core.int? schemeCount,
     $core.Iterable<StudentSheetCount>? students,
   }) {
     final result = create();
     if (paperId != null) result.paperId = paperId;
-    if (schemeCount != null) result.schemeCount = schemeCount;
     if (students != null) result.students.addAll(students);
     return result;
   }
@@ -43,7 +41,6 @@ class UploadUrlsRequest extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'ai_marking'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'paperId')
-    ..aI(2, _omitFieldNames ? '' : 'schemeCount')
     ..pPM<StudentSheetCount>(3, _omitFieldNames ? '' : 'students',
         subBuilder: StudentSheetCount.create)
     ..hasRequiredFields = false;
@@ -76,17 +73,8 @@ class UploadUrlsRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearPaperId() => $_clearField(1);
 
-  @$pb.TagNumber(2)
-  $core.int get schemeCount => $_getIZ(1);
-  @$pb.TagNumber(2)
-  set schemeCount($core.int value) => $_setSignedInt32(1, value);
-  @$pb.TagNumber(2)
-  $core.bool hasSchemeCount() => $_has(1);
-  @$pb.TagNumber(2)
-  void clearSchemeCount() => $_clearField(2);
-
   @$pb.TagNumber(3)
-  $pb.PbList<StudentSheetCount> get students => $_getList(2);
+  $pb.PbList<StudentSheetCount> get students => $_getList(1);
 }
 
 class StudentSheetCount extends $pb.GeneratedMessage {
@@ -157,11 +145,9 @@ class StudentSheetCount extends $pb.GeneratedMessage {
 
 class UploadUrlsResponse extends $pb.GeneratedMessage {
   factory UploadUrlsResponse({
-    $core.Iterable<SignedUrl>? schemeUrls,
     $core.Iterable<StudentSignedUrls>? studentUrls,
   }) {
     final result = create();
-    if (schemeUrls != null) result.schemeUrls.addAll(schemeUrls);
     if (studentUrls != null) result.studentUrls.addAll(studentUrls);
     return result;
   }
@@ -179,8 +165,6 @@ class UploadUrlsResponse extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'UploadUrlsResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'ai_marking'),
       createEmptyInstance: create)
-    ..pPM<SignedUrl>(1, _omitFieldNames ? '' : 'schemeUrls',
-        subBuilder: SignedUrl.create)
     ..pPM<StudentSignedUrls>(2, _omitFieldNames ? '' : 'studentUrls',
         subBuilder: StudentSignedUrls.create)
     ..hasRequiredFields = false;
@@ -204,11 +188,8 @@ class UploadUrlsResponse extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<UploadUrlsResponse>(create);
   static UploadUrlsResponse? _defaultInstance;
 
-  @$pb.TagNumber(1)
-  $pb.PbList<SignedUrl> get schemeUrls => $_getList(0);
-
   @$pb.TagNumber(2)
-  $pb.PbList<StudentSignedUrls> get studentUrls => $_getList(1);
+  $pb.PbList<StudentSignedUrls> get studentUrls => $_getList(0);
 }
 
 class SignedUrl extends $pb.GeneratedMessage {
@@ -341,13 +322,11 @@ class MarkPaperRequest extends $pb.GeneratedMessage {
   factory MarkPaperRequest({
     $core.String? paperId,
     $core.int? totalMarks,
-    $core.Iterable<$core.String>? schemeKeys,
     $core.Iterable<StudentMarkTarget>? students,
   }) {
     final result = create();
     if (paperId != null) result.paperId = paperId;
     if (totalMarks != null) result.totalMarks = totalMarks;
-    if (schemeKeys != null) result.schemeKeys.addAll(schemeKeys);
     if (students != null) result.students.addAll(students);
     return result;
   }
@@ -367,7 +346,6 @@ class MarkPaperRequest extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'paperId')
     ..aI(2, _omitFieldNames ? '' : 'totalMarks')
-    ..pPS(3, _omitFieldNames ? '' : 'schemeKeys')
     ..pPM<StudentMarkTarget>(4, _omitFieldNames ? '' : 'students',
         subBuilder: StudentMarkTarget.create)
     ..hasRequiredFields = false;
@@ -409,11 +387,8 @@ class MarkPaperRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearTotalMarks() => $_clearField(2);
 
-  @$pb.TagNumber(3)
-  $pb.PbList<$core.String> get schemeKeys => $_getList(2);
-
   @$pb.TagNumber(4)
-  $pb.PbList<StudentMarkTarget> get students => $_getList(3);
+  $pb.PbList<StudentMarkTarget> get students => $_getList(2);
 }
 
 class StudentMarkTarget extends $pb.GeneratedMessage {

@@ -2895,6 +2895,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
             '[AI-UPLOAD-SPREAD] WARNING: file missing at ${paths[i]} — '
             'skipping upload. Submissions may be stale.',
           );
+          continue;
         }
         final ok = await client.aiMarking.uploadFile(
           studentUrl.urls[i].url,
@@ -3879,6 +3880,7 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
             '[AI-UPLOAD-LIST] WARNING: file missing at ${paths[i]} — '
             'skipping upload. Submissions may be stale.',
           );
+          continue;
         }
         final ok = await client.aiMarking.uploadFile(
           studentUrl.urls[i].url,
