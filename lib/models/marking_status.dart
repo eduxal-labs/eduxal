@@ -8,25 +8,30 @@ class MarkingStatus {
   final int progressCurrent;
   final int progressTotal;
   final String? errorMessage;
+  final String progressText;
   const MarkingStatus({
     required this.phase,
     required this.progressCurrent,
     required this.progressTotal,
     this.errorMessage,
+    this.progressText = '',
   });
 
   double get progressFraction =>
       progressTotal > 0 ? progressCurrent / progressTotal : 0.0;
 
-  String get displayLabel => switch (phase) {
-    MarkingPhase.queued => 'Queued',
-    MarkingPhase.downloading => 'Downloading images...',
-    MarkingPhase.marking =>
-      'Marking ($progressCurrent/$progressTotal students)...',
-    MarkingPhase.computing => 'Computing results...',
-    MarkingPhase.complete => 'Complete',
-    MarkingPhase.failed => 'Failed: ${errorMessage ?? "Unknown error"}',
-  };
+  String get displayLabel {
+    if (progressText.isNotEmpty) return progressText;
+    return switch (phase) {
+      MarkingPhase.queued => 'Queued',
+      MarkingPhase.downloading => 'Downloading images...',
+      MarkingPhase.marking =>
+        'Marking ($progressCurrent/$progressTotal students)...',
+      MarkingPhase.computing => 'Computing results...',
+      MarkingPhase.complete => 'Complete',
+      MarkingPhase.failed => 'Failed: ${errorMessage ?? "Unknown error"}',
+    };
+  }
 
   factory MarkingStatus.fromProto(pb.MarkingStatusResponse proto) {
     int current = 0;

@@ -73,14 +73,13 @@ class _MarkingStatusIndicatorState extends State<MarkingStatusIndicator>
         final phase = phaseFromInt(row.phase);
         final total = row.totalStudents;
         final marked = row.markedStudents;
-        final fraction = total > 0 ? marked / total : 0.0;
-
         setState(() {
           _status = MarkingStatus(
             phase: phase,
             progressCurrent: marked,
             progressTotal: total,
             errorMessage: row.error,
+            progressText: row.progress,
           );
         });
 
