@@ -10637,6 +10637,7 @@ enum InsertData_Row {
   paperV2,
   paperSchedule,
   taughtTopic,
+  markingQueue,
   notSet
 }
 
@@ -10681,6 +10682,7 @@ class InsertData extends $pb.GeneratedMessage {
     PaperV2Insert? paperV2,
     PaperScheduleInsert? paperSchedule,
     TaughtTopicInsert? taughtTopic,
+    MarkingQueueInsert? markingQueue,
   }) {
     final result = create();
     if (user != null) result.user = user;
@@ -10722,6 +10724,7 @@ class InsertData extends $pb.GeneratedMessage {
     if (paperV2 != null) result.paperV2 = paperV2;
     if (paperSchedule != null) result.paperSchedule = paperSchedule;
     if (taughtTopic != null) result.taughtTopic = taughtTopic;
+    if (markingQueue != null) result.markingQueue = markingQueue;
     return result;
   }
 
@@ -10774,6 +10777,7 @@ class InsertData extends $pb.GeneratedMessage {
     39: InsertData_Row.paperV2,
     40: InsertData_Row.paperSchedule,
     41: InsertData_Row.taughtTopic,
+    42: InsertData_Row.markingQueue,
     0: InsertData_Row.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -10819,7 +10823,8 @@ class InsertData extends $pb.GeneratedMessage {
       38,
       39,
       40,
-      41
+      41,
+      42
     ])
     ..aOM<UserInsert>(1, _omitFieldNames ? '' : 'user',
         subBuilder: UserInsert.create)
@@ -10899,6 +10904,8 @@ class InsertData extends $pb.GeneratedMessage {
         subBuilder: PaperScheduleInsert.create)
     ..aOM<TaughtTopicInsert>(41, _omitFieldNames ? '' : 'taughtTopic',
         subBuilder: TaughtTopicInsert.create)
+    ..aOM<MarkingQueueInsert>(42, _omitFieldNames ? '' : 'markingQueue',
+        subBuilder: MarkingQueueInsert.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -10958,6 +10965,7 @@ class InsertData extends $pb.GeneratedMessage {
   @$pb.TagNumber(39)
   @$pb.TagNumber(40)
   @$pb.TagNumber(41)
+  @$pb.TagNumber(42)
   InsertData_Row whichRow() => _InsertData_RowByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(1)
   @$pb.TagNumber(2)
@@ -10998,6 +11006,7 @@ class InsertData extends $pb.GeneratedMessage {
   @$pb.TagNumber(39)
   @$pb.TagNumber(40)
   @$pb.TagNumber(41)
+  @$pb.TagNumber(42)
   void clearRow() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -11429,6 +11438,17 @@ class InsertData extends $pb.GeneratedMessage {
   void clearTaughtTopic() => $_clearField(41);
   @$pb.TagNumber(41)
   TaughtTopicInsert ensureTaughtTopic() => $_ensure(38);
+
+  @$pb.TagNumber(42)
+  MarkingQueueInsert get markingQueue => $_getN(39);
+  @$pb.TagNumber(42)
+  set markingQueue(MarkingQueueInsert value) => $_setField(42, value);
+  @$pb.TagNumber(42)
+  $core.bool hasMarkingQueue() => $_has(39);
+  @$pb.TagNumber(42)
+  void clearMarkingQueue() => $_clearField(42);
+  @$pb.TagNumber(42)
+  MarkingQueueInsert ensureMarkingQueue() => $_ensure(39);
 }
 
 class UserInsert extends $pb.GeneratedMessage {
@@ -16571,6 +16591,158 @@ class TaughtTopicInsert extends $pb.GeneratedMessage {
   $core.bool hasTaughtDate() => $_has(7);
   @$pb.TagNumber(8)
   void clearTaughtDate() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $fixnum.Int64 get updated => $_getI64(8);
+  @$pb.TagNumber(9)
+  set updated($fixnum.Int64 value) => $_setInt64(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasUpdated() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearUpdated() => $_clearField(9);
+}
+
+/// table 42 — marking_queue
+/// phase: 0=queued, 1=downloading, 2=caching, 3=marking, 4=aggregating, 5=complete, 6=failed
+class MarkingQueueInsert extends $pb.GeneratedMessage {
+  factory MarkingQueueInsert({
+    $core.int? id,
+    $core.String? paper,
+    $core.int? phase,
+    $core.String? progress,
+    $core.String? error,
+    $core.int? totalStudents,
+    $core.int? markedStudents,
+    $fixnum.Int64? created,
+    $fixnum.Int64? updated,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (paper != null) result.paper = paper;
+    if (phase != null) result.phase = phase;
+    if (progress != null) result.progress = progress;
+    if (error != null) result.error = error;
+    if (totalStudents != null) result.totalStudents = totalStudents;
+    if (markedStudents != null) result.markedStudents = markedStudents;
+    if (created != null) result.created = created;
+    if (updated != null) result.updated = updated;
+    return result;
+  }
+
+  MarkingQueueInsert._();
+
+  factory MarkingQueueInsert.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory MarkingQueueInsert.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'MarkingQueueInsert',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'sync'),
+      createEmptyInstance: create)
+    ..aI(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'paper')
+    ..aI(3, _omitFieldNames ? '' : 'phase')
+    ..aOS(4, _omitFieldNames ? '' : 'progress')
+    ..aOS(5, _omitFieldNames ? '' : 'error')
+    ..aI(6, _omitFieldNames ? '' : 'totalStudents')
+    ..aI(7, _omitFieldNames ? '' : 'markedStudents')
+    ..aInt64(8, _omitFieldNames ? '' : 'created')
+    ..aInt64(9, _omitFieldNames ? '' : 'updated')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MarkingQueueInsert clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MarkingQueueInsert copyWith(void Function(MarkingQueueInsert) updates) =>
+      super.copyWith((message) => updates(message as MarkingQueueInsert))
+          as MarkingQueueInsert;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MarkingQueueInsert create() => MarkingQueueInsert._();
+  @$core.override
+  MarkingQueueInsert createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static MarkingQueueInsert getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<MarkingQueueInsert>(create);
+  static MarkingQueueInsert? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get id => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set id($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get paper => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set paper($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPaper() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPaper() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get phase => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set phase($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasPhase() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearPhase() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get progress => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set progress($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasProgress() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearProgress() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get error => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set error($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasError() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearError() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get totalStudents => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set totalStudents($core.int value) => $_setSignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasTotalStudents() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearTotalStudents() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.int get markedStudents => $_getIZ(6);
+  @$pb.TagNumber(7)
+  set markedStudents($core.int value) => $_setSignedInt32(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasMarkedStudents() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearMarkedStudents() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $fixnum.Int64 get created => $_getI64(7);
+  @$pb.TagNumber(8)
+  set created($fixnum.Int64 value) => $_setInt64(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasCreated() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearCreated() => $_clearField(8);
 
   @$pb.TagNumber(9)
   $fixnum.Int64 get updated => $_getI64(8);

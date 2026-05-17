@@ -994,16 +994,11 @@ class _PaperDetailPageState extends State<PaperDetailPage>
 
                       // ── Marking Status Indicator ────────────────────────
                       if (_aiPhase != _AiPhase.idle ||
-                          currentPaper.status == PaperStatus.done)
+                          widget.serverPaperId != null)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: MarkingStatusIndicator(
-                            school: widget.schoolId,
-                            exam: _exam.id,
-                            subject: _paper.subject,
-                            paper: _paper.paper,
-                            grade: _paper.grade,
-                            stream: _paper.stream,
+                            resolvedPaperId: _paperId,
                             onComplete: () {
                               if (mounted) {
                                 setState(() {
@@ -2928,13 +2923,13 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
         keys.add(studentUrl.urls[i].key);
         uploaded++;
         if (mounted) {
-          widget.onAiProgressChanged?.call((uploaded / totalFiles) * 0.5);
+          widget.onAiProgressChanged?.call((uploaded / totalFiles) * 0.8);
         }
       }
       studentKeys[adm] = keys;
     }
 
-    // ── Phase 4: Trigger AI marking (50% → 60%) ──────────────────────────
+    // ── Phase 4: Trigger AI marking (80% → 100%) ──────────────────────────
     if (!mounted) {
       // Widget unmounted — notify parent before bailing out.
       widget.onAiPhaseChanged?.call(_AiPhase.idle);
@@ -2943,7 +2938,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
     }
     setState(() => _aiPhase = _AiPhase.assigning);
     widget.onAiPhaseChanged?.call(_AiPhase.assigning);
-    widget.onAiProgressChanged?.call(0.5);
+    widget.onAiProgressChanged?.call(0.8);
 
     print(
       '[SPREADSHEET] calling markPaper — paperId=$resolvedPaperId totalMarks=$_maxScore',
@@ -2980,66 +2975,14 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
         }
     }
 
-    widget.onAiProgressChanged?.call(0.6);
-
-    // ── Phase 5: Wait for grades via direct DB query (60% → 100%) ────────
-    final expectedAdms = studentsWithSubmissions.map((s) => s.adm).toSet();
-    final expectedCount = expectedAdms.length;
-    final gradedAdms = <int>[];
-
-    for (int tick = 0; tick < 180; tick++) {
-      // 180 × 1s = 180s timeout (more responsive than 60 × 2s)
-      await Future.delayed(const Duration(seconds: 1));
-      if (!mounted) return;
-
-      // Query the DB directly — don't rely on widget.gradeMap which may be stale
-      final currentGrades = await widget.dao.getGradesForPaper(
-        schoolId: widget.schoolId,
-        examId: widget.exam.id,
-        subject: widget.paper.subject,
-        paper: widget.paper.paper,
-      );
-      final gradedSet = {for (final g in currentGrades) g.student.adm};
-
-      int received = 0;
-      for (final adm in expectedAdms) {
-        if (gradedSet.contains(adm)) {
-          if (!gradedAdms.contains(adm)) gradedAdms.add(adm);
-          received++;
-        }
-      }
-
-      final progress = 0.6 + (received / expectedCount) * 0.4;
-      setState(() => _aiMarkedCount = received);
-      widget.onAiMarkedCountChanged?.call(received);
-      widget.onAiProgressChanged?.call(progress);
-
-      print(
-        '[AI-POLL-SPREAD] tick=$tick received=$received/$expectedCount progress=${(progress * 100).toInt()}%',
-      );
-
-      if (received >= expectedCount) break;
-    }
-
-    // Check if we timed out
-    if (gradedAdms.length < expectedCount && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'AI marking partially complete — ${gradedAdms.length}/$expectedCount graded',
-          ),
-        ),
-      );
-    }
-
-    // Wave flash
-    _triggerWaveFlash(gradedAdms);
+    // ── Phase 5: Marking queued — 100% complete ───────────────────────────
+    widget.onAiProgressChanged?.call(1.0);
 
     if (!mounted) return;
     setState(() => _aiPhase = _AiPhase.done);
     widget.onAiPhaseChanged?.call(_AiPhase.done);
 
-    // Phase 6 — show completion label for 2 seconds then reset
+    // Show completion for 2 seconds then reset button.
     await Future.delayed(const Duration(milliseconds: 2000));
     if (!mounted) return;
     setState(() {
@@ -3922,13 +3865,13 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
         keys.add(studentUrl.urls[i].key);
         uploaded++;
         if (mounted) {
-          widget.onAiProgressChanged?.call((uploaded / totalFiles) * 0.5);
+          widget.onAiProgressChanged?.call((uploaded / totalFiles) * 0.8);
         }
       }
       studentKeys[adm] = keys;
     }
 
-    // ── Phase 4: Trigger AI marking (50% → 60%) ──────────────────────────
+    // ── Phase 4: Trigger AI marking (80% → 100%) ──────────────────────────
     if (!mounted) {
       // Widget unmounted — notify parent before bailing out.
       widget.onAiPhaseChanged?.call(_AiPhase.idle);
@@ -3937,7 +3880,7 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
     }
     setState(() => _aiPhase = _AiPhase.assigning);
     widget.onAiPhaseChanged?.call(_AiPhase.assigning);
-    widget.onAiProgressChanged?.call(0.5);
+    widget.onAiProgressChanged?.call(0.8);
 
     print(
       '[GRADELIST] calling markPaper — paperId=$resolvedPaperId totalMarks=$_maxScore',
@@ -3974,66 +3917,14 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
         }
     }
 
-    widget.onAiProgressChanged?.call(0.6);
-
-    // ── Phase 5: Wait for grades via direct DB query (60% → 100%) ────────
-    final expectedAdms = studentsWithSubmissions.map((s) => s.adm).toSet();
-    final expectedCount = expectedAdms.length;
-    final gradedAdms = <int>[];
-
-    for (int tick = 0; tick < 180; tick++) {
-      // 180 × 1s = 180s timeout (more responsive than 60 × 2s)
-      await Future.delayed(const Duration(seconds: 1));
-      if (!mounted) return;
-
-      // Query the DB directly — don't rely on widget.gradeMap which may be stale
-      final currentGrades = await widget.dao.getGradesForPaper(
-        schoolId: widget.schoolId,
-        examId: widget.exam.id,
-        subject: widget.paper.subject,
-        paper: widget.paper.paper,
-      );
-      final gradedSet = {for (final g in currentGrades) g.student.adm};
-
-      int received = 0;
-      for (final adm in expectedAdms) {
-        if (gradedSet.contains(adm)) {
-          if (!gradedAdms.contains(adm)) gradedAdms.add(adm);
-          received++;
-        }
-      }
-
-      final progress = 0.6 + (received / expectedCount) * 0.4;
-      setState(() => _aiMarkedCount = received);
-      widget.onAiMarkedCountChanged?.call(received);
-      widget.onAiProgressChanged?.call(progress);
-
-      print(
-        '[AI-POLL-LIST] tick=$tick received=$received/$expectedCount progress=${(progress * 100).toInt()}%',
-      );
-
-      if (received >= expectedCount) break;
-    }
-
-    // Check if we timed out
-    if (gradedAdms.length < expectedCount && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'AI marking partially complete — ${gradedAdms.length}/$expectedCount graded',
-          ),
-        ),
-      );
-    }
-
-    // Wave flash
-    _triggerWaveFlash(gradedAdms);
+    // ── Phase 5: Marking queued — 100% complete ───────────────────────────
+    widget.onAiProgressChanged?.call(1.0);
 
     if (!mounted) return;
     setState(() => _aiPhase = _AiPhase.done);
     widget.onAiPhaseChanged?.call(_AiPhase.done);
 
-    // Phase 6 — show completion label for 2 seconds then reset
+    // Show completion for 2 seconds then reset button.
     await Future.delayed(const Duration(milliseconds: 2000));
     if (!mounted) return;
     setState(() {

@@ -39,7 +39,7 @@ class MarkingStatus {
       }
     }
     return MarkingStatus(
-      phase: _phaseFromInt(proto.phase),
+      phase: phaseFromInt(proto.phase),
       progressCurrent: current,
       progressTotal: total,
       errorMessage: proto.hasError() ? proto.error : null,
@@ -50,7 +50,7 @@ class MarkingStatus {
 /// Maps the raw proto integer phase value to [MarkingPhase].
 /// Proto3 enum values: 0=QUEUED 1=DOWNLOADING 2=CACHING 3=MARKING
 ///                     4=AGGREGATING 5=COMPLETE 6=FAILED
-MarkingPhase _phaseFromInt(int phase) => switch (phase) {
+MarkingPhase phaseFromInt(int phase) => switch (phase) {
   0 => MarkingPhase.queued,
   1 => MarkingPhase.downloading,
   2 => MarkingPhase.downloading, // CACHING → downloading (same UI state)

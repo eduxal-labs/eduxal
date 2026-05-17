@@ -2,15 +2,16 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../client.dart';
+import '../../database/database.dart';
 import '../../models/marking_status.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MarkingStatusIndicator
 //
-// Compact widget that polls the server for AI marking job status and renders
-// phase-appropriate feedback: pulsing dot (queued), progress bar (downloading/
-// marking/computing), green check (complete), or error + retry (failed).
+// Compact widget that watches the synced marking_queue table for real-time
+// marking progress and renders phase-appropriate feedback: pulsing dot
+// (queued), progress bar (downloading/marking/computing), green check
+// (complete), or error + retry (failed).
 //
 // Max height: 36px. Horizontal layout.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -18,24 +19,15 @@ import '../../models/marking_status.dart';
 class MarkingStatusIndicator extends StatefulWidget {
   const MarkingStatusIndicator({
     super.key,
-    required this.school,
-    required this.exam,
-    required this.subject,
-    this.paper,
-    required this.grade,
-    this.stream,
+    required this.resolvedPaperId,
     this.onComplete,
     this.onRetry,
   });
 
-  final String school;
-  final String exam;
-  final int subject;
-  final int? paper;
-  final int grade;
-  final int? stream;
+  /// Server UUID paper ID used as the row key in the marking_queue table.
+  final String resolvedPaperId;
 
-  /// Called when the server reports marking is complete.
+  /// Called when marking reaches phase 5 (complete).
   final VoidCallback? onComplete;
 
   /// Called when the user taps "Retry" after a failure.
@@ -47,7 +39,7 @@ class MarkingStatusIndicator extends StatefulWidget {
 
 class _MarkingStatusIndicatorState extends State<MarkingStatusIndicator>
     with SingleTickerProviderStateMixin {
-  StreamSubscription<MarkingStatus>? _sub;
+  StreamSubscription<MarkingQueueData>? _sub;
   MarkingStatus? _status;
   bool _hidden = false;
 
@@ -71,38 +63,46 @@ class _MarkingStatusIndicatorState extends State<MarkingStatusIndicator>
 
   void _subscribe() {
     _sub?.cancel();
-    final token = accessToken;
-    if (token.isEmpty) return;
 
-    final paperId =
-        '${widget.school}|${widget.exam}|${widget.subject}|'
-        '${widget.paper ?? ''}|${widget.grade}|${widget.stream ?? ''}';
-    _sub = questionBankService
-        .watchMarkingStatus(paperId: paperId, accessToken: token)
-        .listen(
-          (status) {
-            if (!mounted) return;
-            setState(() => _status = status);
-            if (status.phase == MarkingPhase.complete) {
-              widget.onComplete?.call();
-              // Auto-hide after 3 seconds.
-              Future.delayed(const Duration(seconds: 3), () {
-                if (mounted) setState(() => _hidden = true);
-              });
-            }
-          },
-          onError: (Object e) {
-            if (!mounted) return;
-            setState(
-              () => _status = MarkingStatus(
-                phase: MarkingPhase.failed,
-                progressCurrent: 0,
-                progressTotal: 0,
-                errorMessage: e.toString(),
-              ),
-            );
-          },
+    final query = db.select(db.markingQueue)
+      ..where((t) => t.paper.equals(widget.resolvedPaperId));
+
+    _sub = query.watchSingle().listen(
+      (row) {
+        if (!mounted) return;
+        final phase = phaseFromInt(row.phase);
+        final total = row.totalStudents;
+        final marked = row.markedStudents;
+        final fraction = total > 0 ? marked / total : 0.0;
+
+        setState(() {
+          _status = MarkingStatus(
+            phase: phase,
+            progressCurrent: marked,
+            progressTotal: total,
+            errorMessage: row.error,
+          );
+        });
+
+        if (phase == MarkingPhase.complete) {
+          widget.onComplete?.call();
+          Future.delayed(const Duration(seconds: 3), () {
+            if (mounted) setState(() => _hidden = true);
+          });
+        }
+      },
+      onError: (Object e) {
+        if (!mounted) return;
+        setState(
+          () => _status = MarkingStatus(
+            phase: MarkingPhase.failed,
+            progressCurrent: 0,
+            progressTotal: 0,
+            errorMessage: e.toString(),
+          ),
         );
+      },
+    );
   }
 
   @override

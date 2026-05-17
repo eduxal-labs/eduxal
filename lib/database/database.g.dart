@@ -19497,6 +19497,572 @@ class AnswerPagesCompanion extends UpdateCompanion<AnswerPage> {
   }
 }
 
+class $MarkingQueueTable extends MarkingQueue
+    with TableInfo<$MarkingQueueTable, MarkingQueueData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MarkingQueueTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _paperMeta = const VerificationMeta('paper');
+  @override
+  late final GeneratedColumn<String> paper = GeneratedColumn<String>(
+    'paper',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _phaseMeta = const VerificationMeta('phase');
+  @override
+  late final GeneratedColumn<int> phase = GeneratedColumn<int>(
+    'phase',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _progressMeta = const VerificationMeta(
+    'progress',
+  );
+  @override
+  late final GeneratedColumn<String> progress = GeneratedColumn<String>(
+    'progress',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _errorMeta = const VerificationMeta('error');
+  @override
+  late final GeneratedColumn<String> error = GeneratedColumn<String>(
+    'error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _totalStudentsMeta = const VerificationMeta(
+    'totalStudents',
+  );
+  @override
+  late final GeneratedColumn<int> totalStudents = GeneratedColumn<int>(
+    'total_students',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _markedStudentsMeta = const VerificationMeta(
+    'markedStudents',
+  );
+  @override
+  late final GeneratedColumn<int> markedStudents = GeneratedColumn<int>(
+    'marked_students',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdMeta = const VerificationMeta(
+    'created',
+  );
+  @override
+  late final GeneratedColumn<BigInt> created = GeneratedColumn<BigInt>(
+    'created',
+    aliasedName,
+    false,
+    type: DriftSqlType.bigInt,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedMeta = const VerificationMeta(
+    'updated',
+  );
+  @override
+  late final GeneratedColumn<BigInt> updated = GeneratedColumn<BigInt>(
+    'updated',
+    aliasedName,
+    false,
+    type: DriftSqlType.bigInt,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    paper,
+    phase,
+    progress,
+    error,
+    totalStudents,
+    markedStudents,
+    created,
+    updated,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'marking_queue';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MarkingQueueData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('paper')) {
+      context.handle(
+        _paperMeta,
+        paper.isAcceptableOrUnknown(data['paper']!, _paperMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_paperMeta);
+    }
+    if (data.containsKey('phase')) {
+      context.handle(
+        _phaseMeta,
+        phase.isAcceptableOrUnknown(data['phase']!, _phaseMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_phaseMeta);
+    }
+    if (data.containsKey('progress')) {
+      context.handle(
+        _progressMeta,
+        progress.isAcceptableOrUnknown(data['progress']!, _progressMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_progressMeta);
+    }
+    if (data.containsKey('error')) {
+      context.handle(
+        _errorMeta,
+        error.isAcceptableOrUnknown(data['error']!, _errorMeta),
+      );
+    }
+    if (data.containsKey('total_students')) {
+      context.handle(
+        _totalStudentsMeta,
+        totalStudents.isAcceptableOrUnknown(
+          data['total_students']!,
+          _totalStudentsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_totalStudentsMeta);
+    }
+    if (data.containsKey('marked_students')) {
+      context.handle(
+        _markedStudentsMeta,
+        markedStudents.isAcceptableOrUnknown(
+          data['marked_students']!,
+          _markedStudentsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_markedStudentsMeta);
+    }
+    if (data.containsKey('created')) {
+      context.handle(
+        _createdMeta,
+        created.isAcceptableOrUnknown(data['created']!, _createdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdMeta);
+    }
+    if (data.containsKey('updated')) {
+      context.handle(
+        _updatedMeta,
+        updated.isAcceptableOrUnknown(data['updated']!, _updatedMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {paper};
+  @override
+  MarkingQueueData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MarkingQueueData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      paper: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}paper'],
+      )!,
+      phase: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}phase'],
+      )!,
+      progress: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}progress'],
+      )!,
+      error: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error'],
+      ),
+      totalStudents: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}total_students'],
+      )!,
+      markedStudents: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}marked_students'],
+      )!,
+      created: attachedDatabase.typeMapping.read(
+        DriftSqlType.bigInt,
+        data['${effectivePrefix}created'],
+      )!,
+      updated: attachedDatabase.typeMapping.read(
+        DriftSqlType.bigInt,
+        data['${effectivePrefix}updated'],
+      )!,
+    );
+  }
+
+  @override
+  $MarkingQueueTable createAlias(String alias) {
+    return $MarkingQueueTable(attachedDatabase, alias);
+  }
+}
+
+class MarkingQueueData extends DataClass
+    implements Insertable<MarkingQueueData> {
+  final int id;
+  final String paper;
+  final int phase;
+  final String progress;
+  final String? error;
+  final int totalStudents;
+  final int markedStudents;
+  final BigInt created;
+  final BigInt updated;
+  const MarkingQueueData({
+    required this.id,
+    required this.paper,
+    required this.phase,
+    required this.progress,
+    this.error,
+    required this.totalStudents,
+    required this.markedStudents,
+    required this.created,
+    required this.updated,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['paper'] = Variable<String>(paper);
+    map['phase'] = Variable<int>(phase);
+    map['progress'] = Variable<String>(progress);
+    if (!nullToAbsent || error != null) {
+      map['error'] = Variable<String>(error);
+    }
+    map['total_students'] = Variable<int>(totalStudents);
+    map['marked_students'] = Variable<int>(markedStudents);
+    map['created'] = Variable<BigInt>(created);
+    map['updated'] = Variable<BigInt>(updated);
+    return map;
+  }
+
+  MarkingQueueCompanion toCompanion(bool nullToAbsent) {
+    return MarkingQueueCompanion(
+      id: Value(id),
+      paper: Value(paper),
+      phase: Value(phase),
+      progress: Value(progress),
+      error: error == null && nullToAbsent
+          ? const Value.absent()
+          : Value(error),
+      totalStudents: Value(totalStudents),
+      markedStudents: Value(markedStudents),
+      created: Value(created),
+      updated: Value(updated),
+    );
+  }
+
+  factory MarkingQueueData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MarkingQueueData(
+      id: serializer.fromJson<int>(json['id']),
+      paper: serializer.fromJson<String>(json['paper']),
+      phase: serializer.fromJson<int>(json['phase']),
+      progress: serializer.fromJson<String>(json['progress']),
+      error: serializer.fromJson<String?>(json['error']),
+      totalStudents: serializer.fromJson<int>(json['totalStudents']),
+      markedStudents: serializer.fromJson<int>(json['markedStudents']),
+      created: serializer.fromJson<BigInt>(json['created']),
+      updated: serializer.fromJson<BigInt>(json['updated']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'paper': serializer.toJson<String>(paper),
+      'phase': serializer.toJson<int>(phase),
+      'progress': serializer.toJson<String>(progress),
+      'error': serializer.toJson<String?>(error),
+      'totalStudents': serializer.toJson<int>(totalStudents),
+      'markedStudents': serializer.toJson<int>(markedStudents),
+      'created': serializer.toJson<BigInt>(created),
+      'updated': serializer.toJson<BigInt>(updated),
+    };
+  }
+
+  MarkingQueueData copyWith({
+    int? id,
+    String? paper,
+    int? phase,
+    String? progress,
+    Value<String?> error = const Value.absent(),
+    int? totalStudents,
+    int? markedStudents,
+    BigInt? created,
+    BigInt? updated,
+  }) => MarkingQueueData(
+    id: id ?? this.id,
+    paper: paper ?? this.paper,
+    phase: phase ?? this.phase,
+    progress: progress ?? this.progress,
+    error: error.present ? error.value : this.error,
+    totalStudents: totalStudents ?? this.totalStudents,
+    markedStudents: markedStudents ?? this.markedStudents,
+    created: created ?? this.created,
+    updated: updated ?? this.updated,
+  );
+  MarkingQueueData copyWithCompanion(MarkingQueueCompanion data) {
+    return MarkingQueueData(
+      id: data.id.present ? data.id.value : this.id,
+      paper: data.paper.present ? data.paper.value : this.paper,
+      phase: data.phase.present ? data.phase.value : this.phase,
+      progress: data.progress.present ? data.progress.value : this.progress,
+      error: data.error.present ? data.error.value : this.error,
+      totalStudents: data.totalStudents.present
+          ? data.totalStudents.value
+          : this.totalStudents,
+      markedStudents: data.markedStudents.present
+          ? data.markedStudents.value
+          : this.markedStudents,
+      created: data.created.present ? data.created.value : this.created,
+      updated: data.updated.present ? data.updated.value : this.updated,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MarkingQueueData(')
+          ..write('id: $id, ')
+          ..write('paper: $paper, ')
+          ..write('phase: $phase, ')
+          ..write('progress: $progress, ')
+          ..write('error: $error, ')
+          ..write('totalStudents: $totalStudents, ')
+          ..write('markedStudents: $markedStudents, ')
+          ..write('created: $created, ')
+          ..write('updated: $updated')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    paper,
+    phase,
+    progress,
+    error,
+    totalStudents,
+    markedStudents,
+    created,
+    updated,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MarkingQueueData &&
+          other.id == this.id &&
+          other.paper == this.paper &&
+          other.phase == this.phase &&
+          other.progress == this.progress &&
+          other.error == this.error &&
+          other.totalStudents == this.totalStudents &&
+          other.markedStudents == this.markedStudents &&
+          other.created == this.created &&
+          other.updated == this.updated);
+}
+
+class MarkingQueueCompanion extends UpdateCompanion<MarkingQueueData> {
+  final Value<int> id;
+  final Value<String> paper;
+  final Value<int> phase;
+  final Value<String> progress;
+  final Value<String?> error;
+  final Value<int> totalStudents;
+  final Value<int> markedStudents;
+  final Value<BigInt> created;
+  final Value<BigInt> updated;
+  final Value<int> rowid;
+  const MarkingQueueCompanion({
+    this.id = const Value.absent(),
+    this.paper = const Value.absent(),
+    this.phase = const Value.absent(),
+    this.progress = const Value.absent(),
+    this.error = const Value.absent(),
+    this.totalStudents = const Value.absent(),
+    this.markedStudents = const Value.absent(),
+    this.created = const Value.absent(),
+    this.updated = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MarkingQueueCompanion.insert({
+    required int id,
+    required String paper,
+    required int phase,
+    required String progress,
+    this.error = const Value.absent(),
+    required int totalStudents,
+    required int markedStudents,
+    required BigInt created,
+    required BigInt updated,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       paper = Value(paper),
+       phase = Value(phase),
+       progress = Value(progress),
+       totalStudents = Value(totalStudents),
+       markedStudents = Value(markedStudents),
+       created = Value(created),
+       updated = Value(updated);
+  static Insertable<MarkingQueueData> custom({
+    Expression<int>? id,
+    Expression<String>? paper,
+    Expression<int>? phase,
+    Expression<String>? progress,
+    Expression<String>? error,
+    Expression<int>? totalStudents,
+    Expression<int>? markedStudents,
+    Expression<BigInt>? created,
+    Expression<BigInt>? updated,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (paper != null) 'paper': paper,
+      if (phase != null) 'phase': phase,
+      if (progress != null) 'progress': progress,
+      if (error != null) 'error': error,
+      if (totalStudents != null) 'total_students': totalStudents,
+      if (markedStudents != null) 'marked_students': markedStudents,
+      if (created != null) 'created': created,
+      if (updated != null) 'updated': updated,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MarkingQueueCompanion copyWith({
+    Value<int>? id,
+    Value<String>? paper,
+    Value<int>? phase,
+    Value<String>? progress,
+    Value<String?>? error,
+    Value<int>? totalStudents,
+    Value<int>? markedStudents,
+    Value<BigInt>? created,
+    Value<BigInt>? updated,
+    Value<int>? rowid,
+  }) {
+    return MarkingQueueCompanion(
+      id: id ?? this.id,
+      paper: paper ?? this.paper,
+      phase: phase ?? this.phase,
+      progress: progress ?? this.progress,
+      error: error ?? this.error,
+      totalStudents: totalStudents ?? this.totalStudents,
+      markedStudents: markedStudents ?? this.markedStudents,
+      created: created ?? this.created,
+      updated: updated ?? this.updated,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (paper.present) {
+      map['paper'] = Variable<String>(paper.value);
+    }
+    if (phase.present) {
+      map['phase'] = Variable<int>(phase.value);
+    }
+    if (progress.present) {
+      map['progress'] = Variable<String>(progress.value);
+    }
+    if (error.present) {
+      map['error'] = Variable<String>(error.value);
+    }
+    if (totalStudents.present) {
+      map['total_students'] = Variable<int>(totalStudents.value);
+    }
+    if (markedStudents.present) {
+      map['marked_students'] = Variable<int>(markedStudents.value);
+    }
+    if (created.present) {
+      map['created'] = Variable<BigInt>(created.value);
+    }
+    if (updated.present) {
+      map['updated'] = Variable<BigInt>(updated.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MarkingQueueCompanion(')
+          ..write('id: $id, ')
+          ..write('paper: $paper, ')
+          ..write('phase: $phase, ')
+          ..write('progress: $progress, ')
+          ..write('error: $error, ')
+          ..write('totalStudents: $totalStudents, ')
+          ..write('markedStudents: $markedStudents, ')
+          ..write('created: $created, ')
+          ..write('updated: $updated, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $ScopesTable extends Scopes with TableInfo<$ScopesTable, Scope> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -22305,6 +22871,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AiUsageTable aiUsage = $AiUsageTable(this);
   late final $SchemePagesTable schemePages = $SchemePagesTable(this);
   late final $AnswerPagesTable answerPages = $AnswerPagesTable(this);
+  late final $MarkingQueueTable markingQueue = $MarkingQueueTable(this);
   late final $ScopesTable scopes = $ScopesTable(this);
   late final $SubscriptionsTable subscriptions = $SubscriptionsTable(this);
   late final $DiscountsTable discounts = $DiscountsTable(this);
@@ -22383,6 +22950,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     aiUsage,
     schemePages,
     answerPages,
+    markingQueue,
     scopes,
     subscriptions,
     discounts,
@@ -42125,6 +42693,286 @@ typedef $$AnswerPagesTableProcessedTableManager =
       AnswerPage,
       PrefetchHooks Function({bool school, bool exam})
     >;
+typedef $$MarkingQueueTableCreateCompanionBuilder =
+    MarkingQueueCompanion Function({
+      required int id,
+      required String paper,
+      required int phase,
+      required String progress,
+      Value<String?> error,
+      required int totalStudents,
+      required int markedStudents,
+      required BigInt created,
+      required BigInt updated,
+      Value<int> rowid,
+    });
+typedef $$MarkingQueueTableUpdateCompanionBuilder =
+    MarkingQueueCompanion Function({
+      Value<int> id,
+      Value<String> paper,
+      Value<int> phase,
+      Value<String> progress,
+      Value<String?> error,
+      Value<int> totalStudents,
+      Value<int> markedStudents,
+      Value<BigInt> created,
+      Value<BigInt> updated,
+      Value<int> rowid,
+    });
+
+class $$MarkingQueueTableFilterComposer
+    extends Composer<_$AppDatabase, $MarkingQueueTable> {
+  $$MarkingQueueTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get paper => $composableBuilder(
+    column: $table.paper,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get phase => $composableBuilder(
+    column: $table.phase,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get progress => $composableBuilder(
+    column: $table.progress,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get error => $composableBuilder(
+    column: $table.error,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get totalStudents => $composableBuilder(
+    column: $table.totalStudents,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get markedStudents => $composableBuilder(
+    column: $table.markedStudents,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<BigInt> get created => $composableBuilder(
+    column: $table.created,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<BigInt> get updated => $composableBuilder(
+    column: $table.updated,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$MarkingQueueTableOrderingComposer
+    extends Composer<_$AppDatabase, $MarkingQueueTable> {
+  $$MarkingQueueTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get paper => $composableBuilder(
+    column: $table.paper,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get phase => $composableBuilder(
+    column: $table.phase,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get progress => $composableBuilder(
+    column: $table.progress,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get error => $composableBuilder(
+    column: $table.error,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get totalStudents => $composableBuilder(
+    column: $table.totalStudents,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get markedStudents => $composableBuilder(
+    column: $table.markedStudents,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<BigInt> get created => $composableBuilder(
+    column: $table.created,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<BigInt> get updated => $composableBuilder(
+    column: $table.updated,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$MarkingQueueTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MarkingQueueTable> {
+  $$MarkingQueueTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get paper =>
+      $composableBuilder(column: $table.paper, builder: (column) => column);
+
+  GeneratedColumn<int> get phase =>
+      $composableBuilder(column: $table.phase, builder: (column) => column);
+
+  GeneratedColumn<String> get progress =>
+      $composableBuilder(column: $table.progress, builder: (column) => column);
+
+  GeneratedColumn<String> get error =>
+      $composableBuilder(column: $table.error, builder: (column) => column);
+
+  GeneratedColumn<int> get totalStudents => $composableBuilder(
+    column: $table.totalStudents,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get markedStudents => $composableBuilder(
+    column: $table.markedStudents,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<BigInt> get created =>
+      $composableBuilder(column: $table.created, builder: (column) => column);
+
+  GeneratedColumn<BigInt> get updated =>
+      $composableBuilder(column: $table.updated, builder: (column) => column);
+}
+
+class $$MarkingQueueTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MarkingQueueTable,
+          MarkingQueueData,
+          $$MarkingQueueTableFilterComposer,
+          $$MarkingQueueTableOrderingComposer,
+          $$MarkingQueueTableAnnotationComposer,
+          $$MarkingQueueTableCreateCompanionBuilder,
+          $$MarkingQueueTableUpdateCompanionBuilder,
+          (
+            MarkingQueueData,
+            BaseReferences<_$AppDatabase, $MarkingQueueTable, MarkingQueueData>,
+          ),
+          MarkingQueueData,
+          PrefetchHooks Function()
+        > {
+  $$MarkingQueueTableTableManager(_$AppDatabase db, $MarkingQueueTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MarkingQueueTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MarkingQueueTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MarkingQueueTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> paper = const Value.absent(),
+                Value<int> phase = const Value.absent(),
+                Value<String> progress = const Value.absent(),
+                Value<String?> error = const Value.absent(),
+                Value<int> totalStudents = const Value.absent(),
+                Value<int> markedStudents = const Value.absent(),
+                Value<BigInt> created = const Value.absent(),
+                Value<BigInt> updated = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MarkingQueueCompanion(
+                id: id,
+                paper: paper,
+                phase: phase,
+                progress: progress,
+                error: error,
+                totalStudents: totalStudents,
+                markedStudents: markedStudents,
+                created: created,
+                updated: updated,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required int id,
+                required String paper,
+                required int phase,
+                required String progress,
+                Value<String?> error = const Value.absent(),
+                required int totalStudents,
+                required int markedStudents,
+                required BigInt created,
+                required BigInt updated,
+                Value<int> rowid = const Value.absent(),
+              }) => MarkingQueueCompanion.insert(
+                id: id,
+                paper: paper,
+                phase: phase,
+                progress: progress,
+                error: error,
+                totalStudents: totalStudents,
+                markedStudents: markedStudents,
+                created: created,
+                updated: updated,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$MarkingQueueTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MarkingQueueTable,
+      MarkingQueueData,
+      $$MarkingQueueTableFilterComposer,
+      $$MarkingQueueTableOrderingComposer,
+      $$MarkingQueueTableAnnotationComposer,
+      $$MarkingQueueTableCreateCompanionBuilder,
+      $$MarkingQueueTableUpdateCompanionBuilder,
+      (
+        MarkingQueueData,
+        BaseReferences<_$AppDatabase, $MarkingQueueTable, MarkingQueueData>,
+      ),
+      MarkingQueueData,
+      PrefetchHooks Function()
+    >;
 typedef $$ScopesTableCreateCompanionBuilder =
     ScopesCompanion Function({
       Value<String?> school,
@@ -44443,6 +45291,8 @@ class $AppDatabaseManager {
       $$SchemePagesTableTableManager(_db, _db.schemePages);
   $$AnswerPagesTableTableManager get answerPages =>
       $$AnswerPagesTableTableManager(_db, _db.answerPages);
+  $$MarkingQueueTableTableManager get markingQueue =>
+      $$MarkingQueueTableTableManager(_db, _db.markingQueue);
   $$ScopesTableTableManager get scopes =>
       $$ScopesTableTableManager(_db, _db.scopes);
   $$SubscriptionsTableTableManager get subscriptions =>

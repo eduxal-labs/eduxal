@@ -91,6 +91,7 @@ class DeltaWriter {
     37: 'answer_pages',
     38: 'events',
     39: 'papers_v2',
+    42: 'marking_queue',
   };
 
   /// Dependency-ordered table indices for flushing.
@@ -131,6 +132,7 @@ class DeltaWriter {
     37,
     38,
     39,
+    42,
     19,
     20,
     21,
@@ -330,6 +332,8 @@ class DeltaWriter {
       case 41:
         // taught_topics — not yet supported locally
         debugPrint('[DeltaWriter] table=41 (taught_topics) — SKIPPED (NYI)');
+      case 42:
+        await _applyMarkingQueue(delta);
       default:
         debugPrint(
           '[DeltaWriter] ⚠ UNKNOWN table=${delta.table}, '
@@ -1950,6 +1954,50 @@ class DeltaWriter {
         instructionsVal,
         row.created.toInt(),
         now.toInt(),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 42: marking_queue  — PK: (paper)  — rowKey: "{paper_uuid}"
+  // ---------------------------------------------------------------------------
+
+  Future<void> _applyMarkingQueue(SyncDelta delta) async {
+    final paperId = delta.rowKey;
+
+    if (delta.operation == 2) {
+      await (_db.delete(_db.markingQueue)
+            ..where((t) => t.paper.equals(paperId)))
+          .go();
+      return;
+    }
+
+    final row = delta.data.markingQueue;
+    final errorVal = row.hasError() ? row.error : null;
+
+    await _db.customStatement(
+      'INSERT INTO marking_queue (id, paper, phase, progress, error,'
+      ' total_students, marked_students, created, updated)'
+      ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      ' ON CONFLICT (paper) DO UPDATE SET'
+      ' id = excluded.id,'
+      ' phase = excluded.phase,'
+      ' progress = excluded.progress,'
+      ' error = excluded.error,'
+      ' total_students = excluded.total_students,'
+      ' marked_students = excluded.marked_students,'
+      ' created = excluded.created,'
+      ' updated = excluded.updated',
+      [
+        row.id,
+        paperId,
+        row.phase,
+        row.progress,
+        errorVal,
+        row.totalStudents,
+        row.markedStudents,
+        row.created.toInt(),
+        row.updated.toInt(),
       ],
     );
   }

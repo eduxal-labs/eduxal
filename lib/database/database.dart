@@ -67,6 +67,7 @@ import 'tables/mastery.dart';
 import 'tables/aiusage.dart';
 import 'tables/scheme_pages.dart';
 import 'tables/answer_pages.dart';
+import 'tables/marking_queue.dart';
 
 import 'tables/scopes.dart';
 import 'tables/subscriptions.dart';
@@ -167,6 +168,7 @@ _LegacyInviteLogRewrite? _rewriteLegacyStandaloneInviteLog({
     AiUsage,
     SchemePages,
     AnswerPages,
+    MarkingQueue,
 
     Scopes,
     Subscriptions,
@@ -258,6 +260,7 @@ class AppDatabase extends _$AppDatabase {
       // ── Sync / client-only ──
       await delete(schemePages).go();
       await delete(answerPages).go();
+      await delete(markingQueue).go();
       await delete(paperSubmissions).go();
       await delete(logs).go();
 
@@ -346,7 +349,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 16;
 
   Future<void> _rewriteLegacyInviteLogs() async {
     final rows = await customSelect(
@@ -736,6 +739,9 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'DROP TRIGGER IF EXISTS grades_enrollment_check_update',
         );
+      }
+      if (from < 16) {
+        await m.createTable(markingQueue);
       }
     },
     onCreate: (m) async {

@@ -3039,6 +3039,15 @@ const InsertData$json = {
       '9': 0,
       '10': 'taughtTopic'
     },
+    {
+      '1': 'marking_queue',
+      '3': 42,
+      '4': 1,
+      '5': 11,
+      '6': '.sync.MarkingQueueInsert',
+      '9': 0,
+      '10': 'markingQueue'
+    },
   ],
   '8': [
     {'1': 'row'},
@@ -3087,7 +3096,8 @@ final $typed_data.Uint8List insertDataDescriptor = $convert.base64Decode(
     'cgASgLMhMuc3luYy5QYXBlclYySW5zZXJ0SABSB3BhcGVyVjISQgoOcGFwZXJfc2NoZWR1bGUY'
     'KCABKAsyGS5zeW5jLlBhcGVyU2NoZWR1bGVJbnNlcnRIAFINcGFwZXJTY2hlZHVsZRI8Cgx0YX'
     'VnaHRfdG9waWMYKSABKAsyFy5zeW5jLlRhdWdodFRvcGljSW5zZXJ0SABSC3RhdWdodFRvcGlj'
-    'QgUKA3Jvd0oECBkQGkoECCMQJA==');
+    'Ej8KDW1hcmtpbmdfcXVldWUYKiABKAsyGC5zeW5jLk1hcmtpbmdRdWV1ZUluc2VydEgAUgxtYX'
+    'JraW5nUXVldWVCBQoDcm93SgQIGRAaSgQIIxAk');
 
 @$core.Deprecated('Use userInsertDescriptor instead')
 const UserInsert$json = {
@@ -4230,3 +4240,31 @@ final $typed_data.Uint8List taughtTopicInsertDescriptor = $convert.base64Decode(
     'dodEJ5EhYKBnN0YXR1cxgHIAEoBVIGc3RhdHVzEiQKC3RhdWdodF9kYXRlGAggASgFSAFSCnRh'
     'dWdodERhdGWIAQESGAoHdXBkYXRlZBgJIAEoA1IHdXBkYXRlZEIJCgdfc3RyZWFtQg4KDF90YX'
     'VnaHRfZGF0ZQ==');
+
+@$core.Deprecated('Use markingQueueInsertDescriptor instead')
+const MarkingQueueInsert$json = {
+  '1': 'MarkingQueueInsert',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 5, '10': 'id'},
+    {'1': 'paper', '3': 2, '4': 1, '5': 9, '10': 'paper'},
+    {'1': 'phase', '3': 3, '4': 1, '5': 5, '10': 'phase'},
+    {'1': 'progress', '3': 4, '4': 1, '5': 9, '10': 'progress'},
+    {'1': 'error', '3': 5, '4': 1, '5': 9, '9': 0, '10': 'error', '17': true},
+    {'1': 'total_students', '3': 6, '4': 1, '5': 5, '10': 'totalStudents'},
+    {'1': 'marked_students', '3': 7, '4': 1, '5': 5, '10': 'markedStudents'},
+    {'1': 'created', '3': 8, '4': 1, '5': 3, '10': 'created'},
+    {'1': 'updated', '3': 9, '4': 1, '5': 3, '10': 'updated'},
+  ],
+  '8': [
+    {'1': '_error'},
+  ],
+};
+
+/// Descriptor for `MarkingQueueInsert`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List markingQueueInsertDescriptor = $convert.base64Decode(
+    'ChJNYXJraW5nUXVldWVJbnNlcnQSDgoCaWQYASABKAVSAmlkEhQKBXBhcGVyGAIgASgJUgVwYX'
+    'BlchIUCgVwaGFzZRgDIAEoBVIFcGhhc2USGgoIcHJvZ3Jlc3MYBCABKAlSCHByb2dyZXNzEhkK'
+    'BWVycm9yGAUgASgJSABSBWVycm9yiAEBEiUKDnRvdGFsX3N0dWRlbnRzGAYgASgFUg10b3RhbF'
+    'N0dWRlbnRzEicKD21hcmtlZF9zdHVkZW50cxgHIAEoBVIObWFya2VkU3R1ZGVudHMSGAoHY3Jl'
+    'YXRlZBgIIAEoA1IHY3JlYXRlZBIYCgd1cGRhdGVkGAkgASgDUgd1cGRhdGVkQggKBl9lcnJvcg'
+    '==');
