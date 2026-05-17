@@ -1968,28 +1968,7 @@ class _PaperHeaderState extends State<_PaperHeader>
                 ),
               ],
               // ── View Marking Scheme (available after AI paper generation) ────
-              if (widget.paperPdf?.markingSchemeUrl != null) ...[
-                const SizedBox(width: 4),
-                Tooltip(
-                  message: 'View Marking Scheme',
-                  child: IconButton(
-                    iconSize: 20,
-                    constraints: const BoxConstraints(
-                      minWidth: 28,
-                      minHeight: 28,
-                    ),
-                    padding: EdgeInsets.zero,
-                    icon: Icon(
-                      Icons.fact_check_outlined,
-                      size: 18,
-                      color: cs.secondary,
-                    ),
-                    onPressed: () =>
-                        _openMarkingScheme(widget.paperPdf!.markingSchemeUrl!),
-                  ),
-                ),
-              ],
-              // ── 3-Phase Button: Generate → Download → Print ────────────
+                // ── 3-Phase Button: Generate → Download → Print ────────────
               if (!isPending && widget.canManage) ...[
                 const SizedBox(width: 4),
                 // Phase 1: Generate PDFs on server
@@ -2891,6 +2870,8 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
     }
     final urlResponse = (urlResult as Ok).value;
       // ── Phase 3: Upload student answer sheets (25% → 50%) ────────────────
+      int uploaded = 0;
+      final totalFiles = studentSheetCounts.values.fold(0, (a, b) => a + b);
     final studentKeys = <int, List<String>>{};
     for (final studentUrl in urlResponse.studentUrls) {
       final adm = studentUrl.adm;
@@ -3873,6 +3854,8 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
     }
     final urlResponse = (urlResult as Ok).value;
       // ── Phase 3: Upload student answer sheets (25% → 50%) ────────────────
+      int uploaded = 0;
+      final totalFiles = studentSheetCounts.values.fold(0, (a, b) => a + b);
     final studentKeys = <int, List<String>>{};
     for (final studentUrl in urlResponse.studentUrls) {
       final adm = studentUrl.adm;
