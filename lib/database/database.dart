@@ -346,7 +346,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   Future<void> _rewriteLegacyInviteLogs() async {
     final rows = await customSelect(
@@ -430,7 +430,8 @@ class AppDatabase extends _$AppDatabase {
           BEFORE INSERT ON grades
           BEGIN
             SELECT RAISE(ABORT, 'student is not enrolled in a class that participates in this exam')
-            WHERE NOT EXISTS (
+            WHERE NEW.exam != ''
+            AND NOT EXISTS (
               SELECT 1 FROM enrollments
               INNER JOIN exams ON exams.id = NEW.exam AND exams.school = NEW.school
               INNER JOIN papers p ON p.exam = exams.id AND p.school = exams.school
@@ -452,7 +453,8 @@ class AppDatabase extends _$AppDatabase {
           BEFORE UPDATE OF exam, student, school ON grades
           BEGIN
             SELECT RAISE(ABORT, 'student is not enrolled in a class that participates in this exam')
-            WHERE NOT EXISTS (
+            WHERE NEW.exam != ''
+            AND NOT EXISTS (
               SELECT 1 FROM enrollments
               INNER JOIN exams ON exams.id = NEW.exam AND exams.school = NEW.school
               INNER JOIN papers p ON p.exam = exams.id AND p.school = exams.school
@@ -727,6 +729,14 @@ class AppDatabase extends _$AppDatabase {
       if (from < 14) {
         await m.createTable(events);
       }
+      if (from < 15) {
+        // Drop enrollment-check triggers so beforeOpen recreates them with
+        // the NEW.exam != '' guard (allows standalone assessments with no event).
+        await customStatement('DROP TRIGGER IF EXISTS grades_enrollment_check');
+        await customStatement(
+          'DROP TRIGGER IF EXISTS grades_enrollment_check_update',
+        );
+      }
     },
     onCreate: (m) async {
       // 1. Create all Drift-managed tables.
@@ -779,12 +789,14 @@ class AppDatabase extends _$AppDatabase {
 
     // Ensures a grade can only be recorded for a student enrolled in a
     // grade/stream that participates in the exam (via papers), INSERT.
+    // Skips check when exam is empty (standalone assessment with no event).
     await customStatement('''
         CREATE TRIGGER IF NOT EXISTS grades_enrollment_check
         BEFORE INSERT ON grades
         BEGIN
           SELECT RAISE(ABORT, 'student is not enrolled in a class that participates in this exam')
-          WHERE NOT EXISTS (
+          WHERE NEW.exam != ''
+          AND NOT EXISTS (
             SELECT 1 FROM enrollments
             INNER JOIN exams ON exams.id = NEW.exam AND exams.school = NEW.school
             INNER JOIN papers p ON p.exam = exams.id AND p.school = exams.school
@@ -824,13 +836,14 @@ class AppDatabase extends _$AppDatabase {
       ''');
 
     // Prevents UPDATE from moving a grade to an exam the student is not
-    // enrolled in (via papers).
+    // enrolled in (via papers). Skips check when exam is empty.
     await customStatement('''
         CREATE TRIGGER IF NOT EXISTS grades_enrollment_check_update
         BEFORE UPDATE OF exam, student, school ON grades
         BEGIN
           SELECT RAISE(ABORT, 'student is not enrolled in a class that participates in this exam')
-          WHERE NOT EXISTS (
+          WHERE NEW.exam != ''
+          AND NOT EXISTS (
             SELECT 1 FROM enrollments
             INNER JOIN exams ON exams.id = NEW.exam AND exams.school = NEW.school
             INNER JOIN papers p ON p.exam = exams.id AND p.school = exams.school
