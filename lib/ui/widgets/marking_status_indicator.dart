@@ -39,7 +39,7 @@ class MarkingStatusIndicator extends StatefulWidget {
 
 class _MarkingStatusIndicatorState extends State<MarkingStatusIndicator>
     with SingleTickerProviderStateMixin {
-  StreamSubscription<MarkingQueueData>? _sub;
+  StreamSubscription<List<MarkingQueueData>>? _sub;
   MarkingStatus? _status;
   bool _hidden = false;
 
@@ -67,9 +67,15 @@ class _MarkingStatusIndicatorState extends State<MarkingStatusIndicator>
     final query = db.select(db.markingQueue)
       ..where((t) => t.paper.equals(widget.resolvedPaperId));
 
-    _sub = query.watchSingle().listen(
-      (row) {
+    _sub = query.watch().listen(
+      (rows) {
         if (!mounted) return;
+        if (rows.isEmpty) {
+          // No server row yet — the local placeholder may arrive shortly.
+          setState(() => _status = null);
+          return;
+        }
+        final row = rows.first;
         final phase = phaseFromInt(row.phase);
         final total = row.totalStudents;
         final marked = row.markedStudents;
