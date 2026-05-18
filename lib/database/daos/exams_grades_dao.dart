@@ -2300,6 +2300,26 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         .go();
   }
 
+  /// Deletes all local [AnswerPages] rows for a specific student + paper.
+  ///
+  /// Used by the answer sheet save flow to immediately reflect user deletions
+  /// before the server sync round-trip completes. Without this,
+  /// [getSubmissionsForPaper] (which merges answer_pages + paperSubmissions)
+  /// would still return server-stale rows and resurrect deleted images.
+  Future<void> deleteAnswerPagesLocally({
+    required String schoolId,
+    required String examId,
+    required int student,
+    required int subject,
+    required int? paperNum,
+  }) async {
+    await customStatement(
+      'DELETE FROM answer_pages WHERE school = ? AND exam = ? AND student = ?'
+      ' AND subject = ? AND (paper IS NULL OR paper = ?)',
+      [schoolId, examId, student, subject, paperNum ?? 0],
+    );
+  }
+
   /// Deletes all submission paths for a specific student + paper combination.
   Future<void> clearSubmissionsForStudent({
     required String schoolId,

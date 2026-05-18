@@ -4420,6 +4420,10 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
   late List<String> _paths;
   bool _picking = false;
   bool _removing = false;
+  bool _saving = false;
+
+  /// True when the user has added or removed photos since opening the sheet.
+  bool _hasChanges = false;
 
   /// Tracks upload status per file index. Absent = never queued.
   final Map<int, _UploadStatus> _uploadStatus = {};
@@ -4476,7 +4480,10 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
       _uploadStatus[baseIndex + i] = _UploadStatus.pending;
     }
 
-    setState(() => _paths = [..._paths, ...newPaths]);
+    setState(() {
+      _paths = [..._paths, ...newPaths];
+      _hasChanges = true;
+    });
     print(
       '[ANSWER-SHEET] _savePickedFiles done — '
       'total paths(${_paths.length}): $_paths',
@@ -4512,6 +4519,15 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
         paper: widget.paperNum,
         count: _paths.length,
         accountId: accountId,
+      );
+      // Delete local answer_pages so getSubmissionsForPaper won't return
+      // stale rows before the server sync completes.
+      await widget.dao.deleteAnswerPagesLocally(
+        schoolId: widget.schoolId,
+        examId: widget.examId,
+        student: widget.student.adm,
+        subject: widget.subject,
+        paperNum: widget.paperNum,
       );
     }
   }
@@ -4571,6 +4587,36 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
     // but not yet uploaded to the server.
   }
 
+  /// Persists changes and closes the sheet.
+  ///
+  /// Deletes local [AnswerPages] rows for this student so that
+  /// [getSubmissionsForPaper] (which merges answer_pages + paperSubmissions)
+  /// won't resurrect deleted images before the server sync round-trip
+  /// completes. The sync actions already logged during add/remove will
+  /// reconcile the server state.
+  Future<void> _saveAndClose() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      if (_hasChanges) {
+        // Wipe local answer_pages rows for this student so they don't
+        // reappear when the sheet is re-opened before sync completes.
+        // logUploadAnswerSheet / logDeleteAnswerSheet already called
+        // during add/remove and they schedule a sync push internally.
+        await widget.dao.deleteAnswerPagesLocally(
+          schoolId: widget.schoolId,
+          examId: widget.examId,
+          student: widget.student.adm,
+          subject: widget.subject,
+          paperNum: widget.paperNum,
+        );
+      }
+      if (mounted) Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   Future<void> _removePhoto(int index) async {
     if (_removing) return;
     _removing = true;
@@ -4590,6 +4636,7 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
       }
       setState(() {
         _paths.removeAt(index);
+        _hasChanges = true;
         // Rebuild the status map with shifted indices.
         final updated = <int, _UploadStatus>{};
         for (final entry in _uploadStatus.entries) {
@@ -4665,7 +4712,9 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
       );
       widget.onUpdated(_paths);
 
-      // 4. Log sync action.
+      // 4. Log sync action and immediately delete local answer_pages rows
+      //    so getSubmissionsForPaper (which merges answer_pages + paperSubmissions)
+      //    won't resurrect deleted images before the server sync completes.
       final accountId = cache.currentUser?.user.id;
       if (accountId != null) {
         if (_paths.isEmpty) {
@@ -4688,6 +4737,15 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
             accountId: accountId,
           );
         }
+        // Immediately delete local answer_pages so the UI reflects the change
+        // before the server sync round-trip completes.
+        await widget.dao.deleteAnswerPagesLocally(
+          schoolId: widget.schoolId,
+          examId: widget.examId,
+          student: widget.student.adm,
+          subject: widget.subject,
+          paperNum: widget.paperNum,
+        );
       }
     } finally {
       if (mounted) setState(() => _removing = false);
@@ -4869,26 +4927,39 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
             ),
           ),
           const SizedBox(height: 16),
-          // Done button
+          // Save / Done button
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: GestureDetector(
-              onTap: () => Navigator.of(context).pop(),
+              onTap: (_saving || _picking || _removing)
+                  ? null
+                  : () => _saveAndClose(),
               child: Container(
                 height: 44,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: cs.primary,
+                  color: _saving
+                      ? cs.primary.withValues(alpha: 0.5)
+                      : cs.primary,
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text(
-                  'Done',
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white,
-                  ),
-                ),
+                child: _saving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        _hasChanges ? 'Save' : 'Done',
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                        ),
+                      ),
               ),
             ),
           ),
