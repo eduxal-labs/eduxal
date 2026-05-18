@@ -2320,6 +2320,23 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
+  /// Writes a local placeholder row into [MarkingQueue] so the
+  /// [MarkingStatusIndicator] shows "Queued for marking..." immediately
+  /// after [markPaper] succeeds, before the server sync delivers the
+  /// authoritative row.  The server row will overwrite this placeholder
+  /// (ON CONFLICT by paper PK) when the delta arrives.
+  Future<void> insertMarkingQueuePlaceholder({
+    required String paperId,
+  }) async {
+    final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+    await customStatement(
+      'INSERT OR IGNORE INTO marking_queue (id, paper, phase, progress,'
+      ' total_students, marked_students, created, updated)'
+      ' VALUES (0, ?, 0, \'Queued for marking...\', 0, 0, ?, ?)',
+      [paperId, now.toInt(), now.toInt()],
+    );
+  }
+
   /// Deletes all submission paths for a specific student + paper combination.
   Future<void> clearSubmissionsForStudent({
     required String schoolId,

@@ -2975,21 +2975,19 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
         }
     }
 
-    // ── Phase 5: Marking queued — 100% complete ───────────────────────────
+    // ── Phase 5: Marking queued — hand off to MarkingStatusIndicator ───────
+    // Don't reset _aiPhase to done/idle here — the MarkingStatusIndicator
+    // watches the marking_queue table via sync and shows real-time progress.
+    // Its onComplete callback will reset _aiMarking and _aiPhase when the
+    // server finishes marking (phase=5). Resetting here would hide the
+    // indicator before the sync delivers the marking_queue row.
+
+    // Write a local placeholder so the indicator shows "Queued for marking..."
+    // immediately, before the server sync delivers the authoritative row.
+    widget.dao.insertMarkingQueuePlaceholder(paperId: resolvedPaperId);
+
     widget.onAiProgressChanged?.call(1.0);
-
-    if (!mounted) return;
-    setState(() => _aiPhase = _AiPhase.done);
-    widget.onAiPhaseChanged?.call(_AiPhase.done);
-
-    // Show completion for 2 seconds then reset button.
-    await Future.delayed(const Duration(milliseconds: 2000));
-    if (!mounted) return;
-    setState(() {
-      _aiMarking = false;
-      _aiPhase = _AiPhase.idle;
-      _dirtySubmissions.clear();
-    });
+    _dirtySubmissions.clear();
     widget.onDirtySubmissionsChanged?.call(Set.from(_dirtySubmissions));
     _progressCtrl.reset();
   }
@@ -3917,21 +3915,19 @@ class _GradeListState extends State<_GradeList> with TickerProviderStateMixin {
         }
     }
 
-    // ── Phase 5: Marking queued — 100% complete ───────────────────────────
+    // ── Phase 5: Marking queued — hand off to MarkingStatusIndicator ───────
+    // Don't reset _aiPhase to done/idle here — the MarkingStatusIndicator
+    // watches the marking_queue table via sync and shows real-time progress.
+    // Its onComplete callback will reset _aiMarking and _aiPhase when the
+    // server finishes marking (phase=5). Resetting here would hide the
+    // indicator before the sync delivers the marking_queue row.
+
+    // Write a local placeholder so the indicator shows "Queued for marking..."
+    // immediately, before the server sync delivers the authoritative row.
+    widget.dao.insertMarkingQueuePlaceholder(paperId: resolvedPaperId);
+
     widget.onAiProgressChanged?.call(1.0);
-
-    if (!mounted) return;
-    setState(() => _aiPhase = _AiPhase.done);
-    widget.onAiPhaseChanged?.call(_AiPhase.done);
-
-    // Show completion for 2 seconds then reset button.
-    await Future.delayed(const Duration(milliseconds: 2000));
-    if (!mounted) return;
-    setState(() {
-      _aiMarking = false;
-      _aiPhase = _AiPhase.idle;
-      _dirtySubmissions.clear();
-    });
+    _dirtySubmissions.clear();
     widget.onDirtySubmissionsChanged?.call(Set.from(_dirtySubmissions));
     _progressCtrl.reset();
   }
