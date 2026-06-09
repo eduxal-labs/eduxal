@@ -78,7 +78,7 @@ class _SubjectBulkImportSheetState extends State<SubjectBulkImportSheet> {
   Future<void> _pickFile() async {
     setState(() => _pickingFile = true);
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
       );
@@ -201,7 +201,8 @@ class _SubjectBulkImportSheetState extends State<SubjectBulkImportSheet> {
         // A question with a stimulus passage/poem/narrative is valid even without body.
         final rawBody = q['body'] ?? q['text'];
         final bool hasStimulus = _hasQuestionStimulusContent(q['stimulus']);
-        if ((rawBody == null || rawBody is! String || rawBody.trim().isEmpty) && !hasStimulus) {
+        if ((rawBody == null || rawBody is! String || rawBody.trim().isEmpty) &&
+            !hasStimulus) {
           errors.add('$prefix: missing or empty "body" (or "text").');
         }
 
@@ -236,7 +237,9 @@ class _SubjectBulkImportSheetState extends State<SubjectBulkImportSheet> {
             if (rawCriterion == null ||
                 rawCriterion is! String ||
                 rawCriterion.trim().isEmpty) {
-              errors.add('$prefix, rubric[${j + 1}]: missing "criterion" (or "criteria").');
+              errors.add(
+                '$prefix, rubric[${j + 1}]: missing "criterion" (or "criteria").',
+              );
             }
             final dynamic rMarks = r['marks'];
             if (rMarks == null) {
@@ -333,7 +336,8 @@ class _SubjectBulkImportSheetState extends State<SubjectBulkImportSheet> {
           widget.onImported?.call();
         }
       case Err<BulkImportResult, GrpcError>(:final error):
-        final exactMessage = (error.message != null && error.message!.trim().isNotEmpty)
+        final exactMessage =
+            (error.message != null && error.message!.trim().isNotEmpty)
             ? error.message!.trim()
             : 'gRPC error ${error.code}';
         developer.log(
@@ -363,116 +367,116 @@ class _SubjectBulkImportSheetState extends State<SubjectBulkImportSheet> {
     return EduSheet(
       title: 'Bulk Import',
       child: ListView(
-          controller: _scrollCtrl,
-          padding: EdgeInsets.fromLTRB(
-            16,
-            0,
-            16,
-            16 + MediaQuery.viewInsetsOf(context).bottom,
+        controller: _scrollCtrl,
+        padding: EdgeInsets.fromLTRB(
+          16,
+          0,
+          16,
+          16 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        shrinkWrap: true,
+        children: [
+          // ── Subtitle ─────────────────────────────────────────────
+          Text(
+            '${widget.subjectName} · $_curriculumLabel',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w300,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
           ),
-          shrinkWrap: true,
-          children: [
-            // ── Subtitle ─────────────────────────────────────────────
-            Text(
-              '${widget.subjectName} · $_curriculumLabel',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w300,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-              ),
-            ),
-            const SizedBox(height: 12),
+          const SizedBox(height: 12),
 
-            // ── Description ──────────────────────────────────────────
-            Text(
-              'Paste or upload a JSON object containing "subject", '
-              '"curriculum", "grade", "topic", and a "questions" array. '
-              'The server will resolve or create the topic automatically.',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-              ),
+          // ── Description ──────────────────────────────────────────
+          Text(
+            'Paste or upload a JSON object containing "subject", '
+            '"curriculum", "grade", "topic", and a "questions" array. '
+            'The server will resolve or create the topic automatically.',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.7),
             ),
-            const SizedBox(height: 12),
+          ),
+          const SizedBox(height: 12),
 
-            // ── File picker button ───────────────────────────────────
-            _FilePickerChip(
-              onTap: _pickingFile ? null : _pickFile,
-              cs: cs,
-              isDark: isDark,
-              loading: _pickingFile,
-            ),
-            const SizedBox(height: 8),
+          // ── File picker button ───────────────────────────────────
+          _FilePickerChip(
+            onTap: _pickingFile ? null : _pickFile,
+            cs: cs,
+            isDark: isDark,
+            loading: _pickingFile,
+          ),
+          const SizedBox(height: 8),
 
-            // ── JSON text field ──────────────────────────────────────
-            _JsonTextField(
-              controller: _jsonCtrl,
-              cs: cs,
-              isDark: isDark,
-              onChanged: (_) {
-                // Reset validation on edit.
-                if (_validated || _validationErrors.isNotEmpty) {
-                  setState(() {
-                    _validated = false;
-                    _validQuestionCount = 0;
-                    _validationErrors = [];
-                    _importResult = null;
-                    _importError = null;
-                  });
-                }
-              },
-            ),
-            const SizedBox(height: 12),
+          // ── JSON text field ──────────────────────────────────────
+          _JsonTextField(
+            controller: _jsonCtrl,
+            cs: cs,
+            isDark: isDark,
+            onChanged: (_) {
+              // Reset validation on edit.
+              if (_validated || _validationErrors.isNotEmpty) {
+                setState(() {
+                  _validated = false;
+                  _validQuestionCount = 0;
+                  _validationErrors = [];
+                  _importResult = null;
+                  _importError = null;
+                });
+              }
+            },
+          ),
+          const SizedBox(height: 12),
 
-            // ── Action buttons row ───────────────────────────────────
-            Row(
-              children: [
-                // Validate button
-                _ActionChip(
-                  label: 'Validate',
-                  icon: Icons.check_circle_outline_rounded,
-                  onTap: _jsonCtrl.text.trim().isNotEmpty ? _validate : null,
-                  cs: cs,
-                  isDark: isDark,
-                ),
-                const SizedBox(width: 8),
-                // Import button
-                _ActionChip(
-                  label: 'Import',
-                  icon: Icons.upload_rounded,
-                  onTap: _validated && !_importing ? _import : null,
-                  cs: cs,
-                  isDark: isDark,
-                  isPrimary: true,
-                  loading: _importing,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // ── Validation results ───────────────────────────────────
-            if (_validationErrors.isNotEmpty || _validated)
-              _ValidationResults(
-                validated: _validated,
-                questionCount: _validQuestionCount,
-                errors: _validationErrors,
+          // ── Action buttons row ───────────────────────────────────
+          Row(
+            children: [
+              // Validate button
+              _ActionChip(
+                label: 'Validate',
+                icon: Icons.check_circle_outline_rounded,
+                onTap: _jsonCtrl.text.trim().isNotEmpty ? _validate : null,
                 cs: cs,
                 isDark: isDark,
               ),
-
-            // ── Import error ─────────────────────────────────────────
-            if (_importError != null) ...[
-              const SizedBox(height: 8),
-              _ErrorBanner(message: _importError!, cs: cs, isDark: isDark),
+              const SizedBox(width: 8),
+              // Import button
+              _ActionChip(
+                label: 'Import',
+                icon: Icons.upload_rounded,
+                onTap: _validated && !_importing ? _import : null,
+                cs: cs,
+                isDark: isDark,
+                isPrimary: true,
+                loading: _importing,
+              ),
             ],
+          ),
+          const SizedBox(height: 12),
 
-            // ── Import results ───────────────────────────────────────
-            if (_importResult != null) ...[
-              const SizedBox(height: 8),
-              _ImportResults(result: _importResult!, cs: cs, isDark: isDark),
-            ],
+          // ── Validation results ───────────────────────────────────
+          if (_validationErrors.isNotEmpty || _validated)
+            _ValidationResults(
+              validated: _validated,
+              questionCount: _validQuestionCount,
+              errors: _validationErrors,
+              cs: cs,
+              isDark: isDark,
+            ),
+
+          // ── Import error ─────────────────────────────────────────
+          if (_importError != null) ...[
+            const SizedBox(height: 8),
+            _ErrorBanner(message: _importError!, cs: cs, isDark: isDark),
           ],
+
+          // ── Import results ───────────────────────────────────────
+          if (_importResult != null) ...[
+            const SizedBox(height: 8),
+            _ImportResults(result: _importResult!, cs: cs, isDark: isDark),
+          ],
+        ],
       ),
     );
   }

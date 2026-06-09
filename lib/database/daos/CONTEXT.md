@@ -389,6 +389,8 @@ Other DAOs are created locally where needed (e.g. inside service classes or scre
 - **`logs_dao.dart`** — `markFailed` and `retryLog` changed from `return customStatement(...)` to `await customStatement(...); db.notifyUpdates({TableUpdate('logs')})` so that `watchFailedLogs` and `watchFailedLogCount` streams re-emit on status changes (BUG-008 pattern). `_revertCreate` now collects all touched data table names into a `Set<String> touchedTables` and calls `db.notifyUpdates(touchedTables.map(...).toSet())` after the switch block, ensuring phantom rows are cleared from the UI. The `createPaper` case now includes all 6 PK columns `(school, exam, subject, paper, grade, stream)` using dynamic condition building with `IS NULL` for absent nullable fields, preventing accidental cross-grade/stream deletion (BUG-001 prevention).
 
 ## Last Updated
+BUG-021 — `exams_grades_dao.dart`: Modified `_paperExamFromV2` to use the unique paper ID (`pv2.id`) as the legacy `exam` ID when the paper has no parent event/exam (i.e. `pv2.event` is null or empty). This ensures that each standalone assessment/assignment has a unique `exam` ID, and its grades are stored and queried independently in the `grades` table.
+
 Task D2 — `exams_grades_dao.dart`: Added `authorization.check(SyncAction.createExam)` to `createExamWithPapers()` — fixes G2 gap where this method lacked authorization while all other mutation methods had it.
 
 Previous: Task C1 — `roles_dao.dart`: Added `ensureSystemAdminRole` method (best-effort, auto-assigns system-scoped "System Administrator" role).

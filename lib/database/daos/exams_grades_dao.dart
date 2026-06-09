@@ -73,9 +73,12 @@ ExamType _mapV2TypeToExamType(PaperV2Type t) => switch (t) {
   final startSecs = pv2.date * 86400;
   final endSecs = startSecs + (pv2.durationMinutes * 60);
   final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+  final examId = (pv2.event != null && pv2.event!.isNotEmpty)
+      ? pv2.event!
+      : pv2.id;
   final paper = Paper(
     school: pv2.school,
-    exam: pv2.event ?? '',
+    exam: examId,
     subject: pv2.subject,
     topic: null,
     paper: null,
@@ -91,7 +94,7 @@ ExamType _mapV2TypeToExamType(PaperV2Type t) => switch (t) {
     updated: pv2.updated,
   );
   final exam = Exam(
-    id: pv2.event ?? '',
+    id: examId,
     school: pv2.school,
     name: pv2.name,
     year: 0,
@@ -2232,15 +2235,16 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       final subj = row.read<int>('subject');
       final paper = row.read<int?>('paper');
       final paperStr = paper ?? 0;
-      final localPath = '$baseDir/submissions/$school/$exam/${subj}_$paperStr/students/$student/$page.jpg';
+      final localPath =
+          '$baseDir/submissions/$school/$exam/${subj}_$paperStr/students/$student/$page.jpg';
       map.putIfAbsent(student, () => []).add(localPath);
     }
-    
+
     // Add local-only rows (e.g. ones waiting to be AI marked/uploaded)
     for (final row in localRows) {
       map.putIfAbsent(row.student, () => []).add(row.path);
     }
-    
+
     // Dedup and sort numerically by page index (not lexicographically,
     // so 2.jpg comes before 10.jpg).
     for (final key in map.keys) {
@@ -2325,9 +2329,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
   /// after [markPaper] succeeds, before the server sync delivers the
   /// authoritative row.  The server row will overwrite this placeholder
   /// (ON CONFLICT by paper PK) when the delta arrives.
-  Future<void> insertMarkingQueuePlaceholder({
-    required String paperId,
-  }) async {
+  Future<void> insertMarkingQueuePlaceholder({required String paperId}) async {
     final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
     await customStatement(
       'INSERT OR IGNORE INTO marking_queue (id, paper, phase, progress,'

@@ -608,3 +608,23 @@ The client originally used `updateUser` as a create-via-update workaround becaus
 - Standalone invites must use `SyncAction.inviteUser` only; genuine user edits stay on `SyncAction.updateUser`.
 - Any future on-disk sync action change must ship with an explicit queue migration because `logs.action` values and protobuf payloads are persisted locally.
 - School/member parent actions that already embed invite fields must not queue a second standalone invite log.
+
+## BUG-021: Standalone assessments/assignments show identical grades across different papers
+
+**Status:** Fixed
+**Date:** 2026-06-08
+**Files affected:**
+- `lib/database/daos/exams_grades_dao.dart` — `_paperExamFromV2`
+
+**Symptom:**
+On the assessment page of a subject of a particular stream of a grade, creating a new standalone assessment/assignment for different topics shows the student grades of a previously graded assessment/assignment, even though the new paper was not yet done or graded.
+
+**Root cause:**
+Standalone assessments/assignments are represented as `papers_v2` rows with no parent event/exam (i.e. `pv2.event` is null or empty). When `_paperExamFromV2` converted a standalone `PapersV2Data` row into the legacy `Paper` and `Exam` shape for the UI, it fell back to an empty string `''` for the `exam` ID of both the `Paper` and `Exam` objects. Consequently, all standalone assessments/assignments shared the exact same dummy `exam` ID `''`. Since standalone papers are also single-paper (meaning `paper.paper` is null), their grades were queried and saved with `exam = ''` and `paper = NULL`. This caused `watchGradesForPaper` to fetch and display the exact same grades for all standalone assessments/assignments of the same subject.
+
+**Fix:**
+Modified `_paperExamFromV2` to use the unique paper ID (`pv2.id`) as the legacy `exam` ID when the paper has no parent event/exam (i.e. `pv2.event` is null or empty). This ensures that each standalone assessment/assignment has a unique `exam` ID, and its grades are stored and queried independently in the `grades` table.
+
+**Prevention:**
+- Standalone papers must always map to a unique `exam` ID in the legacy shape to prevent grade collision.
+- Ensure any query or mutation on grades for standalone papers uses the unique paper ID as the `exam` ID.

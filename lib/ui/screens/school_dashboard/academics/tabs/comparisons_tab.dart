@@ -1759,7 +1759,9 @@ class _TrendSection extends StatelessWidget {
                   touchTooltipData: LineTouchTooltipData(
                     getTooltipColor: (touchedSpot) =>
                         isDark ? const Color(0xFF1E2A3A) : cs.surface,
-                    tooltipRoundedRadius: AppTheme.kChipRadius,
+                    tooltipBorderRadius: BorderRadius.circular(
+                      AppTheme.kChipRadius,
+                    ),
                     tooltipPadding: const EdgeInsets.symmetric(
                       horizontal: 10,
                       vertical: 6,

@@ -77,7 +77,7 @@ class _MultiFileImportSheetState extends State<MultiFileImportSheet> {
   Future<void> _pickFiles() async {
     setState(() => _pickingFiles = true);
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         allowMultiple: true,
         type: FileType.custom,
         allowedExtensions: ['json'],
@@ -325,28 +325,28 @@ class _MultiFileImportSheetState extends State<MultiFileImportSheet> {
     return EduSheet(
       title: 'Bulk Import Questions',
       child: ListView(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            0,
-            16,
-            16 + MediaQuery.viewInsetsOf(context).bottom,
-          ),
-          shrinkWrap: true,
-          children: [
-            // ── Subtitle ─────────────────────────────────────────────
-            Text(
-              '$displaySubject · $_curriculumLabel${isAutoDetect ? ' (auto)' : ''}',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w300,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-              ),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          0,
+          16,
+          16 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        shrinkWrap: true,
+        children: [
+          // ── Subtitle ─────────────────────────────────────────────
+          Text(
+            '$displaySubject · $_curriculumLabel${isAutoDetect ? ' (auto)' : ''}',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w300,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
             ),
-            const SizedBox(height: 12),
+          ),
+          const SizedBox(height: 12),
 
-            if (_completed) ..._buildResultsPhase(cs, isDark),
-            if (!_completed) ..._buildSelectionPhase(cs, isDark),
-          ],
+          if (_completed) ..._buildResultsPhase(cs, isDark),
+          if (!_completed) ..._buildSelectionPhase(cs, isDark),
+        ],
       ),
     );
   }
