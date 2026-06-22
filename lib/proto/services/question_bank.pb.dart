@@ -3068,6 +3068,162 @@ class GetQuestionGradesResponse extends $pb.GeneratedMessage {
   $pb.PbList<QuestionGrade> get grades => $_getList(0);
 }
 
+class EditPaperQuestionRequest extends $pb.GeneratedMessage {
+  factory EditPaperQuestionRequest({
+    $core.String? paperId,
+    $core.int? questionId,
+    $core.String? body,
+    $core.int? marks,
+    $core.Iterable<RubricCriterionInput>? rubric,
+  }) {
+    final result = create();
+    if (paperId != null) result.paperId = paperId;
+    if (questionId != null) result.questionId = questionId;
+    if (body != null) result.body = body;
+    if (marks != null) result.marks = marks;
+    if (rubric != null) result.rubric.addAll(rubric);
+    return result;
+  }
+
+  EditPaperQuestionRequest._();
+
+  factory EditPaperQuestionRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory EditPaperQuestionRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'EditPaperQuestionRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'question_bank'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'paperId')
+    ..aI(2, _omitFieldNames ? '' : 'questionId')
+    ..aOS(3, _omitFieldNames ? '' : 'body')
+    ..aI(4, _omitFieldNames ? '' : 'marks')
+    ..pPM<RubricCriterionInput>(5, _omitFieldNames ? '' : 'rubric',
+        subBuilder: RubricCriterionInput.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EditPaperQuestionRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EditPaperQuestionRequest copyWith(
+          void Function(EditPaperQuestionRequest) updates) =>
+      super.copyWith((message) => updates(message as EditPaperQuestionRequest))
+          as EditPaperQuestionRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static EditPaperQuestionRequest create() => EditPaperQuestionRequest._();
+  @$core.override
+  EditPaperQuestionRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static EditPaperQuestionRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<EditPaperQuestionRequest>(create);
+  static EditPaperQuestionRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get paperId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set paperId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPaperId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPaperId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get questionId => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set questionId($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasQuestionId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearQuestionId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get body => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set body($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasBody() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearBody() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get marks => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set marks($core.int value) => $_setSignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasMarks() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearMarks() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $pb.PbList<RubricCriterionInput> get rubric => $_getList(4);
+}
+
+class EditPaperQuestionResponse extends $pb.GeneratedMessage {
+  factory EditPaperQuestionResponse({
+    Question? question,
+  }) {
+    final result = create();
+    if (question != null) result.question = question;
+    return result;
+  }
+
+  EditPaperQuestionResponse._();
+
+  factory EditPaperQuestionResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory EditPaperQuestionResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'EditPaperQuestionResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'question_bank'),
+      createEmptyInstance: create)
+    ..aOM<Question>(1, _omitFieldNames ? '' : 'question',
+        subBuilder: Question.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EditPaperQuestionResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EditPaperQuestionResponse copyWith(
+          void Function(EditPaperQuestionResponse) updates) =>
+      super.copyWith((message) => updates(message as EditPaperQuestionResponse))
+          as EditPaperQuestionResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static EditPaperQuestionResponse create() => EditPaperQuestionResponse._();
+  @$core.override
+  EditPaperQuestionResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static EditPaperQuestionResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<EditPaperQuestionResponse>(create);
+  static EditPaperQuestionResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  Question get question => $_getN(0);
+  @$pb.TagNumber(1)
+  set question(Question value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasQuestion() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearQuestion() => $_clearField(1);
+  @$pb.TagNumber(1)
+  Question ensureQuestion() => $_ensure(0);
+}
+
 const $core.bool _omitFieldNames =
     $core.bool.fromEnvironment('protobuf.omit_field_names');
 const $core.bool _omitMessageNames =

@@ -404,6 +404,7 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
     setState(() => _isSavingEdit = true);
 
     final result = await questionBankService.editPaperQuestion(
+      paperId: _rpcPaperId,
       questionId: question.questionId,
       text: text,
       marks: marks,

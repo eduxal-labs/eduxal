@@ -57,7 +57,7 @@ class PaperQuestion {
     this.section,
   }) : body = body ?? text;
 
-  factory PaperQuestion.fromProto(pb.Question proto) {
+  factory PaperQuestion.fromProto(pb.Question proto, [int order = 0]) {
     // Int-to-string helpers — mirrors Question._bodyFmtStr etc. in question.dart
     String bodyFmtStr(int v) => v == 1 ? 'tiptap' : 'plain';
     const typeStrs = [
@@ -131,7 +131,7 @@ class PaperQuestion {
           : 'lines',
       answerLines: proto.hasAnswerLines() ? proto.answerLines : 4,
       // position and section are no longer in the proto (no PaperQuestion wrapper)
-      order: 0,
+      order: order,
       section: null,
     );
   }

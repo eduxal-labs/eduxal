@@ -250,43 +250,43 @@ class QuestionBankService {
   // ---------------------------------------------------------------------------
 
   static int _mapQuestionType(String? type) => switch (type) {
-    'definition'    => 0,
-    'explanation'   => 1,
-    'short_answer'  => 1,  // mapped to explanation
-    'application'   => 1,  // mapped to explanation
-    'calculation'   => 2,
-    'structured'    => 3,
-    'experiment'    => 4,
+    'definition' => 0,
+    'explanation' => 1,
+    'short_answer' => 1, // mapped to explanation
+    'application' => 1, // mapped to explanation
+    'calculation' => 2,
+    'structured' => 3,
+    'experiment' => 4,
     'data_response' => 5,
-    'diagram'       => 6,
-    _               => 0,  // default to definition
+    'diagram' => 6,
+    _ => 0, // default to definition
   };
 
   static int _mapCognitiveLevel(String? level) {
     final l = level?.toLowerCase() ?? '';
     return switch (l) {
-      'recall'        => 0,
+      'recall' => 0,
       'comprehension' => 1,
-      'application'   => 2,
-      'analysis'      => 3,
-      'evaluation'    => 3,  // mapped to analysis
-      _               => 0,
+      'application' => 2,
+      'analysis' => 3,
+      'evaluation' => 3, // mapped to analysis
+      _ => 0,
     };
   }
 
   static int _mapAnswerSpaceType(String? type) => switch (type) {
-    'lines'            => 0,
-    'lined'            => 0,  // same as lines
-    'plain_box'        => 1,
-    'diagram_box'      => 2,
+    'lines' => 0,
+    'lined' => 0, // same as lines
+    'plain_box' => 1,
+    'diagram_box' => 2,
     'construction_box' => 3,
-    'grid_box'         => 4,
-    _                  => 0,
+    'grid_box' => 4,
+    _ => 0,
   };
 
   static int _mapBodyFormat(String? fmt) => switch (fmt) {
     'tiptap' => 1,
-    _        => 0,  // plain, markdown, latex all default to plain
+    _ => 0, // plain, markdown, latex all default to plain
   };
 
   static String _normalizeExampleAnswer(dynamic ea) {
@@ -308,9 +308,9 @@ class QuestionBankService {
 
   static int _mapExampleAnswerFormat(String? fmt) => switch (fmt) {
     'tiptap' => 1,
-    'svg'    => 2,
-    'image'  => 3,
-    _        => 0,  // plain
+    'svg' => 2,
+    'image' => 3,
+    _ => 0, // plain
   };
 
   /// Bulk import questions from JSON content.
@@ -344,7 +344,8 @@ class QuestionBankService {
       if (grade != null) req.grade = grade;
       if (topicName != null) req.topicName = topicName;
       for (final q in rawList) {
-        final body = (q['body'] as String? ?? q['text'] as String? ?? '').trim();
+        final body = (q['body'] as String? ?? q['text'] as String? ?? '')
+            .trim();
         final marks = (q['marks'] as num?)?.toInt() ?? 0;
         final topicId = q['topic_id'] as int? ?? 0;
 
@@ -356,7 +357,9 @@ class QuestionBankService {
           ..difficulty = (q['difficulty'] as num?)?.toInt() ?? 3
           ..cognitiveLevel = _mapCognitiveLevel(q['cognitive_level'] as String?)
           ..marks = marks
-          ..answerSpaceType = _mapAnswerSpaceType(q['answer_space_type'] as String?);
+          ..answerSpaceType = _mapAnswerSpaceType(
+            q['answer_space_type'] as String?,
+          );
 
         // Optional numeric fields
         final maxMarks = q['max_marks'];
@@ -381,9 +384,11 @@ class QuestionBankService {
         if (ea.isNotEmpty) protoQ.exampleAnswer = ea;
 
         // Rubric criteria (accept both "criterion" and "criteria" keys)
-        final rubric = (q['rubric'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
+        final rubric = (q['rubric'] as List<dynamic>? ?? [])
+            .cast<Map<String, dynamic>>();
         for (final r in rubric) {
-          final criterion = (r['criterion'] as String? ?? r['criteria'] as String? ?? '');
+          final criterion =
+              (r['criterion'] as String? ?? r['criteria'] as String? ?? '');
           protoQ.rubric.add(
             pb.RubricCriterionInput()
               ..criterion = criterion
@@ -392,14 +397,17 @@ class QuestionBankService {
         }
 
         // Parts (structured questions)
-        final parts = (q['parts'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
+        final parts = (q['parts'] as List<dynamic>? ?? [])
+            .cast<Map<String, dynamic>>();
         for (final p in parts) {
           final partInput = pb.QuestionPartInput()
             ..label = (p['label'] as String? ?? '')
             ..body = (p['body'] as String? ?? '')
             ..bodyFormat = _mapBodyFormat(p['body_format'] as String?)
             ..marks = (p['marks'] as num?)?.toInt() ?? 0
-            ..answerSpaceType = _mapAnswerSpaceType(p['answer_space_type'] as String?);
+            ..answerSpaceType = _mapAnswerSpaceType(
+              p['answer_space_type'] as String?,
+            );
 
           final pMaxMarks = p['max_marks'];
           if (pMaxMarks is num) partInput.maxMarks = pMaxMarks.toInt();
@@ -408,7 +416,8 @@ class QuestionBankService {
           if (pAnswerLines is num) partInput.answerLines = pAnswerLines.toInt();
 
           final pAnswerBoxH = p['answer_box_height_mm'];
-          if (pAnswerBoxH is num) partInput.answerBoxHeightMm = pAnswerBoxH.toInt();
+          if (pAnswerBoxH is num)
+            partInput.answerBoxHeightMm = pAnswerBoxH.toInt();
 
           final pStimulus = p['stimulus'];
           if (pStimulus is String && pStimulus.isNotEmpty) {
@@ -421,9 +430,11 @@ class QuestionBankService {
           if (pEa.isNotEmpty) partInput.exampleAnswer = pEa;
 
           // Part rubric
-          final pRubric = (p['rubric'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
+          final pRubric = (p['rubric'] as List<dynamic>? ?? [])
+              .cast<Map<String, dynamic>>();
           for (final pr in pRubric) {
-            final prCriterion = (pr['criterion'] as String? ?? pr['criteria'] as String? ?? '');
+            final prCriterion =
+                (pr['criterion'] as String? ?? pr['criteria'] as String? ?? '');
             partInput.rubric.add(
               pb.RubricCriterionInput()
                 ..criterion = prCriterion
@@ -586,7 +597,7 @@ class QuestionBankService {
       );
       final client = pbgrpc.QuestionBankClient(_mainChannel);
       final resp = await client.regenerateQuestion(req, options: options);
-      final question = models.PaperQuestion.fromProto(resp.question);
+      final question = models.PaperQuestion.fromProto(resp.question, position);
       print('[QB] regenerateQuestion ← OK (id=${question.id})');
       return Ok(question);
     } on GrpcError catch (e) {
@@ -599,10 +610,8 @@ class QuestionBankService {
   }
 
   /// Edit a question on the generated paper.
-  ///
-  /// NOTE: This method has been removed from the server API (M0 proto
-  /// regeneration). Returns [GrpcError.unimplemented] immediately.
   Future<Result<models.Question, GrpcError>> editPaperQuestion({
+    required String paperId,
     required int questionId,
     required String text,
     required int marks,
@@ -610,12 +619,30 @@ class QuestionBankService {
     String? exampleAnswer,
     required String accessToken,
   }) async {
-    print('[QB] editPaperQuestion → STUB (removed from server API)');
-    return Err(
-      GrpcError.unimplemented(
-        'editPaperQuestion has been removed from the server API',
-      ),
-    );
+    print('[QB] editPaperQuestion → paperId=$paperId questionId=$questionId');
+    try {
+      final req = pb.EditPaperQuestionRequest()
+        ..paperId = paperId
+        ..questionId = questionId
+        ..body = text
+        ..marks = marks;
+      req.rubric.addAll(rubric.map(_toProtoCriterion));
+      final options = CallOptions(
+        metadata: {'authorization': 'Bearer $accessToken'},
+        timeout: const Duration(seconds: 30),
+      );
+      final client = pbgrpc.QuestionBankClient(_mainChannel);
+      final resp = await client.editPaperQuestion(req, options: options);
+      final question = models.Question.fromProto(resp.question);
+      print('[QB] editPaperQuestion ← OK (id=${question.id})');
+      return Ok(question);
+    } on GrpcError catch (e) {
+      print('[QB] editPaperQuestion ← GrpcError: ${e.code} ${e.message}');
+      return Err(e);
+    } catch (e, st) {
+      print('[QB] editPaperQuestion ← UNEXPECTED ${e.runtimeType}: $e\n$st');
+      return Err(GrpcError.internal('editPaperQuestion failed: $e'));
+    }
   }
 
   /// Set (or clear) the section label for a single question on a generated paper.
@@ -755,7 +782,11 @@ class QuestionBankService {
       final client = pbgrpc.QuestionBankClient(_mainChannel);
       final resp = await client.getPaperQuestions(req, options: options);
       final questions = resp.questions
-          .map(models.PaperQuestion.fromProto)
+          .asMap()
+          .entries
+          .map(
+            (entry) => models.PaperQuestion.fromProto(entry.value, entry.key),
+          )
           .toList();
       print('[QB] getPaperQuestions ← OK (questions=${questions.length})');
       return Ok(questions);

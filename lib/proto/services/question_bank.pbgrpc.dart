@@ -119,6 +119,13 @@ class QuestionBankClient extends $grpc.Client {
     return $createUnaryCall(_$finalizePaper, request, options: options);
   }
 
+  $grpc.ResponseFuture<$0.EditPaperQuestionResponse> editPaperQuestion(
+    $0.EditPaperQuestionRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$editPaperQuestion, request, options: options);
+  }
+
   /// ── Marking ──────────────────────────────────────────────────
   $grpc.ResponseFuture<$0.MarkingStatusResponse> getMarkingStatus(
     $0.MarkingStatusRequest request, {
@@ -196,6 +203,11 @@ class QuestionBankClient extends $grpc.Client {
           '/question_bank.QuestionBank/FinalizePaper',
           ($0.FinalizePaperRequest value) => value.writeToBuffer(),
           $0.FinalizePaperResponse.fromBuffer);
+  static final _$editPaperQuestion = $grpc.ClientMethod<
+          $0.EditPaperQuestionRequest, $0.EditPaperQuestionResponse>(
+      '/question_bank.QuestionBank/EditPaperQuestion',
+      ($0.EditPaperQuestionRequest value) => value.writeToBuffer(),
+      $0.EditPaperQuestionResponse.fromBuffer);
   static final _$getMarkingStatus =
       $grpc.ClientMethod<$0.MarkingStatusRequest, $0.MarkingStatusResponse>(
           '/question_bank.QuestionBank/GetMarkingStatus',
@@ -319,6 +331,15 @@ abstract class QuestionBankServiceBase extends $grpc.Service {
             ($core.List<$core.int> value) =>
                 $0.FinalizePaperRequest.fromBuffer(value),
             ($0.FinalizePaperResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.EditPaperQuestionRequest,
+            $0.EditPaperQuestionResponse>(
+        'EditPaperQuestion',
+        editPaperQuestion_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.EditPaperQuestionRequest.fromBuffer(value),
+        ($0.EditPaperQuestionResponse value) => value.writeToBuffer()));
     $addMethod(
         $grpc.ServiceMethod<$0.MarkingStatusRequest, $0.MarkingStatusResponse>(
             'GetMarkingStatus',
@@ -444,6 +465,15 @@ abstract class QuestionBankServiceBase extends $grpc.Service {
 
   $async.Future<$0.FinalizePaperResponse> finalizePaper(
       $grpc.ServiceCall call, $0.FinalizePaperRequest request);
+
+  $async.Future<$0.EditPaperQuestionResponse> editPaperQuestion_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.EditPaperQuestionRequest> $request) async {
+    return editPaperQuestion($call, await $request);
+  }
+
+  $async.Future<$0.EditPaperQuestionResponse> editPaperQuestion(
+      $grpc.ServiceCall call, $0.EditPaperQuestionRequest request);
 
   $async.Future<$0.MarkingStatusResponse> getMarkingStatus_Pre(
       $grpc.ServiceCall $call,

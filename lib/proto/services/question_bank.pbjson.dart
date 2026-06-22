@@ -1118,3 +1118,50 @@ final $typed_data.Uint8List getQuestionGradesResponseDescriptor =
     $convert.base64Decode(
         'ChlHZXRRdWVzdGlvbkdyYWRlc1Jlc3BvbnNlEjQKBmdyYWRlcxgBIAMoCzIcLnF1ZXN0aW9uX2'
         'JhbmsuUXVlc3Rpb25HcmFkZVIGZ3JhZGVz');
+
+@$core.Deprecated('Use editPaperQuestionRequestDescriptor instead')
+const EditPaperQuestionRequest$json = {
+  '1': 'EditPaperQuestionRequest',
+  '2': [
+    {'1': 'paper_id', '3': 1, '4': 1, '5': 9, '10': 'paperId'},
+    {'1': 'question_id', '3': 2, '4': 1, '5': 5, '10': 'questionId'},
+    {'1': 'body', '3': 3, '4': 1, '5': 9, '10': 'body'},
+    {'1': 'marks', '3': 4, '4': 1, '5': 5, '10': 'marks'},
+    {
+      '1': 'rubric',
+      '3': 5,
+      '4': 3,
+      '5': 11,
+      '6': '.question_bank.RubricCriterionInput',
+      '10': 'rubric'
+    },
+  ],
+};
+
+/// Descriptor for `EditPaperQuestionRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List editPaperQuestionRequestDescriptor = $convert.base64Decode(
+    'ChhFZGl0UGFwZXJRdWVzdGlvblJlcXVlc3QSGQoIcGFwZXJfaWQYASABKAlSB3BhcGVySWQSHw'
+    'oLcXVlc3Rpb25faWQYAiABKAVSCnF1ZXN0aW9uSWQSEgoEYm9keRgDIAEoCVIEYm9keRIUCgVt'
+    'YXJrcxgEIAEoBVIFbWFya3MSOwoGcnVicmljGAUgAygLMiMucXVlc3Rpb25fYmFuay5SdWJyaW'
+    'NDcml0ZXJpb25JbnB1dFIGcnVicmlj');
+
+@$core.Deprecated('Use editPaperQuestionResponseDescriptor instead')
+const EditPaperQuestionResponse$json = {
+  '1': 'EditPaperQuestionResponse',
+  '2': [
+    {
+      '1': 'question',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.question_bank.Question',
+      '10': 'question'
+    },
+  ],
+};
+
+/// Descriptor for `EditPaperQuestionResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List editPaperQuestionResponseDescriptor =
+    $convert.base64Decode(
+        'ChlFZGl0UGFwZXJRdWVzdGlvblJlc3BvbnNlEjMKCHF1ZXN0aW9uGAEgASgLMhcucXVlc3Rpb2'
+        '5fYmFuay5RdWVzdGlvblIIcXVlc3Rpb24=');
