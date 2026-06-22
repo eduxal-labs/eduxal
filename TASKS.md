@@ -87,3 +87,39 @@ int _normalizeGrade(String curriculum, int rawGrade) {
 **Update after completion:**
 - [x] Mark this task `[x]`
 - [x] Orchestrator: git commit after this task
+
+---
+
+## Track B: EditPaperQuestion Feature and Constant Q1 Label Bug
+
+### Task B1: Implement EditPaperQuestion RPC on Server
+**Files to create/modify:** `../ledger/protos/services/question_bank.proto`, `../ledger/src/db/database/tables/question_bank.rs`, `../ledger/src/proto/services/question_bank.rs`, `../ledger/src/services/question_bank.rs`
+**Depends on:** None
+**Parallel group:** None
+
+**Specification:**
+1. Add `EditPaperQuestion` RPC method to `question_bank.proto`.
+2. Implement `edit_paper_question` database function in `../ledger/src/db/database/tables/question_bank.rs` that checks if the question is associated with other papers. If so, duplicate it and update the current paper's reference; otherwise, update it directly.
+3. Implement the gRPC service handler in `../ledger/src/services/question_bank.rs`.
+
+**Update after completion:**
+- [x] Mark this task `[x]`
+- [x] Orchestrator: git commit after this task
+
+---
+
+### Task B2: Wire EditPaperQuestion and Fix Constant Q1 Label Bug on Client
+**Files to create/modify:** `lib/models/paper_generation.dart`, `lib/services/question_bank.dart`, `lib/ui/screens/school_dashboard/academics/paper_generation_page.dart`
+**Depends on:** Task B1
+**Parallel group:** None
+
+**Specification:**
+1. Regenerate client-side Dart protobuf stubs using `./generate.sh`.
+2. Update `PaperQuestion.fromProto` in `lib/models/paper_generation.dart` to accept an optional `order` parameter and set `order: order`.
+3. Update `getPaperQuestions` and `regenerateQuestion` in `lib/services/question_bank.dart` to pass the correct order/index to `fromProto`.
+4. Implement `editPaperQuestion` in `lib/services/question_bank.dart` to call the new gRPC endpoint.
+5. Update `PaperGenerationPage` to pass `paperId: _rpcPaperId` to `editPaperQuestion`.
+
+**Update after completion:**
+- [x] Mark this task `[x]`
+- [x] Orchestrator: git commit after this task
