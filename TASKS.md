@@ -123,3 +123,21 @@ int _normalizeGrade(String curriculum, int rawGrade) {
 **Update after completion:**
 - [x] Mark this task `[x]`
 - [x] Orchestrator: git commit after this task
+
+---
+
+## Track C: System Dashboard Question Editing
+
+### Task C1: Enable Question Editing on System Dashboard
+**Files to create/modify:** `lib/ui/screens/system/settings/questions_list_page.dart`, `lib/ui/screens/system/settings/subjects_section.dart`
+**Depends on:** None
+**Parallel group:** None
+
+**Specification:**
+1. Make `_EditQuestionSheet` public as `EditQuestionSheet` in `questions_list_page.dart` so it can be imported and opened from other files.
+2. Add an "Edit" button to `_QuestionTileState` in `subjects_section.dart` when `widget.canEdit` is true.
+3. Wire the "Edit" button to launch `EditQuestionSheet` bottom sheet.
+
+**Update after completion:**
+- [x] Mark this task `[x]`
+- [x] Orchestrator: git commit after this task
