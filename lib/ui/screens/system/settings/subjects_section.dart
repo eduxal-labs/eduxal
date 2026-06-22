@@ -79,8 +79,7 @@ class _SubjectsSectionState extends State<SubjectsSection>
   }
 
   /// Default grade per curriculum: Grade 1 (3) for CBC, Form 1 (41) for 844.
-  int _defaultGrade(CurriculumType c) =>
-      c == CurriculumType.cbc ? 3 : 41;
+  int _defaultGrade(CurriculumType c) => c == CurriculumType.cbc ? 3 : 41;
 
   Future<File> _prefsFile() async {
     final dir = await getApplicationDocumentsDirectory();
@@ -237,9 +236,7 @@ class _SubjectsSectionState extends State<SubjectsSection>
             if (_gradeTabController != null)
               EduTabBar(
                 controller: _gradeTabController!,
-                tabs: _gradeEntries
-                    .map((e) => EduTab(label: e.value))
-                    .toList(),
+                tabs: _gradeEntries.map((e) => EduTab(label: e.value)).toList(),
               ),
 
             // ── Subject list ───────────────────────────────────────────────
@@ -300,10 +297,8 @@ class _SubjectsSectionState extends State<SubjectsSection>
         // Build sorted subject entries
         final entries = grouped.entries.toList()
           ..sort((a, b) {
-            final nameA =
-                _subjectNames[a.key]?.toLowerCase() ?? '';
-            final nameB =
-                _subjectNames[b.key]?.toLowerCase() ?? '';
+            final nameA = _subjectNames[a.key]?.toLowerCase() ?? '';
+            final nameB = _subjectNames[b.key]?.toLowerCase() ?? '';
             return nameA.compareTo(nameB);
           });
 
@@ -418,8 +413,7 @@ class _SubjectsSectionState extends State<SubjectsSection>
         return ListView.separated(
           padding: const EdgeInsets.only(bottom: 24, top: 2),
           itemCount: subjects.length,
-          separatorBuilder: (_, __) =>
-              AppTheme.tableRowDivider(isDark, cs),
+          separatorBuilder: (_, __) => AppTheme.tableRowDivider(isDark, cs),
           itemBuilder: (context, index) {
             final subject = subjects[index];
             return _SubjectTile(
@@ -867,7 +861,7 @@ class _SubjectTileState extends State<_SubjectTile>
                   grade: widget.selectedGrade,
                   gradeLabel:
                       gradeLabelsFor(widget.curriculum)[widget.selectedGrade] ??
-                          'Grade ${widget.selectedGrade}',
+                      'Grade ${widget.selectedGrade}',
                   curriculum: widget.curriculum.index_,
                   canCreate: widget.canCreate,
                   canEdit: widget.canEdit,
@@ -2294,9 +2288,7 @@ class _QuestionTileState extends State<_QuestionTile>
                       vertical: 1.5,
                     ),
                     decoration: BoxDecoration(
-                      color: cs.primary.withValues(
-                        alpha: isDark ? 0.12 : 0.08,
-                      ),
+                      color: cs.primary.withValues(alpha: isDark ? 0.12 : 0.08),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -2304,9 +2296,7 @@ class _QuestionTileState extends State<_QuestionTile>
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
-                        color: cs.primary.withValues(
-                          alpha: isDark ? 0.7 : 0.6,
-                        ),
+                        color: cs.primary.withValues(alpha: isDark ? 0.7 : 0.6),
                       ),
                     ),
                   ),
@@ -2323,8 +2313,8 @@ class _QuestionTileState extends State<_QuestionTile>
                           color: q.difficulty >= 4
                               ? cs.error.withValues(alpha: 0.5)
                               : q.difficulty >= 3
-                                  ? cs.tertiary.withValues(alpha: 0.55)
-                                  : cs.primary.withValues(alpha: 0.35),
+                              ? cs.tertiary.withValues(alpha: 0.55)
+                              : cs.primary.withValues(alpha: 0.35),
                         ),
                       ),
                     ),
@@ -2390,7 +2380,11 @@ class _QuestionTileState extends State<_QuestionTile>
                       isDark: isDark,
                     ),
                     const SizedBox(height: 4),
-                    _StimulusPreview(stimulus: q.stimulus!, cs: cs, isDark: isDark),
+                    _StimulusPreview(
+                      stimulus: q.stimulus!,
+                      cs: cs,
+                      isDark: isDark,
+                    ),
                   ],
                   // Parts
                   if (q.parts.isNotEmpty) ...[
@@ -2477,46 +2471,64 @@ class _QuestionTileState extends State<_QuestionTile>
                     ),
                   ],
                   // Actions row
-                  if (widget.canDelete) ...[
+                  if (widget.canEdit || widget.canDelete) ...[
                     const SizedBox(height: 10),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        _TextAction(
-                          label: 'Delete',
-                          isDestructive: true,
-                          onTap: () async {
-                            final confirmed = await showEduConfirmDialog(
-                              context: context,
-                              title: 'Delete Question',
-                              message:
-                                  'Delete Q${widget.index + 1} permanently?',
-                              confirmLabel: 'Delete',
-                              isDestructive: true,
-                            );
-                            if (!confirmed) return;
-                            final result = await questionBankService
-                                .deleteQuestion(
-                                  id: q.id,
-                                  accessToken: accessToken,
-                                );
-                            if (!mounted) return;
-                            switch (result) {
-                              case Ok():
-                                widget.onChanged();
-                              case Err():
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Failed to delete question',
+                        if (widget.canEdit) ...[
+                          _TextAction(
+                            label: 'Edit',
+                            onTap: () {
+                              showEduSheet(
+                                context: context,
+                                maxWidth: 520,
+                                builder: (_) => EditQuestionSheet(
+                                  question: q,
+                                  onUpdated: widget.onChanged,
+                                ),
+                              );
+                            },
+                            cs: cs,
+                          ),
+                          if (widget.canDelete) const SizedBox(width: 8),
+                        ],
+                        if (widget.canDelete)
+                          _TextAction(
+                            label: 'Delete',
+                            isDestructive: true,
+                            onTap: () async {
+                              final confirmed = await showEduConfirmDialog(
+                                context: context,
+                                title: 'Delete Question',
+                                message:
+                                    'Delete Q${widget.index + 1} permanently?',
+                                confirmLabel: 'Delete',
+                                isDestructive: true,
+                              );
+                              if (!confirmed) return;
+                              final result = await questionBankService
+                                  .deleteQuestion(
+                                    id: q.id,
+                                    accessToken: accessToken,
+                                  );
+                              if (!mounted) return;
+                              switch (result) {
+                                case Ok():
+                                  widget.onChanged();
+                                case Err():
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Failed to delete question',
+                                      ),
+                                      behavior: SnackBarBehavior.floating,
                                     ),
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
-                            }
-                          },
-                          cs: cs,
-                        ),
+                                  );
+                              }
+                            },
+                            cs: cs,
+                          ),
                       ],
                     ),
                   ],
@@ -2681,15 +2693,17 @@ class _MetaChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(
-          alpha: isDark ? 0.5 : 0.6,
-        ),
+        color: cs.surfaceContainerHighest.withValues(alpha: isDark ? 0.5 : 0.6),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 10, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+          Icon(
+            icon,
+            size: 10,
+            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+          ),
           const SizedBox(width: 4),
           Text(
             label,
@@ -2774,9 +2788,7 @@ class _TextActionState extends State<_TextAction> {
 
   @override
   Widget build(BuildContext context) {
-    final color = widget.isDestructive
-        ? widget.cs.error
-        : widget.cs.primary;
+    final color = widget.isDestructive ? widget.cs.error : widget.cs.primary;
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),

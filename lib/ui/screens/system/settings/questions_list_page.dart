@@ -124,7 +124,7 @@ class _QuestionsListPageState extends State<QuestionsListPage> {
     showEduSheet(
       context: context,
       maxWidth: 520,
-      builder: (_) => _EditQuestionSheet(
+      builder: (_) => EditQuestionSheet(
         question: question,
         onUpdated: () => _fetchQuestions(reset: true),
       ),
@@ -465,7 +465,10 @@ class _QuestionRowState extends State<_QuestionRow>
                   const SizedBox(width: 6),
                   // Type badge
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: _questionTypeBg(q.type, cs, isDark),
                       borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
@@ -863,7 +866,9 @@ Color _questionTypeBg(String type, ColorScheme cs, bool isDark) {
     'experiment' => cs.secondary.withValues(alpha: alpha),
     'diagram' => cs.primary.withValues(alpha: alpha * 0.8),
     'data_response' => cs.tertiary.withValues(alpha: alpha * 0.7),
-    'explanation' => cs.surfaceContainerHighest.withValues(alpha: isDark ? 0.25 : 0.60),
+    'explanation' => cs.surfaceContainerHighest.withValues(
+      alpha: isDark ? 0.25 : 0.60,
+    ),
     _ => cs.surfaceContainerHighest.withValues(alpha: isDark ? 0.25 : 0.60),
   };
 }
@@ -1109,7 +1114,7 @@ class _LoadMoreButton extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _EditQuestionSheet — pre-filled question edit form
+// EditQuestionSheet — pre-filled question edit form
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Edit variant of the question form. Pre-fills all fields from [question]
@@ -1117,17 +1122,17 @@ class _LoadMoreButton extends StatelessWidget {
 ///
 /// Self-contained per BUG-010 — provides its own EduSheet wrapper with
 /// handle, title, background, and keyboard padding.
-class _EditQuestionSheet extends StatefulWidget {
-  const _EditQuestionSheet({required this.question, required this.onUpdated});
+class EditQuestionSheet extends StatefulWidget {
+  const EditQuestionSheet({required this.question, required this.onUpdated});
 
   final Question question;
   final VoidCallback onUpdated;
 
   @override
-  State<_EditQuestionSheet> createState() => _EditQuestionSheetState();
+  State<EditQuestionSheet> createState() => EditQuestionSheetState();
 }
 
-class _EditQuestionSheetState extends State<_EditQuestionSheet> {
+class EditQuestionSheetState extends State<EditQuestionSheet> {
   late final TextEditingController _textCtrl;
   late final TextEditingController _marksCtrl;
   late final TextEditingController _exampleAnswerCtrl;
