@@ -625,6 +625,26 @@ Standalone assessments/assignments are represented as `papers_v2` rows with no p
 **Fix:**
 Modified `_paperExamFromV2` to use the unique paper ID (`pv2.id`) as the legacy `exam` ID when the paper has no parent event/exam (i.e. `pv2.event` is null or empty). This ensures that each standalone assessment/assignment has a unique `exam` ID, and its grades are stored and queried independently in the `grades` table.
 
+	**Prevention:**
+	- Standalone papers must always map to a unique `exam` ID in the legacy shape to prevent grade collision.
+	- Ensure any query or mutation on grades for standalone papers uses the unique paper ID as the `exam` ID.
+
+## BUG-022: CBC Grade 12 questions bulk uploaded as Grade 10 due to missing grade normalization
+
+**Status:** Fixed
+**Date:** 2026-06-22
+**Files affected:**
+- `lib/services/import_file_parser.dart` — `_normalizeGrade`
+
+**Symptom:**
+Bulk-uploaded questions for CBC Grade 12 were saved under Grade 10 on the server and in the application.
+
+**Root cause:**
+In `lib/services/import_file_parser.dart`, the `_normalizeGrade` function returned the raw grade as-is for the CBC curriculum. However, in the database, CBC grades are represented as PP1=1, PP2=2, Grade 1–9 = 3–11, Grade 10–12 = 12–14. When a user uploaded a question bank JSON file with `"grade": 12` (representing Grade 12), the parser returned `12` as the grade. In the database, `12` corresponds to Grade 10, causing the questions to be saved under Grade 10.
+
+**Fix:**
+Updated `_normalizeGrade` to map CBC raw grades `1` to `12` to `rawGrade + 2`. This shifts Grade 1 to 3, Grade 10 to 12, and Grade 12 to 14, matching the database schema representation. Already normalized grades (like 13 or 14) are returned as-is.
+
 **Prevention:**
-- Standalone papers must always map to a unique `exam` ID in the legacy shape to prevent grade collision.
-- Ensure any query or mutation on grades for standalone papers uses the unique paper ID as the `exam` ID.
+- Always normalize raw CBC grades to their database-compatible integer values (raw grade + 2) during import parsing.
+- Ensure unit tests cover grade normalization for both 8-4-4 and CBC curricula.

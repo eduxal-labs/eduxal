@@ -337,7 +337,10 @@ Wraps three gRPC service clients for the full exam lifecycle. Uses `EventService
 - `client.dart` is the only file that holds the gRPC `ClientChannel`. Services receive the channel (or a service client) via constructor injection.
 
 ## Last Updated
-Task A3 — Updated `QuestionBankService` (`question_bank.dart`):
+Task A1 — Updated `ImportFileParser` (`import_file_parser.dart`):
+- Updated `_normalizeGrade` to map CBC raw grades 1–12 (raw 1–12) to DB-compatible grade numbers 3–14 respectively. This ensures that bulk-uploaded questions for Grade 12 (raw 12) are correctly saved under Grade 12 (DB integer 14) instead of Grade 10 (DB integer 12).
+
+Previous: Task A3 — Updated `QuestionBankService` (`question_bank.dart`):
 - Added `importQuestionsFromParsedFile` method — full client-side orchestration for JSON import with auto subject/topic creation.
 - New imports: `client.dart` (for `catalogDao`, `accessToken`), `database/tables/curriculum_subjects.dart` (for `CurriculumType`).
 - Method resolves `CurriculumType` from string, calls `catalogDao.findOrCreateSubject`/`findOrCreateTopic`, injects `topic_id` into cleaned JSON, then delegates to existing `importFileWithImages`.

@@ -264,7 +264,8 @@ ParsedImportFile parseImportFile(String filePath, String jsonContent) {
     // A question with a stimulus passage/poem/narrative is valid even without body.
     final rawBody = q['body'] ?? q['text'];
     final bool hasStimulus = _hasQuestionStimulusContent(q['stimulus']);
-    if ((rawBody == null || rawBody is! String || rawBody.trim().isEmpty) && !hasStimulus) {
+    if ((rawBody == null || rawBody is! String || rawBody.trim().isEmpty) &&
+        !hasStimulus) {
       errors.add('$prefix: missing or empty "body" (or "text").');
     }
 
@@ -299,7 +300,9 @@ ParsedImportFile parseImportFile(String filePath, String jsonContent) {
         if (rawCriterion == null ||
             rawCriterion is! String ||
             rawCriterion.trim().isEmpty) {
-          errors.add('$prefix, rubric[${j + 1}]: missing "criterion" (or "criteria").');
+          errors.add(
+            '$prefix, rubric[${j + 1}]: missing "criterion" (or "criteria").',
+          );
         }
         final rMarks = r['marks'];
         if (rMarks == null) {
@@ -408,8 +411,13 @@ ParsedImportFile parseImportFile(String filePath, String jsonContent) {
     final maxMarks = q['max_marks'];
     if (maxMarks != null && maxMarks is! int && maxMarks is! double) {
       errors.add('$prefix: "max_marks" must be a number if provided.');
-    } else if (maxMarks != null && marks != null && maxMarks is num && (maxMarks as num).toInt() > marks) {
-      errors.add('$prefix: "max_marks" (${(maxMarks as num).toInt()}) must be ≤ "marks" ($marks).');
+    } else if (maxMarks != null &&
+        marks != null &&
+        maxMarks is num &&
+        (maxMarks as num).toInt() > marks) {
+      errors.add(
+        '$prefix: "max_marks" (${(maxMarks as num).toInt()}) must be ≤ "marks" ($marks).',
+      );
     }
 
     // answer_space_type: optional, validate if present
@@ -427,7 +435,9 @@ ParsedImportFile parseImportFile(String filePath, String jsonContent) {
     // answer_box_height_mm: optional, validate if present
     final answerBoxH = q['answer_box_height_mm'];
     if (answerBoxH != null && answerBoxH is! int && answerBoxH is! double) {
-      errors.add('$prefix: "answer_box_height_mm" must be a number if provided.');
+      errors.add(
+        '$prefix: "answer_box_height_mm" must be a number if provided.',
+      );
     }
 
     // stimulus: optional, accept any valid JSON
@@ -468,7 +478,9 @@ ParsedImportFile parseImportFile(String filePath, String jsonContent) {
               continue;
             }
             final prCriterion = pr['criterion'] ?? pr['criteria'];
-            if (prCriterion == null || prCriterion is! String || prCriterion.trim().isEmpty) {
+            if (prCriterion == null ||
+                prCriterion is! String ||
+                prCriterion.trim().isEmpty) {
               errors.add('$pp, rubric[${rj + 1}]: missing "criterion".');
             }
             final prMarks = pr['marks'];
@@ -577,7 +589,8 @@ bool _hasQuestionStimulusContent(dynamic stimulus) {
 ///
 /// For 8-4-4 curriculum, Form 1–4 (raw 1–4) are mapped to grade numbers
 /// 41–44 respectively. Values already in the 41–44 range pass through.
-/// For CBC curriculum, the raw grade is returned as-is.
+/// For CBC curriculum, raw Grade 1–12 (raw 1–12) are mapped to grade numbers
+/// 3–14 respectively. Values already in the 3–14 range pass through.
 int _normalizeGrade(String curriculum, int rawGrade) {
   if (curriculum == '844') {
     switch (rawGrade) {
@@ -593,6 +606,10 @@ int _normalizeGrade(String curriculum, int rawGrade) {
         return rawGrade;
     }
   }
-  // CBC — return as-is.
+  if (curriculum == 'cbc') {
+    if (rawGrade >= 1 && rawGrade <= 12) {
+      return rawGrade + 2;
+    }
+  }
   return rawGrade;
 }

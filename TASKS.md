@@ -1,3 +1,89 @@
 # EduXal Flutter — Task List
 
-> All tasks completed. Waiting for new instructions.
+## Track A: Fix Grade Normalization for CBC Curriculum
+
+### Task A1: Update CBC Grade Normalization in Import File Parser
+**Files to create/modify:** `lib/services/import_file_parser.dart`
+**Context files to read (if needed):** `lib/services/CONTEXT.md`
+**Depends on:** None
+**Parallel group:** P1
+
+**Specification:**
+Update the private top-level helper `_normalizeGrade(String curriculum, int rawGrade) → int` in `lib/services/import_file_parser.dart`.
+Currently, it returns the raw grade as-is for the CBC curriculum:
+```dart
+int _normalizeGrade(String curriculum, int rawGrade) {
+  if (curriculum == '844') {
+    switch (rawGrade) {
+      case 1:
+        return 41;
+      case 2:
+        return 42;
+      case 3:
+        return 43;
+      case 4:
+        return 44;
+      default:
+        return rawGrade;
+    }
+  }
+  // CBC — return as-is.
+  return rawGrade;
+}
+```
+In the database, CBC grades are represented as PP1=1, PP2=2, Grade 1–9 = 3–11, Grade 10–12 = 12–14.
+When a user uploads a question bank JSON file for CBC Grade 12, they write `"grade": 12` in the JSON.
+However, in the database, Grade 12 is represented by the integer `14`. The raw grade `12` represents Grade 10.
+Thus, we must normalize CBC raw grades `1` to `12` by mapping them to `rawGrade + 2` (so Grade 1 becomes 3, Grade 10 becomes 12, Grade 12 becomes 14).
+If the raw grade is already normalized (i.e. `13` or `14`), or outside the `1` to `12` range, it should be returned as-is.
+
+Modify `_normalizeGrade` to:
+```dart
+int _normalizeGrade(String curriculum, int rawGrade) {
+  if (curriculum == '844') {
+    switch (rawGrade) {
+      case 1:
+        return 41;
+      case 2:
+        return 42;
+      case 3:
+        return 43;
+      case 4:
+        return 44;
+      default:
+        return rawGrade;
+    }
+  }
+  if (curriculum == 'cbc') {
+    if (rawGrade >= 1 && rawGrade <= 12) {
+      return rawGrade + 2;
+    }
+  }
+  return rawGrade;
+}
+```
+
+**Update after completion:**
+- [x] Update `lib/services/CONTEXT.md` to document the grade normalization change.
+- [x] Mark this task `[x]`
+- [x] Orchestrator: git commit after this task
+
+---
+
+### Task A2: Update CONTEXT.md and BUG.md
+**Files to create/modify:** `lib/services/CONTEXT.md`, `BUG.md`
+**Context files to read (if needed):** None
+**Depends on:** Task A1
+**Parallel group:** None
+
+**Specification:**
+1. Update `lib/services/CONTEXT.md` under `## Last Updated` to document that `_normalizeGrade` now maps CBC raw grades 1–12 to DB-compatible grade numbers 3–14.
+2. Append a new entry to `BUG.md` for `BUG-022: CBC Grade 12 questions bulk uploaded as Grade 10 due to missing grade normalization`.
+   - Title: CBC Grade 12 questions bulk uploaded as Grade 10 due to missing grade normalization
+   - Root Cause: In `lib/services/import_file_parser.dart`, `_normalizeGrade` returned the raw grade as-is for the CBC curriculum. Since Grade 12 is represented by integer `14` in the database and Grade 10 is represented by `12`, uploading a file with `"grade": 12` resulted in questions being saved under Grade 10.
+   - Files changed: `lib/services/import_file_parser.dart`
+   - Fix applied: Updated `_normalizeGrade` to map CBC raw grades `1` to `12` to `rawGrade + 2`.
+
+**Update after completion:**
+- [x] Mark this task `[x]`
+- [x] Orchestrator: git commit after this task
