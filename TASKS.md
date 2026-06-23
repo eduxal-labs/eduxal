@@ -158,3 +158,24 @@ int _normalizeGrade(String curriculum, int rawGrade) {
 **Update after completion:**
 - [x] Mark this task `[x]`
 - [x] Orchestrator: git commit after this task
+
+---
+
+## Track E: Question Parts Editing
+
+### Task E1: Support Editing Question Parts on Server and Client
+**Files to create/modify:** `../ledger/protos/services/question_bank.proto`, `../ledger/src/db/database/tables/question_bank.rs`, `../ledger/src/services/question_bank.rs`, `lib/services/question_bank.dart`, `lib/ui/screens/school_dashboard/academics/paper_generation_page.dart`
+**Depends on:** None
+**Parallel group:** None
+
+**Specification:**
+1. Add `repeated QuestionPartInput parts = 6;` to `EditPaperQuestionRequest` in `question_bank.proto`.
+2. Update `edit_paper_question` database function in `../ledger/src/db/database/tables/question_bank.rs` to replace/insert question parts.
+3. Update `edit_paper_question` gRPC service handler in `../ledger/src/services/question_bank.rs` to parse and pass question parts.
+4. Regenerate client-side Dart protobuf stubs using `./generate.sh`.
+5. Update `editPaperQuestion` in `lib/services/question_bank.dart` to accept and serialize question parts.
+6. Update `PaperGenerationPage` to support editing and rendering question parts in the inline edit card.
+
+**Update after completion:**
+- [x] Mark this task `[x]`
+- [x] Orchestrator: git commit after this task
