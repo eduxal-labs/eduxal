@@ -95,6 +95,7 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
   final TextEditingController _editTextCtrl = TextEditingController();
   final TextEditingController _editMarksCtrl = TextEditingController();
   final List<_InlineRubricEntry> _editRubric = [];
+  final List<_InlinePartEntry> _editParts = [];
 
   bool _isSavingEdit = false;
 
@@ -123,6 +124,7 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
     _editTextCtrl.dispose();
     _editMarksCtrl.dispose();
     _disposeEditRubric();
+    _disposeEditParts();
     super.dispose();
   }
 
@@ -132,6 +134,15 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
       r.marksCtrl.dispose();
     }
     _editRubric.clear();
+  }
+
+  void _disposeEditParts() {
+    for (final p in _editParts) {
+      p.labelCtrl.dispose();
+      p.bodyCtrl.dispose();
+      p.marksCtrl.dispose();
+    }
+    _editParts.clear();
   }
 
   // ───────────────────────── Computed ─────────────────────────
@@ -344,6 +355,7 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
   void _startEditing(int index) {
     final question = _generatedQuestions[index];
     _disposeEditRubric();
+    _disposeEditParts();
 
     _editTextCtrl.text = question.text;
     _editMarksCtrl.text = '${question.marks}';
@@ -356,6 +368,15 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
       );
     }
 
+    for (final p in question.parts) {
+      _editParts.add(
+        _InlinePartEntry()
+          ..labelCtrl.text = p.label
+          ..bodyCtrl.text = p.body
+          ..marksCtrl.text = '${p.marks}',
+      );
+    }
+
     setState(() {
       _editingIndex = index;
       _isSavingEdit = false;
@@ -364,6 +385,7 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
 
   void _cancelEditing() {
     _disposeEditRubric();
+    _disposeEditParts();
     setState(() {
       _editingIndex = -1;
       _isSavingEdit = false;
@@ -401,6 +423,23 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
       }
     }
 
+    final parts = <QuestionPart>[];
+    for (final p in _editParts) {
+      final label = p.labelCtrl.text.trim();
+      final body = p.bodyCtrl.text.trim();
+      final pMarks = int.tryParse(p.marksCtrl.text.trim()) ?? 0;
+      if (label.isNotEmpty && body.isNotEmpty) {
+        parts.add(
+          QuestionPart(
+            label: label,
+            body: body,
+            marks: pMarks,
+            rubric: const [],
+          ),
+        );
+      }
+    }
+
     setState(() => _isSavingEdit = true);
 
     final result = await questionBankService.editPaperQuestion(
@@ -409,6 +448,7 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
       text: text,
       marks: marks,
       rubric: rubric,
+      parts: parts,
       accessToken: accessToken,
     );
 
@@ -424,6 +464,7 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
           text: editedQuestion.text,
           marks: editedQuestion.marks,
           rubric: editedQuestion.rubric,
+          parts: editedQuestion.parts,
           images: editedQuestion.images,
           order: question.order,
           section: question.section,
@@ -1352,6 +1393,32 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
             ),
           ),
 
+          // ── Parts ──
+          if (_editParts.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'QUESTION PARTS',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.9,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  for (int i = 0; i < _editParts.length; i++) ...[
+                    if (i > 0) AppTheme.tableRowDivider(isDark, cs),
+                    _buildEditPartRow(i, cs, isDark),
+                  ],
+                ],
+              ),
+            ),
+
           // ── Rubric criteria ──
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
@@ -1420,6 +1487,82 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
           ),
 
           const SizedBox(height: 12),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEditPartRow(int index, ColorScheme cs, bool isDark) {
+    final entry = _editParts[index];
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          // Label
+          SizedBox(
+            width: 30,
+            height: 34,
+            child: TextField(
+              controller: entry.labelCtrl,
+              enabled: !_isSavingEdit,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurface,
+              ),
+              decoration: _editFieldDecoration(
+                hint: 'a',
+                cs: cs,
+                isDark: isDark,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Body
+          Expanded(
+            child: TextField(
+              controller: entry.bodyCtrl,
+              maxLines: null,
+              enabled: !_isSavingEdit,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurface,
+              ),
+              decoration: _editFieldDecoration(
+                hint: 'Part text',
+                cs: cs,
+                isDark: isDark,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Marks
+          SizedBox(
+            width: 45,
+            height: 34,
+            child: TextField(
+              controller: entry.marksCtrl,
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(2),
+              ],
+              textAlign: TextAlign.center,
+              enabled: !_isSavingEdit,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: cs.onSurface,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+              decoration: _editFieldDecoration(
+                hint: '0',
+                cs: cs,
+                isDark: isDark,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -3247,4 +3390,10 @@ class _GenerationErrorBanner extends StatelessWidget {
       ),
     );
   }
+}
+
+class _InlinePartEntry {
+  final labelCtrl = TextEditingController();
+  final bodyCtrl = TextEditingController();
+  final marksCtrl = TextEditingController();
 }

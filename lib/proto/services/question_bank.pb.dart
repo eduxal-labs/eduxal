@@ -3075,6 +3075,7 @@ class EditPaperQuestionRequest extends $pb.GeneratedMessage {
     $core.String? body,
     $core.int? marks,
     $core.Iterable<RubricCriterionInput>? rubric,
+    $core.Iterable<QuestionPartInput>? parts,
   }) {
     final result = create();
     if (paperId != null) result.paperId = paperId;
@@ -3082,6 +3083,7 @@ class EditPaperQuestionRequest extends $pb.GeneratedMessage {
     if (body != null) result.body = body;
     if (marks != null) result.marks = marks;
     if (rubric != null) result.rubric.addAll(rubric);
+    if (parts != null) result.parts.addAll(parts);
     return result;
   }
 
@@ -3104,6 +3106,8 @@ class EditPaperQuestionRequest extends $pb.GeneratedMessage {
     ..aI(4, _omitFieldNames ? '' : 'marks')
     ..pPM<RubricCriterionInput>(5, _omitFieldNames ? '' : 'rubric',
         subBuilder: RubricCriterionInput.create)
+    ..pPM<QuestionPartInput>(6, _omitFieldNames ? '' : 'parts',
+        subBuilder: QuestionPartInput.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3164,6 +3168,9 @@ class EditPaperQuestionRequest extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(5)
   $pb.PbList<RubricCriterionInput> get rubric => $_getList(4);
+
+  @$pb.TagNumber(6)
+  $pb.PbList<QuestionPartInput> get parts => $_getList(5);
 }
 
 class EditPaperQuestionResponse extends $pb.GeneratedMessage {

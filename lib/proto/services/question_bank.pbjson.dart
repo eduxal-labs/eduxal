@@ -1135,6 +1135,14 @@ const EditPaperQuestionRequest$json = {
       '6': '.question_bank.RubricCriterionInput',
       '10': 'rubric'
     },
+    {
+      '1': 'parts',
+      '3': 6,
+      '4': 3,
+      '5': 11,
+      '6': '.question_bank.QuestionPartInput',
+      '10': 'parts'
+    },
   ],
 };
 
@@ -1143,7 +1151,8 @@ final $typed_data.Uint8List editPaperQuestionRequestDescriptor = $convert.base64
     'ChhFZGl0UGFwZXJRdWVzdGlvblJlcXVlc3QSGQoIcGFwZXJfaWQYASABKAlSB3BhcGVySWQSHw'
     'oLcXVlc3Rpb25faWQYAiABKAVSCnF1ZXN0aW9uSWQSEgoEYm9keRgDIAEoCVIEYm9keRIUCgVt'
     'YXJrcxgEIAEoBVIFbWFya3MSOwoGcnVicmljGAUgAygLMiMucXVlc3Rpb25fYmFuay5SdWJyaW'
-    'NDcml0ZXJpb25JbnB1dFIGcnVicmlj');
+    'NDcml0ZXJpb25JbnB1dFIGcnVicmljEjYKBXBhcnRzGAYgAygLMiAucXVlc3Rpb25fYmFuay5R'
+    'dWVzdGlvblBhcnRJbnB1dFIFcGFydHM=');
 
 @$core.Deprecated('Use editPaperQuestionResponseDescriptor instead')
 const EditPaperQuestionResponse$json = {

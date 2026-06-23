@@ -616,6 +616,7 @@ class QuestionBankService {
     required String text,
     required int marks,
     required List<models.RubricCriterion> rubric,
+    List<models.QuestionPart>? parts,
     String? exampleAnswer,
     required String accessToken,
   }) async {
@@ -627,6 +628,9 @@ class QuestionBankService {
         ..body = text
         ..marks = marks;
       req.rubric.addAll(rubric.map(_toProtoCriterion));
+      if (parts != null) {
+        req.parts.addAll(parts.map(_toProtoPartInput));
+      }
       final options = CallOptions(
         metadata: {'authorization': 'Bearer $accessToken'},
         timeout: const Duration(seconds: 30),
@@ -1355,4 +1359,28 @@ class QuestionBankService {
       pb.RubricCriterionInput()
         ..criterion = r.criterion
         ..marks = r.marks;
+
+  /// Convert domain [models.QuestionPart] to proto [pb.QuestionPartInput].
+  pb.QuestionPartInput _toProtoPartInput(models.QuestionPart p) {
+    final input = pb.QuestionPartInput()
+      ..label = p.label
+      ..body = p.body
+      ..bodyFormat = p.bodyFormat == 'tiptap' ? 1 : 0
+      ..marks = p.marks
+      ..answerSpaceType = switch (p.answerSpaceType) {
+        'lines' => 0,
+        'plain_box' => 1,
+        'diagram_box' => 2,
+        'construction_box' => 3,
+        'grid_box' => 4,
+        _ => 0,
+      };
+    if (p.answerLines > 0) input.answerLines = p.answerLines;
+    if (p.answerBoxHeightMm > 0) input.answerBoxHeightMm = p.answerBoxHeightMm;
+    if (p.exampleAnswer != null) {
+      input.exampleAnswer = p.exampleAnswer.toString();
+    }
+    input.rubric.addAll(p.rubric.map(_toProtoCriterion));
+    return input;
+  }
 }
