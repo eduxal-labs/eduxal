@@ -141,3 +141,20 @@ int _normalizeGrade(String curriculum, int rawGrade) {
 **Update after completion:**
 - [x] Mark this task `[x]`
 - [x] Orchestrator: git commit after this task
+
+---
+
+## Track D: Windows Build Fix
+
+### Task D1: Silence MSVC Experimental Coroutine Deprecation Warning
+**Files to create/modify:** `windows/CMakeLists.txt`
+**Depends on:** None
+**Parallel group:** None
+
+**Specification:**
+1. Add `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS` to `add_definitions` in `windows/CMakeLists.txt`.
+2. Add `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS` to `target_compile_definitions` in `APPLY_STANDARD_SETTINGS` in `windows/CMakeLists.txt`.
+
+**Update after completion:**
+- [x] Mark this task `[x]`
+- [x] Orchestrator: git commit after this task
