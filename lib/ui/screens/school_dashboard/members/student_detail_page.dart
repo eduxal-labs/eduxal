@@ -1085,7 +1085,7 @@ class _EnrollmentsTab extends StatelessWidget {
                   return ListView.separated(
                     padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
                     itemCount: enrollments.length,
-                    separatorBuilder: (_, __) => Divider(
+                    separatorBuilder: (_, _) => Divider(
                       height: 0.5,
                       thickness: 0.5,
                       color: isDark
@@ -1337,8 +1337,9 @@ class _EnrollStudentSheetState extends State<_EnrollStudentSheet> {
     if (accountId == null) return;
     if (_selectedTerm == null ||
         _selectedGrade == null ||
-        _selectedStreamCode == null)
+        _selectedStreamCode == null) {
       return;
+    }
 
     setState(() => _saving = true);
 

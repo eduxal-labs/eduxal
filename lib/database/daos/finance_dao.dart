@@ -736,12 +736,12 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
     required BigInt due,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.createFee,
       schoolId: schoolId,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
@@ -799,12 +799,12 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
     BigInt? due,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.updateFee,
       schoolId: null,
       recordId: id,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
@@ -867,12 +867,12 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
     required String id,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.deleteFee,
       schoolId: null,
       recordId: id,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final payload = sync_pb.DeleteFeePayload(id: id);
@@ -910,12 +910,12 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
     BigInt? due,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.createInvoice,
       schoolId: schoolId,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
@@ -1029,12 +1029,12 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
     required InvoiceStatus status,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.updateInvoice,
       schoolId: null,
       recordId: id,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
@@ -1091,12 +1091,12 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
     int? date,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.createPayment,
       schoolId: schoolId,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
@@ -1237,12 +1237,12 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
 
       if (existing != null) {
         // Auth check for update path — before any write.
-        final _authResult = await authorization.check(
+        final authResult = await authorization.check(
           action: SyncAction.updateDiscount,
           schoolId: null,
           recordId: null,
         );
-        if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+        if (!authResult.allowed) throw PermissionException(authResult.reason!);
         await (update(discounts)..where(
               (d) =>
                   d.school.equals(schoolId) &
@@ -1280,12 +1280,12 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
         );
       } else {
         // Auth check for create path — before any write.
-        final _authResult = await authorization.check(
+        final authResult = await authorization.check(
           action: SyncAction.createDiscount,
           schoolId: null,
           recordId: null,
         );
-        if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+        if (!authResult.allowed) throw PermissionException(authResult.reason!);
         await into(discounts).insert(
           DiscountsCompanion(
             school: Value(schoolId),
@@ -1333,12 +1333,12 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
     required int grade,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.deleteDiscount,
       schoolId: null,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 

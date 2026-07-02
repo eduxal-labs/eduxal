@@ -5,7 +5,6 @@ import '../../../../client.dart';
 import '../../../../models/result.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/members_dao.dart';
-import '../../../../database/tables/enums.dart';
 import '../../../../models/permissions.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';

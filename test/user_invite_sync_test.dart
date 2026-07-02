@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
@@ -166,7 +165,7 @@ Future<LogsData> _insertLog(
 
 Future<File> _createTempDbFile() async {
   final dir = await Directory.systemTemp.createTemp('eduxal_invite_sync_test_');
-  return File(dir.path + '/test.sqlite');
+  return File('${dir.path}/test.sqlite');
 }
 
 Future<AppDatabase> _reopenWithMigration(File file) async {

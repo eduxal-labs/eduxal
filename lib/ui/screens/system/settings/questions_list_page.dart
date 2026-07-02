@@ -1123,7 +1123,7 @@ class _LoadMoreButton extends StatelessWidget {
 /// Self-contained per BUG-010 — provides its own EduSheet wrapper with
 /// handle, title, background, and keyboard padding.
 class EditQuestionSheet extends StatefulWidget {
-  const EditQuestionSheet({required this.question, required this.onUpdated});
+  const EditQuestionSheet({super.key, required this.question, required this.onUpdated});
 
   final Question question;
   final VoidCallback onUpdated;

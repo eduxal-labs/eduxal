@@ -333,8 +333,9 @@ TimetableEntry? _entryForStream(
   for (final e in entries) {
     if (e.slot.stream == streamCode &&
         e.slot.day == day &&
-        e.slot.start == startTime)
+        e.slot.start == startTime) {
       return e;
+    }
   }
   return null;
 }
@@ -860,7 +861,7 @@ class _MobileDayPagerState extends State<_MobileDayPager> {
               : ListView.separated(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                   itemCount: dayEntries.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 6),
+                  separatorBuilder: (_, _) => const SizedBox(height: 6),
                   itemBuilder: (context, index) {
                     return _MobileSlotCard(
                       entry: dayEntries[index],
@@ -978,7 +979,7 @@ class _MobileAllStreamsPagerState extends State<_MobileAllStreamsPager> {
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
             itemCount: widget.streams.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 16),
+            separatorBuilder: (_, _) => const SizedBox(height: 16),
             itemBuilder: (context, si) {
               final stream = widget.streams[si];
               final streamDayEntries =

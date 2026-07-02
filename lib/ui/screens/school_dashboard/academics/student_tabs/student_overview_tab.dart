@@ -567,7 +567,7 @@ class _ExamRow extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                '${totalScore.toStringAsFixed(0)}/${totalPossible}',
+                '${totalScore.toStringAsFixed(0)}/$totalPossible',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,

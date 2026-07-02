@@ -339,9 +339,9 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
       // Build per-(student, subject) average mastery.
       // masteryByStudentSubject[student][subject] = average score across topics
       final masteryByStudentSubject = <int, Map<int, double>>{};
-      final _accumulator = <int, Map<int, ({double sum, int count})>>{};
+      final accumulator = <int, Map<int, ({double sum, int count})>>{};
       for (final m in masteryRows) {
-        _accumulator
+        accumulator
             .putIfAbsent(m.student, () => {})
             .update(
               m.subject,
@@ -349,7 +349,7 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
               ifAbsent: () => (sum: m.score, count: 1),
             );
       }
-      for (final studentEntry in _accumulator.entries) {
+      for (final studentEntry in accumulator.entries) {
         final studentMap = <int, double>{};
         for (final subjectEntry in studentEntry.value.entries) {
           studentMap[subjectEntry.key] =
@@ -359,7 +359,7 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
       }
 
       // Helper: compute average mastery for a subject across a set of students.
-      double? _avgMastery(int subjectCode, Set<int> adms) {
+      double? avgMastery(int subjectCode, Set<int> adms) {
         final scores = <double>[];
         for (final adm in adms) {
           final m = masteryByStudentSubject[adm]?[subjectCode];
@@ -374,8 +374,8 @@ class AcademicsDao extends DatabaseAccessor<AppDatabase>
         final streamCode = row.subject.stream;
 
         final streamStudents = studentsByStream[streamCode] ?? {};
-        final streamMasteryAverage = _avgMastery(subjectCode, streamStudents);
-        final gradeMasteryAverage = _avgMastery(subjectCode, allStudentAdms);
+        final streamMasteryAverage = avgMastery(subjectCode, streamStudents);
+        final gradeMasteryAverage = avgMastery(subjectCode, allStudentAdms);
 
         return SubjectTeacherEntry(
           subject: row.subject,

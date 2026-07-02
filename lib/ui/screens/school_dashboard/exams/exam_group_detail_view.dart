@@ -2,13 +2,11 @@ import 'dart:async';
 import 'dart:math' as math;
 import '../../../../models/result.dart';
 
-import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart' hide Action;
 
 import '../../../../client.dart';
 import '../../../../core/formatters.dart';
 import '../../../../database/database.dart';
-import '../../../../database/daos/catalog_dao.dart';
 import '../../../../database/daos/exams_grades_dao.dart';
 import '../../../../database/daos/members_dao.dart';
 import '../../../../database/daos/subjects_dao.dart';
@@ -19,7 +17,6 @@ import '../../../../models/permissions.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
-import '../../../widgets/animated_save_button.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/permission_denied_handler.dart';
@@ -630,8 +627,9 @@ class _ExamGroupDetailViewState extends State<ExamGroupDetailView>
         accessToken: accessToken,
       );
       if (res case Err(:final error)) {
-        if (mounted)
+        if (mounted) {
           showPermissionDenied(context, error.message ?? 'Permission denied');
+        }
         return;
       }
       await _dao.deleteExam(examId: id, accountId: accountId);

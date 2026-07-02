@@ -43,7 +43,7 @@ class _CreateAssignmentPageState extends State<CreateAssignmentPage> {
   DateTime? _dueDate;
   List<({int id, String name})> _allTopics = [];
   Set<int> _selectedTopics = {};
-  Map<int, double> _weights = {};
+  final Map<int, double> _weights = {};
   bool _submitting = false;
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────

@@ -337,7 +337,7 @@ class _SearchToolbar extends StatelessWidget {
             ),
             suffixIcon: ValueListenableBuilder<TextEditingValue>(
               valueListenable: controller,
-              builder: (_, value, __) {
+              builder: (_, value, _) {
                 if (value.text.isEmpty) return const SizedBox.shrink();
                 return GestureDetector(
                   onTap: () => controller.clear(),

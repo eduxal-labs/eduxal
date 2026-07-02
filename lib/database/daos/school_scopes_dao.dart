@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
@@ -429,12 +428,12 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
     RolesCompanion companion, {
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.createRole,
       schoolId: companion.school.present ? companion.school.value : null,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       await into(roles).insert(companion);
 
@@ -479,12 +478,12 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
     RolesCompanion changes, {
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.updateRole,
       schoolId: null,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       await (update(roles)..where((t) => t.id.equals(roleId))).write(changes);
 
@@ -528,12 +527,12 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
   ///
   /// [accountId] is the currently active account's user id.
   Future<void> deleteRole(String roleId, {required String accountId}) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.deleteRole,
       schoolId: null,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final payload = sync_pb.DeleteRolePayload(id: roleId);
@@ -568,12 +567,12 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
     required String roleId,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.assignRole,
       schoolId: schoolId,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final nowSeconds = BigInt.from(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
@@ -620,12 +619,12 @@ class SchoolScopesDao extends DatabaseAccessor<AppDatabase>
     required String roleId,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.unassignRole,
       schoolId: schoolId,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final payload = sync_pb.UnassignRolePayload(

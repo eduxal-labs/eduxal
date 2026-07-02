@@ -359,7 +359,7 @@ class _RoleFeedState extends State<_RoleFeed> {
     return StreamBuilder<List<AnnouncementWithAuthor>>(
       // Use a key so that when grade/stream changes the StreamBuilder
       // subscribes to the new stream instead of keeping the stale one.
-      key: ValueKey('announcements_${grade}_${stream}'),
+      key: ValueKey('announcements_${grade}_$stream'),
       stream: _dao.watchAnnouncementsForAudience(
         _schoolId,
         audienceBit: widget.audienceBit,

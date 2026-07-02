@@ -2341,8 +2341,8 @@ class _RoleSwitcherSheet extends StatelessWidget {
         Icons.badge_outlined,
         'Staff',
         [
-          if (staff.role case final r?) r,
-          if (staff.department case final d?) d,
+          ?staff.role,
+          ?staff.department,
         ].join(' · '),
       ),
       StudentEntry() => (Icons.person_outline, 'Student', ''),

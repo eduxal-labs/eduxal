@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:drift/drift.dart' hide Column;
 
@@ -1032,19 +1031,22 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           cs: cs,
                           initialDirtySubmissions: _childDirtySubmissions,
                           onDirtyChanged: (dirty) {
-                            if (mounted)
+                            if (mounted) {
                               setState(() => _hasDirtyGrades = dirty);
+                            }
                           },
                           onSubmissionsChanged: () {
                             if (mounted) setState(() {});
                           },
                           onSubmissionsMapChanged: (map) {
-                            if (mounted)
+                            if (mounted) {
                               setState(() => _childSubmissions = map);
+                            }
                           },
                           onDirtySubmissionsChanged: (dirty) {
-                            if (mounted)
+                            if (mounted) {
                               setState(() => _childDirtySubmissions = dirty);
+                            }
                           },
                           onAiPhaseChanged: (phase) {
                             setState(() => _aiPhase = phase);
@@ -1092,19 +1094,22 @@ class _PaperDetailPageState extends State<PaperDetailPage>
                           localStudentPdfs: _localStudentPdfs,
                           onViewStudentPaperLocal: _viewStudentPaperLocal,
                           onDirtyChanged: (dirty) {
-                            if (mounted)
+                            if (mounted) {
                               setState(() => _hasDirtyGrades = dirty);
+                            }
                           },
                           onSubmissionsChanged: () {
                             if (mounted) setState(() {});
                           },
                           onSubmissionsMapChanged: (map) {
-                            if (mounted)
+                            if (mounted) {
                               setState(() => _childSubmissions = map);
+                            }
                           },
                           onDirtySubmissionsChanged: (dirty) {
-                            if (mounted)
+                            if (mounted) {
                               setState(() => _childDirtySubmissions = dirty);
+                            }
                           },
                           onAiPhaseChanged: (phase) {
                             setState(() => _aiPhase = phase);
@@ -1384,23 +1389,22 @@ class _PaperHeaderState extends State<_PaperHeader>
     setState(() => _busy = true);
     try {
       String? actualServerId = widget.serverPaperId;
-      if (actualServerId == null) {
-        actualServerId = await widget.dao.getServerPaperId(
+      actualServerId ??= await widget.dao.getServerPaperId(
           schoolId: widget.schoolId,
           examId: widget.exam.exam.id,
           subject: widget.paper.subject,
           grade: widget.paper.grade,
           stream: widget.paper.stream,
         );
-      }
       if (actualServerId != null) {
         final res = await paperService.deletePaper(
           paperId: actualServerId,
           accessToken: accessToken,
         );
         if (res case Err(:final error)) {
-          if (mounted)
+          if (mounted) {
             showPermissionDenied(context, error.message ?? 'Permission denied');
+          }
           return;
         }
       }
@@ -1532,15 +1536,13 @@ class _PaperHeaderState extends State<_PaperHeader>
       final accessToken = cache.currentUser?.accessToken;
       if (accessToken != null) {
         String? actualServerId = widget.serverPaperId;
-        if (actualServerId == null) {
-          actualServerId = await widget.dao.getServerPaperId(
+        actualServerId ??= await widget.dao.getServerPaperId(
             schoolId: widget.schoolId,
             examId: widget.exam.exam.id,
             subject: paper.subject,
             grade: paper.grade,
             stream: paper.stream,
           );
-        }
         if (actualServerId != null) {
           final v2StatusInt = switch (next) {
             PaperStatus.pending => 0,
@@ -1554,11 +1556,12 @@ class _PaperHeaderState extends State<_PaperHeader>
             accessToken: accessToken,
           );
           if (res case Err(:final error)) {
-            if (mounted)
+            if (mounted) {
               showPermissionDenied(
                 context,
                 error.message ?? 'Permission denied',
               );
+            }
             return;
           }
         }
@@ -3179,7 +3182,7 @@ class _GradeSpreadsheetState extends State<_GradeSpreadsheet>
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: widget.students.length,
-            separatorBuilder: (_, __) => Divider(
+            separatorBuilder: (_, _) => Divider(
               height: 1,
               color: cs.outlineVariant.withValues(alpha: 0.25),
             ),
@@ -5017,7 +5020,7 @@ class _AnswerSubmissionSheetState extends State<_AnswerSubmissionSheet> {
             child: Image.file(
               File(path),
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
+              errorBuilder: (_, _, _) => Container(
                 color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
                 child: Icon(
                   Icons.broken_image_outlined,
@@ -5517,7 +5520,7 @@ class _ImagePreviewPageState extends State<_ImagePreviewPage> {
               child: Image.file(
                 File(widget.paths[index]),
                 fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const Icon(
+                errorBuilder: (_, _, _) => const Icon(
                   Icons.broken_image_outlined,
                   size: 48,
                   color: Colors.white38,

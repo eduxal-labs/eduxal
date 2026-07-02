@@ -179,7 +179,7 @@ class StudentOverview extends StatelessWidget {
 }
 
 class StudentNextClass extends StatelessWidget {
-  const StudentNextClass({
+  const StudentNextClass({super.key, 
     required this.schoolId,
     required this.year,
     required this.term,
@@ -367,7 +367,7 @@ class _StudentTodayAttendance extends StatelessWidget {
 }
 
 class StudentUpcomingExams extends StatefulWidget {
-  const StudentUpcomingExams({
+  const StudentUpcomingExams({super.key, 
     required this.schoolId,
     required this.term,
     required this.studentAdm,

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart' hide Action;
@@ -7,11 +6,9 @@ import 'package:flutter/material.dart' hide Action;
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/timetable_dao.dart';
-import '../../../../database/daos/catalog_dao.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/school_config.dart';
 import '../../../../core/academic_utils.dart';
-import '../../../../core/extensions.dart';
 import '../../../theme/app_theme.dart';
 import 'timetable_shared.dart';
 
@@ -1372,7 +1369,7 @@ class _SubstitutePickerDialogState extends State<_SubstitutePickerDialog> {
                       shrinkWrap: true,
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       itemCount: _candidates.length,
-                      separatorBuilder: (_, __) =>
+                      separatorBuilder: (_, _) =>
                           AppTheme.tableRowDivider(isDark, cs),
                       itemBuilder: (_, i) {
                         final c = _candidates[i];
@@ -2373,7 +2370,7 @@ class _LessonCoverageView extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.only(top: 10, bottom: 80),
       itemCount: subjects.length,
-      separatorBuilder: (_, __) => AppTheme.tableRowDivider(isDark, cs),
+      separatorBuilder: (_, _) => AppTheme.tableRowDivider(isDark, cs),
       itemBuilder: (context, i) {
         final subjectId = subjects[i].key;
         final data = subjects[i].value;

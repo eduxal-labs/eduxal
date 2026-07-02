@@ -477,13 +477,13 @@ class _EnhancedStatsRow extends StatelessWidget {
                 stats: [
                   QuickStat(
                     label: 'Attendance',
-                    value: '${attPct.toStringAsFixed(0)}',
+                    value: attPct.toStringAsFixed(0),
                     suffix: '%',
                   ),
                   QuickStat(
                     label: 'Latest Avg',
                     value: latestExamPct != null
-                        ? '${latestExamPct.toStringAsFixed(0)}'
+                        ? latestExamPct.toStringAsFixed(0)
                         : '—',
                     suffix: latestExamPct != null ? '%' : null,
                   ),
@@ -545,13 +545,13 @@ class _EnhancedStatsRow extends StatelessWidget {
                         final stats = <QuickStat>[
                           QuickStat(
                             label: 'Attendance',
-                            value: '${attPct.toStringAsFixed(0)}',
+                            value: attPct.toStringAsFixed(0),
                             suffix: '%',
                           ),
                           QuickStat(
                             label: 'Latest Avg',
                             value: latestExamPct != null
-                                ? '${latestExamPct.toStringAsFixed(0)}'
+                                ? latestExamPct.toStringAsFixed(0)
                                 : '—',
                             suffix: latestExamPct != null ? '%' : null,
                           ),

@@ -96,7 +96,7 @@ class NotificationsSection extends StatelessWidget {
               return ListView.separated(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 itemCount: notifications.length,
-                separatorBuilder: (_, __) => Divider(
+                separatorBuilder: (_, _) => Divider(
                   height: 1,
                   thickness: 0.5,
                   indent: 52,

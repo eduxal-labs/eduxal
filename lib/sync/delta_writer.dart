@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
@@ -1094,7 +1093,7 @@ class DeltaWriter {
         k[1],
         _parseInt(k[2]),
         _parseInt(k[3]),
-        if (paperVal != null) paperVal,
+        ?paperVal,
       ],
     );
 

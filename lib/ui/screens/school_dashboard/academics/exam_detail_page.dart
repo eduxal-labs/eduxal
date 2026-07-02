@@ -2556,7 +2556,7 @@ class _PerformanceTabState extends State<_PerformanceTab>
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    '${r.percentage.toStringAsFixed(1)}',
+                    r.percentage.toStringAsFixed(1),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 11,

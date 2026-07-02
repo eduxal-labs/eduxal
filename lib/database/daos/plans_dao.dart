@@ -67,12 +67,12 @@ class PlansDao extends DatabaseAccessor<AppDatabase> with _$PlansDaoMixin {
     PlansCompanion plan, {
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.createPlan,
       schoolId: null,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       await into(plans).insert(plan);
 
@@ -117,12 +117,12 @@ class PlansDao extends DatabaseAccessor<AppDatabase> with _$PlansDaoMixin {
     PlansCompanion changes, {
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.updatePlan,
       schoolId: null,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       await (update(plans)..where((t) => t.id.equals(planId))).write(changes);
 
@@ -213,12 +213,12 @@ class PlansDao extends DatabaseAccessor<AppDatabase> with _$PlansDaoMixin {
   ///
   /// [accountId] is the currently active account's user id.
   Future<void> purgePlan(String planId, {required String accountId}) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.deletePlan,
       schoolId: null,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
@@ -285,12 +285,12 @@ class PlansDao extends DatabaseAccessor<AppDatabase> with _$PlansDaoMixin {
     required SubscriptionsCompanion sub,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.createSubscription,
       schoolId: sub.school.value,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       await into(subscriptions).insert(sub);
 
@@ -333,12 +333,12 @@ class PlansDao extends DatabaseAccessor<AppDatabase> with _$PlansDaoMixin {
     required SubscriptionStatus status,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.updateSubscription,
       schoolId: schoolId,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
       await (update(subscriptions)..where(

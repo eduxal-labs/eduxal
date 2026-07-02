@@ -1,6 +1,5 @@
 import 'dart:async';
 import '../../cache/file_cache.dart' as eduxal_file_cache;
-import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
 import 'package:fixnum/fixnum.dart' as fixnum;
@@ -348,7 +347,7 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     late final StreamController<List<PaperWithExamInfo>> controller;
     StreamSubscription? papersSub;
     StreamSubscription? pv2Sub;
-    int _listenerCount = 0;
+    int listenerCount = 0;
 
     Future<void> emit() async {
       final paperList =
@@ -431,8 +430,9 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       for (final pv2 in pv2Rows) {
         if (seenNames.contains(pv2.name)) continue;
         if (examType != null &&
-            _mapV2TypeToExamType(pv2.type_).index != examType)
+            _mapV2TypeToExamType(pv2.type_).index != examType) {
           continue;
+        }
         final (:paper, :exam) = _paperExamFromV2(pv2);
         final teacher = UsersData(
           id: pv2.teacher,
@@ -458,8 +458,8 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
 
     controller = StreamController<List<PaperWithExamInfo>>.broadcast(
       onListen: () {
-        _listenerCount++;
-        if (_listenerCount == 1) {
+        listenerCount++;
+        if (listenerCount == 1) {
           emit();
           papersSub =
               (select(papers)..where(
@@ -484,9 +484,9 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
         }
       },
       onCancel: () {
-        _listenerCount--;
-        if (_listenerCount <= 0) {
-          _listenerCount = 0;
+        listenerCount--;
+        if (listenerCount <= 0) {
+          listenerCount = 0;
           papersSub?.cancel();
           pv2Sub?.cancel();
         }
@@ -587,8 +587,9 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     // Add remaining papers_v2 rows not already covered.
     for (final pv2 in pv2Rows) {
       if (seenNames.contains(pv2.name)) continue;
-      if (examType != null && _mapV2TypeToExamType(pv2.type_).index != examType)
+      if (examType != null && _mapV2TypeToExamType(pv2.type_).index != examType) {
         continue;
+      }
       final (:paper, :exam) = _paperExamFromV2(pv2);
       final teacher = UsersData(
         id: pv2.teacher,
@@ -1113,12 +1114,12 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required ExamsCompanion exam,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.createExam,
       schoolId: exam.school.value,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       await into(exams).insert(exam);
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
@@ -1162,12 +1163,12 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required List<PapersCompanion> paperRows,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.createExam,
       schoolId: exam.school.value,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
@@ -1240,12 +1241,12 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required ExamsCompanion changes,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.updateExam,
       schoolId: null,
       recordId: examId,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       await (update(exams)..where((e) => e.id.equals(examId))).write(changes);
 
@@ -1339,12 +1340,12 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required String examId,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.deleteExam,
       schoolId: null,
       recordId: examId,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       // Manually cascade-delete child rows. SQLite's ON DELETE CASCADE
@@ -1375,12 +1376,12 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     int? timeAllowedMinutes,
     String? customInstructions,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.createPaper,
       schoolId: paper.school.value,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     // Merge optional new fields into the companion before inserting.
     final fullPaper = paper.copyWith(
       timeAllowedMinutes: Value(timeAllowedMinutes),
@@ -1442,12 +1443,12 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     int? timeAllowedMinutes,
     String? customInstructions,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.updatePaper,
       schoolId: schoolId,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       // Merge optional new fields into the changes companion.
       var resolvedChanges = changes;
@@ -1572,12 +1573,12 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required String accountId,
     String? serverPaperId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.deletePaper,
       schoolId: schoolId,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final payload = sync_pb.DeletePaperPayload(
@@ -1620,12 +1621,12 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required GradesCompanion grade,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.markGrades,
       schoolId: grade.school.value,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final schoolId = grade.school.value;
       final examId = grade.exam.value;
@@ -1740,12 +1741,12 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required int? paperNum,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.deleteGrade,
       schoolId: schoolId,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
@@ -1793,12 +1794,12 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required MasteryCompanion entry,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.updateMastery,
       schoolId: entry.school.value,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final schoolId = entry.school.value;
       final studentAdm = entry.student.value;
@@ -2376,12 +2377,12 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required int count,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.uploadScheme,
       schoolId: schoolId,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     final payload = sync_pb.UploadSchemePayload()
       ..school = schoolId
       ..exam = examId
@@ -2412,12 +2413,12 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required int? paper,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.deleteScheme,
       schoolId: schoolId,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     final payload = sync_pb.DeleteSchemePayload()
       ..school = schoolId
       ..exam = examId
@@ -2509,12 +2510,12 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required int count,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.uploadAnswerSheet,
       schoolId: schoolId,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     // Coalesce: remove any pending upload/delete answer-sheet logs for the
     // same (school, exam, student, subject) so only the latest intent is sent.
     await _coalesceAnswerSheetLogs(
@@ -2557,12 +2558,12 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     required int? paper,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.deleteAnswerSheet,
       schoolId: schoolId,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     // Coalesce: remove any pending upload/delete answer-sheet logs for the
     // same (school, exam, student, subject) so only the latest intent is sent.
     await _coalesceAnswerSheetLogs(

@@ -321,7 +321,7 @@ class _SubjectsSectionState extends State<SubjectsSection>
         return ListView.separated(
           padding: const EdgeInsets.only(bottom: 24, top: 2),
           itemCount: filtered.length,
-          separatorBuilder: (_, __) => AppTheme.tableRowDivider(isDark, cs),
+          separatorBuilder: (_, _) => AppTheme.tableRowDivider(isDark, cs),
           itemBuilder: (context, index) {
             final entry = filtered[index];
             final subjectId = entry.key;
@@ -413,7 +413,7 @@ class _SubjectsSectionState extends State<SubjectsSection>
         return ListView.separated(
           padding: const EdgeInsets.only(bottom: 24, top: 2),
           itemCount: subjects.length,
-          separatorBuilder: (_, __) => AppTheme.tableRowDivider(isDark, cs),
+          separatorBuilder: (_, _) => AppTheme.tableRowDivider(isDark, cs),
           itemBuilder: (context, index) {
             final subject = subjects[index];
             return _SubjectTile(
@@ -1060,7 +1060,7 @@ class _TopicsPanelState extends State<_TopicsPanel> {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: grades.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 5),
+              separatorBuilder: (_, _) => const SizedBox(width: 5),
               itemBuilder: (context, index) {
                 final entry = grades[index];
                 final gradeNum = entry.key;

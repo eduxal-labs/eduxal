@@ -3505,7 +3505,7 @@ class _RecordPaymentSheetState extends State<_RecordPaymentSheet> {
 
                     // Payment method
                     DropdownButtonFormField<PaymentMethod>(
-                      value: _method,
+                      initialValue: _method,
                       decoration: _fieldDecoration(
                         label: 'Payment Method',
                         cs: cs,

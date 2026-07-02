@@ -342,8 +342,9 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
                         hint: 'e.g. East, West',
                         autofocus: true,
                         validator: (v) {
-                          if (v == null || v.trim().isEmpty)
+                          if (v == null || v.trim().isEmpty) {
                             return 'Enter a stream name';
+                          }
                           if (existingStreams.any(
                             (s) =>
                                 s.name.toLowerCase() == v.trim().toLowerCase(),

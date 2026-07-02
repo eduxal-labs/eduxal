@@ -916,13 +916,13 @@ class _PodiumSection extends StatelessWidget {
 
     // Reorder for visual podium: [2nd, 1st, 3rd]
     // Use tie-aware ranks and medal colors based on rank value.
-    Color _medalColor(int rank) {
+    Color medalColor(int rank) {
       if (rank == 1) return _goldColor;
       if (rank == 2) return _silverColor;
       return _bronzeColor;
     }
 
-    double _podiumHeight(int rank) {
+    double podiumHeight(int rank) {
       if (rank == 1) return 56;
       if (rank == 2) return 40;
       return 28;
@@ -931,15 +931,15 @@ class _PodiumSection extends StatelessWidget {
     final ordered = <(StreamStats, int, Color, double)>[];
     if (topThree.length >= 2) {
       final r = ranks[1];
-      ordered.add((topThree[1], r, _medalColor(r), _podiumHeight(r)));
+      ordered.add((topThree[1], r, medalColor(r), podiumHeight(r)));
     }
     {
       final r = ranks[0];
-      ordered.add((topThree[0], r, _medalColor(r), _podiumHeight(r)));
+      ordered.add((topThree[0], r, medalColor(r), podiumHeight(r)));
     }
     if (topThree.length >= 3) {
       final r = ranks[2];
-      ordered.add((topThree[2], r, _medalColor(r), _podiumHeight(r)));
+      ordered.add((topThree[2], r, medalColor(r), podiumHeight(r)));
     }
 
     return Container(

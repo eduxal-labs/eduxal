@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -158,7 +157,7 @@ img.Image _trimContentMarginsImpl(img.Image image) {
     print(
       '[ImageUtils] safety net — crop is only '
       '${(resultArea * 100 / originalArea).toStringAsFixed(0)}% of original '
-      '(${result.width}×${result.height} from ${originalW}×$originalH), '
+      '(${result.width}×${result.height} from $originalW×$originalH), '
       'returning uncropped',
     );
     return image;
@@ -338,7 +337,7 @@ img.Image _cropToPaper(img.Image image) {
   if (paperW < w * 0.30 || paperH < h * 0.30) {
     print(
       '[ImageUtils] paper detection failed — region too small '
-      '(${paperW}×$paperH from ${w}×$h), skipping crop',
+      '($paperW×$paperH from $w×$h), skipping crop',
     );
     return image;
   }
@@ -353,7 +352,7 @@ img.Image _cropToPaper(img.Image image) {
 
   print(
     '[ImageUtils] paper region: ($paperLeft,$paperTop)→($paperRight,$paperBottom) '
-    '— ${paperW}×$paperH from ${w}×$h '
+    '— $paperW×$paperH from $w×$h '
     '(removed ${((1 - paperW * paperH / (w * h)) * 100).toStringAsFixed(0)}% background)',
   );
 
@@ -484,7 +483,7 @@ img.Image _trimWhiteMargins(img.Image image) {
 
   print(
     '[ImageUtils] trimming margins — '
-    '${w}×$h → ${cropW}×$cropH '
+    '$w×$h → $cropW×$cropH '
     '(removed ${(horizontalMargin * 100).toStringAsFixed(0)}% horizontal, '
     '${(verticalMargin * 100).toStringAsFixed(0)}% vertical)',
   );

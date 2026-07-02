@@ -1,7 +1,4 @@
-import 'dart:async';
-import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart' hide Action;
-import '../../../../client.dart';
 import '../../../widgets/permission_denied_handler.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/members_dao.dart';
@@ -16,7 +13,6 @@ import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/status_indicator.dart';
 import '../../../widgets/student_avatar.dart';
 import '../../../widgets/user_avatar.dart';
-import 'student_detail_page.dart';
 import 'members_shared.dart';
 
 class GuardiansTab extends StatefulWidget {

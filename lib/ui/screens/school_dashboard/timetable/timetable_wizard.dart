@@ -1079,11 +1079,12 @@ class _Stage0DaysSlotsState extends State<_Stage0DaysSlots> {
       context: context,
       initialTime: _dayStart,
     );
-    if (picked != null)
+    if (picked != null) {
       setState(() {
         _dayStart = picked;
         _notify();
       });
+    }
   }
 
   Future<void> _promptAdd(SlotType type, BuildContext ctx) async {
@@ -1324,7 +1325,7 @@ class _Stage0DaysSlotsState extends State<_Stage0DaysSlots> {
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: rows.length,
-                      separatorBuilder: (_, __) =>
+                      separatorBuilder: (_, _) =>
                           AppTheme.tableRowDivider(isDark, cs),
                       itemBuilder: (_, idx) {
                         final r = rows[idx];
@@ -3960,7 +3961,7 @@ class _ConflictSection extends StatelessWidget {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: conflicts.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
           itemBuilder: (_, i) {
             final cp = conflicts[i];
             return _ConflictCard(

@@ -501,7 +501,7 @@ class _SetupScreenState extends State<SetupScreen>
               radius: radius,
               backgroundImage: NetworkImage(readUrl),
               backgroundColor: cs.surfaceContainerHighest,
-              onBackgroundImageError: (_, __) {},
+              onBackgroundImageError: (_, _) {},
             );
           }
 

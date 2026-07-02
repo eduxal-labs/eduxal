@@ -1,28 +1,23 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart' hide Action;
 import 'package:flutter/services.dart';
 import '../../../../client.dart';
 import '../../../../database/database.dart';
-import '../../../../database/daos/catalog_dao.dart';
 import '../../../../database/daos/exams_grades_dao.dart';
 import '../../../../database/daos/members_dao.dart';
 import '../../../../database/daos/subjects_dao.dart';
-import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/exam_group.dart';
 import '../../../../models/school_config.dart';
 import '../../../../services/authorization_service.dart';
 import '../../../widgets/permission_denied_handler.dart';
-import '../../../theme/app_theme.dart';
 import '../../../widgets/animated_save_button.dart';
-import '../../../widgets/edu_sheet.dart';
 import '../../../../core/formatters.dart';
 import 'exams_shared.dart';
 
 class CreatePaperSheet extends StatefulWidget {
-  const CreatePaperSheet({
+  const CreatePaperSheet({super.key, 
     required this.examGroup,
     required this.schoolId,
     required this.examId,

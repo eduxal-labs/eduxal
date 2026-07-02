@@ -686,7 +686,7 @@ class _EventDetailsStepState extends State<_EventDetailsStep> {
           // ── Type ──────────────────────────────────────────────────────────
           _fieldLabel('Type'),
           DropdownButtonFormField<_EventType>(
-            value: d.type,
+            initialValue: d.type,
             decoration: _inputDec(cs, isDark, null),
             dropdownColor: AppTheme.overlayBg(isDark, cs),
             style: TextStyle(
@@ -903,7 +903,7 @@ class _SchedulePapersStep extends StatelessWidget {
           padding: const EdgeInsets.only(top: 12),
           sliver: SliverList.separated(
             itemCount: papers.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 6),
+            separatorBuilder: (_, _) => const SizedBox(height: 6),
             itemBuilder: (context, i) => _PaperScheduleCard(
               index: i,
               row: papers[i],

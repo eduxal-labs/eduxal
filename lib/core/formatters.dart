@@ -6,6 +6,7 @@
 /// - `int` times = minutes since midnight (NOTE: some existing code uses seconds since midnight)
 ///
 /// This file is pure Dart — no Flutter imports needed.
+library;
 
 /// Abbreviated month names (3-letter).
 const List<String> kMonthNames = [

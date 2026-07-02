@@ -416,8 +416,9 @@ class QuestionBankService {
           if (pAnswerLines is num) partInput.answerLines = pAnswerLines.toInt();
 
           final pAnswerBoxH = p['answer_box_height_mm'];
-          if (pAnswerBoxH is num)
+          if (pAnswerBoxH is num) {
             partInput.answerBoxHeightMm = pAnswerBoxH.toInt();
+          }
 
           final pStimulus = p['stimulus'];
           if (pStimulus is String && pStimulus.isNotEmpty) {

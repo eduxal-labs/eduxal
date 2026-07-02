@@ -782,7 +782,9 @@ class _TeacherQuickStatsState extends State<_TeacherQuickStats> {
   }
 
   void _subscribe() {
-    for (final s in _subs) s.cancel();
+    for (final s in _subs) {
+      s.cancel();
+    }
     _subs.clear();
 
     final membersDao = MembersDao(db);
@@ -885,7 +887,9 @@ class _TeacherQuickStatsState extends State<_TeacherQuickStats> {
 
   @override
   void dispose() {
-    for (final s in _subs) s.cancel();
+    for (final s in _subs) {
+      s.cancel();
+    }
     super.dispose();
   }
 

@@ -2,14 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart' hide Action;
 
-import '../../../../database/database.dart';
 import '../../../../database/daos/timetable_dao.dart';
-import '../../../../database/daos/catalog_dao.dart';
 import '../../../../database/tables/enums.dart';
 import '../../../../models/school_config.dart';
-import '../../../../core/extensions.dart';
 import '../../../theme/app_theme.dart';
-import '../../../widgets/edu_tab_bar.dart';
 import 'timetable_shared.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -86,8 +82,9 @@ SchoolWideTimetableEntry? _swEntryAt(
     if (e.day == day &&
         e.grade == grade &&
         e.stream == stream &&
-        e.startTime == startTime)
+        e.startTime == startTime) {
       return e;
+    }
   }
   return null;
 }
@@ -1619,7 +1616,7 @@ class _MobileDayTimeline extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       itemCount: sorted.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         return _MobileLessonCard(
           entry: sorted[index],

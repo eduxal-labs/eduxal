@@ -430,11 +430,11 @@ class AttendanceDao extends DatabaseAccessor<AppDatabase>
     required AttendanceStatus status,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.markAttendance,
       schoolId: schoolId,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
 
     await transaction(() async {
       final nowSeconds = BigInt.from(
@@ -537,11 +537,11 @@ class AttendanceDao extends DatabaseAccessor<AppDatabase>
     required Map<int, AttendanceStatus> statuses,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.markAttendance,
       schoolId: schoolId,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
 
     await transaction(() async {
       final nowSeconds = BigInt.from(
@@ -648,11 +648,11 @@ class AttendanceDao extends DatabaseAccessor<AppDatabase>
     required int date,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.deleteAttendance,
       schoolId: schoolId,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
 
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);

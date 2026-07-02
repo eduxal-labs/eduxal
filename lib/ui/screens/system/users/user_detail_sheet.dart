@@ -235,8 +235,9 @@ class _UserDetailSheetState extends State<UserDetailSheet> {
     if (user.id == accountId) return;
     // Level hierarchy: promoting to Super requires viewer to be Super
     if (level == UserLevel.super_ &&
-        widget.permissions.level != UserLevel.super_)
+        widget.permissions.level != UserLevel.super_) {
       return;
+    }
     // Status guard: only allow level changes for active users
     if (user.status != UserStatus.active) return;
     try {
@@ -852,7 +853,7 @@ class _AccountActionsCard extends StatelessWidget {
         // Promotion to System requires both Users.Update AND Users.Create
         // to prevent circumventing the invite-level restriction (B3).
         if (permissions.can(Resource.users, Action.update) &&
-            permissions.can(Resource.users, Action.create))
+            permissions.can(Resource.users, Action.create)) {
           addRow(
             _ActionRow(
               icon: Icons.upgrade_rounded,
@@ -871,6 +872,7 @@ class _AccountActionsCard extends StatelessWidget {
               ),
             ),
           );
+        }
       case UserLevel.system:
         // Only a Super viewer can elevate someone to Super.
         if (viewerLevel == UserLevel.super_) {
@@ -938,7 +940,7 @@ class _AccountActionsCard extends StatelessWidget {
     // ── Status actions ─────────────────────────────────────────────────
     switch (user.status) {
       case UserStatus.invited:
-        if (permissions.can(Resource.users, Action.update))
+        if (permissions.can(Resource.users, Action.update)) {
           addRow(
             _ActionRow(
               icon: Icons.block_outlined,
@@ -957,8 +959,9 @@ class _AccountActionsCard extends StatelessWidget {
               ),
             ),
           );
+        }
       case UserStatus.active:
-        if (permissions.can(Resource.users, Action.update))
+        if (permissions.can(Resource.users, Action.update)) {
           addRow(
             _ActionRow(
               icon: Icons.block_outlined,
@@ -977,7 +980,8 @@ class _AccountActionsCard extends StatelessWidget {
               ),
             ),
           );
-        if (permissions.can(Resource.users, Action.delete))
+        }
+        if (permissions.can(Resource.users, Action.delete)) {
           addRow(
             _ActionRow(
               icon: Icons.delete_outline_rounded,
@@ -996,8 +1000,9 @@ class _AccountActionsCard extends StatelessWidget {
               ),
             ),
           );
+        }
       case UserStatus.suspended:
-        if (permissions.can(Resource.users, Action.update))
+        if (permissions.can(Resource.users, Action.update)) {
           addRow(
             _ActionRow(
               icon: Icons.restore_rounded,
@@ -1016,7 +1021,8 @@ class _AccountActionsCard extends StatelessWidget {
               ),
             ),
           );
-        if (permissions.can(Resource.users, Action.delete))
+        }
+        if (permissions.can(Resource.users, Action.delete)) {
           addRow(
             _ActionRow(
               icon: Icons.delete_outline_rounded,
@@ -1035,8 +1041,9 @@ class _AccountActionsCard extends StatelessWidget {
               ),
             ),
           );
+        }
       case UserStatus.deleted:
-        if (permissions.can(Resource.users, Action.update))
+        if (permissions.can(Resource.users, Action.update)) {
           addRow(
             _ActionRow(
               icon: Icons.restore_rounded,
@@ -1055,6 +1062,7 @@ class _AccountActionsCard extends StatelessWidget {
               ),
             ),
           );
+        }
         // Purge is only available to super_ users.
         if (viewerLevel == UserLevel.super_) {
           addRow(

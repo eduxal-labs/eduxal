@@ -291,7 +291,7 @@ class _CreateAssessmentPageState extends State<CreateAssessmentPage> {
           _FieldLabel(label: 'Topic', cs: cs),
           const SizedBox(height: 6),
           DropdownButtonFormField<int>(
-            value: _selectedTopicId,
+            initialValue: _selectedTopicId,
             decoration: _fieldDeco(
               hint: _topicsLoading
                   ? 'Loading topics…'

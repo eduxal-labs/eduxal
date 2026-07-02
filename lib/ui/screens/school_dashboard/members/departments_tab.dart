@@ -4,15 +4,12 @@ import 'package:flutter/material.dart' hide Action;
 import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/departments_dao.dart';
-import '../../../../database/daos/members_dao.dart';
-import '../../../../database/tables/enums.dart';
 import '../../../../models/permissions.dart';
 import '../../../../models/school_context.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/animated_action_button.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_form_field.dart';
-import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/edu_tab_bar.dart';
 import '../../../widgets/permission_denied_handler.dart';
 import '../../../widgets/pressable_row.dart';
@@ -189,7 +186,7 @@ class _DepartmentsTabState extends State<DepartmentsTab> {
               child: ListView.separated(
                 padding: const EdgeInsets.only(top: 4, bottom: 80),
                 itemCount: depts.length,
-                separatorBuilder: (_, __) =>
+                separatorBuilder: (_, _) =>
                     AppTheme.tableRowDivider(isDark, cs),
                 itemBuilder: (context, index) {
                   final dept = depts[index];
@@ -1703,8 +1700,9 @@ class _CreateDepartmentSheetState extends State<CreateDepartmentSheet> {
                       hint: 'e.g. Mathematics',
                       autofocus: true,
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty)
+                        if (v == null || v.trim().isEmpty) {
                           return 'Enter a name';
+                        }
                         return null;
                       },
                     ),

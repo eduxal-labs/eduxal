@@ -85,7 +85,7 @@ class EduSearchField extends StatelessWidget {
                   // Clear button — only visible when there's text
                   ValueListenableBuilder<TextEditingValue>(
                     valueListenable: controller,
-                    builder: (_, value, __) {
+                    builder: (_, value, _) {
                       if (value.text.isEmpty) return const SizedBox(width: 8);
                       return GestureDetector(
                         onTap: () {

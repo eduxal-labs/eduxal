@@ -214,7 +214,7 @@ class _StudentExamsTabState extends State<StudentExamsTab>
                       32,
                     ),
                     itemCount: examIds.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
                     itemBuilder: (context, index) {
                       final examId = examIds[index];
                       final examGrades = byExam[examId]!;

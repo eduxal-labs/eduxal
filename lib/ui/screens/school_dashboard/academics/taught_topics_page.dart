@@ -316,7 +316,7 @@ class _TaughtTopicsPageState extends State<TaughtTopicsPage> {
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: _topics.length,
-      separatorBuilder: (_, __) => AppTheme.tableRowDivider(isDark, cs),
+      separatorBuilder: (_, _) => AppTheme.tableRowDivider(isDark, cs),
       itemBuilder: (context, index) {
         final row = _topics[index];
         return _TopicTile(

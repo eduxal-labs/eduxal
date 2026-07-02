@@ -283,12 +283,12 @@ class EnrollmentsDao extends DatabaseAccessor<AppDatabase>
     required int studentAdm,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.enrollStudent,
       schoolId: schoolId,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final nowSeconds = BigInt.from(
@@ -384,12 +384,12 @@ class EnrollmentsDao extends DatabaseAccessor<AppDatabase>
     required int studentAdm,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.unenrollStudent,
       schoolId: schoolId,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 

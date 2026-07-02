@@ -669,8 +669,7 @@ class _ActionChip extends StatelessWidget {
     required this.cs,
     required this.isDark,
     this.isPrimary = false,
-    this.loading = false,
-  });
+  }) : loading = false;
 
   final String label;
   final IconData icon;

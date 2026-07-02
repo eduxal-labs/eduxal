@@ -445,7 +445,7 @@ class _SubjectFilterRow extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
         itemCount: subjects.length + 1, // +1 for "All"
-        separatorBuilder: (_, __) => const SizedBox(width: 6),
+        separatorBuilder: (_, _) => const SizedBox(width: 6),
         itemBuilder: (context, index) {
           if (index == 0) {
             return _FilterChip(

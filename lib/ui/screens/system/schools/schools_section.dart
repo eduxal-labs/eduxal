@@ -344,7 +344,7 @@ class _SchoolsSectionState extends State<SchoolsSection> {
                   : ListView.separated(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       itemCount: filtered.length,
-                      separatorBuilder: (_, __) =>
+                      separatorBuilder: (_, _) =>
                           AppTheme.tableRowDivider(isDark, cs),
                       itemBuilder: (context, index) {
                         final school = filtered[index];
@@ -1159,7 +1159,7 @@ class _ListShimmerState extends State<_ListShimmer>
         return ListView.separated(
           padding: const EdgeInsets.symmetric(vertical: 8),
           itemCount: 6,
-          separatorBuilder: (_, __) => Divider(
+          separatorBuilder: (_, _) => Divider(
             height: 1,
             thickness: 0.5,
             indent: 52,

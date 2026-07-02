@@ -457,7 +457,7 @@ class _TopicDetailSheet extends StatelessWidget {
                     vertical: 10,
                   ),
                   itemCount: sortedTopics.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 4),
+                  separatorBuilder: (_, _) => const SizedBox(height: 4),
                   itemBuilder: (context, index) {
                     return _TopicRow(
                       cs: cs,

@@ -414,9 +414,9 @@ ParsedImportFile parseImportFile(String filePath, String jsonContent) {
     } else if (maxMarks != null &&
         marks != null &&
         maxMarks is num &&
-        (maxMarks as num).toInt() > marks) {
+        (maxMarks).toInt() > marks) {
       errors.add(
-        '$prefix: "max_marks" (${(maxMarks as num).toInt()}) must be ≤ "marks" ($marks).',
+        '$prefix: "max_marks" (${(maxMarks).toInt()}) must be ≤ "marks" ($marks).',
       );
     }
 

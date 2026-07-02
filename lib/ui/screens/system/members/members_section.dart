@@ -354,7 +354,7 @@ class _MembersSectionState extends State<MembersSection> {
                   : ListView.separated(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       itemCount: filtered.length,
-                      separatorBuilder: (_, __) =>
+                      separatorBuilder: (_, _) =>
                           AppTheme.tableRowDivider(isDark, cs),
                       itemBuilder: (context, index) {
                         final user = filtered[index];
@@ -2100,8 +2100,9 @@ class _AddMemberSheetState extends State<AddMemberSheet> {
 
   Future<void> _promote(UsersData user) async {
     if (!widget.permissions.can(Resource.users, Action.update) ||
-        !widget.permissions.can(Resource.users, Action.create))
+        !widget.permissions.can(Resource.users, Action.create)) {
       return;
+    }
     try {
       final accountId = cache.currentUser?.user.id;
       if (accountId == null) return;

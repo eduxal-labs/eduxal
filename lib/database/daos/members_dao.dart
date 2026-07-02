@@ -197,12 +197,12 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     required OwnersCompanion owner,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.createOwner,
       schoolId: owner.school.value,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
@@ -250,12 +250,12 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     required UsersData existingUser,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.createOwner,
       schoolId: owner.school.value,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
@@ -340,12 +340,12 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     required TeachersCompanion teacher,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.createTeacher,
       schoolId: teacher.school.value,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
@@ -405,12 +405,12 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     required UsersData existingUser,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.createTeacher,
       schoolId: teacher.school.value,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
@@ -560,12 +560,12 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     required StaffCompanion member,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.createStaff,
       schoolId: member.school.value,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
@@ -619,12 +619,12 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     required UsersData existingUser,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.createStaff,
       schoolId: member.school.value,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
@@ -774,12 +774,12 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     required String accountId,
     String? userPhone,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.createStudent,
       schoolId: student.school.value,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
@@ -985,12 +985,12 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     required GuardiansCompanion guardian,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.createGuardian,
       schoolId: guardian.school.value,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
@@ -1040,12 +1040,12 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     required UsersData existingUser,
     required String accountId,
   }) async {
-    final _authResult = await authorization.check(
+    final authResult = await authorization.check(
       action: SyncAction.createGuardian,
       schoolId: guardian.school.value,
       recordId: null,
     );
-    if (!_authResult.allowed) throw PermissionException(_authResult.reason!);
+    if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
       final nowMs = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final nowSec = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);

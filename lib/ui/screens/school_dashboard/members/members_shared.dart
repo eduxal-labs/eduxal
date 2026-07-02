@@ -908,7 +908,7 @@ class FlatMemberList extends StatelessWidget {
           child: ListView.separated(
             padding: const EdgeInsets.only(top: 4, bottom: 80),
             itemCount: itemCount,
-            separatorBuilder: (_, __) => AppTheme.tableRowDivider(isDark, cs),
+            separatorBuilder: (_, _) => AppTheme.tableRowDivider(isDark, cs),
             itemBuilder: itemBuilder,
           ),
         ),

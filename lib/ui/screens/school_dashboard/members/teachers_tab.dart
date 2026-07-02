@@ -1,9 +1,7 @@
 import 'dart:async';
-import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart' hide Action;
 import '../../../widgets/inline_date_picker_dialog.dart';
 import '../../../widgets/permission_denied_handler.dart';
-import '../../../../client.dart';
 
 import '../../../../database/database.dart';
 import '../../../../database/daos/members_dao.dart';
@@ -18,7 +16,6 @@ import '../../../../services/member_management.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_sheet.dart';
-import '../../../widgets/status_indicator.dart';
 import '../../../widgets/user_avatar.dart';
 import 'members_shared.dart';
 

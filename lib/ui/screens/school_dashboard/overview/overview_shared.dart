@@ -943,13 +943,13 @@ class QuickActionChip extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Material(
-      color: color.withOpacity(isDark ? 0.12 : 0.08),
+      color: color.withValues(alpha: isDark ? 0.12 : 0.08),
       borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-        splashColor: color.withOpacity(0.12),
-        highlightColor: color.withOpacity(0.06),
+        splashColor: color.withValues(alpha: 0.12),
+        highlightColor: color.withValues(alpha: 0.06),
         child: SizedBox(
           width: 80,
           height: 64,
@@ -959,7 +959,7 @@ class QuickActionChip extends StatelessWidget {
               Icon(
                 icon,
                 size: 24,
-                color: color.withOpacity(isDark ? 0.8 : 0.7),
+                color: color.withValues(alpha: isDark ? 0.8 : 0.7),
               ),
               const SizedBox(height: 4),
               Text(

@@ -335,7 +335,7 @@ class _SearchToolbar extends StatelessWidget {
             ),
             suffixIcon: ValueListenableBuilder<TextEditingValue>(
               valueListenable: searchController,
-              builder: (_, value, __) {
+              builder: (_, value, _) {
                 if (value.text.isEmpty) return const SizedBox.shrink();
                 return IconButton(
                   icon: Icon(
@@ -1120,7 +1120,7 @@ class _PermResourceRow extends StatelessWidget {
                 ),
               ),
             ),
-            if (expandedChild != null) expandedChild!,
+            ?expandedChild,
           ],
         ),
       ),

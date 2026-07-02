@@ -94,9 +94,8 @@ class _StudentPapersListPageState extends State<StudentPapersListPage> {
         if (done) {
           _pollTimer?.cancel();
           _pollTimer = null;
-        } else if (_pollTimer == null) {
-          // Start the periodic timer only once, after the first response.
-          _pollTimer = Timer.periodic(
+        } else {
+          _pollTimer ??= Timer.periodic(
             const Duration(seconds: 3),
             (_) => _poll(),
           );
