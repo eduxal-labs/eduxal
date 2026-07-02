@@ -78,7 +78,10 @@ class EduSheet extends StatelessWidget {
             ),
           ),
         ),
-        child: content,
+        child: SafeArea(
+          top: false,
+          child: content,
+        ),
       ),
     );
   }
