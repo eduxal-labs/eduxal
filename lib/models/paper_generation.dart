@@ -124,8 +124,24 @@ class PaperQuestion {
       difficulty: proto.hasDifficulty() ? proto.difficulty.clamp(1, 5) : 3,
       marks: proto.marks,
       rubric: proto.rubric.map(RubricCriterion.fromProto).toList(),
-      // proto.images no longer exists in the updated proto; images are client-managed
-      images: const [],
+      images: proto.images
+          .map((img) {
+            final ctx = img.context == 1
+                ? ImageContext.rubric
+                : img.context == 2
+                    ? ImageContext.exampleAnswer
+                    : ImageContext.question;
+            final parts = img.key.split('/');
+            final filename = parts.isNotEmpty ? parts.last : 'image.webp';
+            return QuestionImage(
+              context: ctx,
+              filename: filename,
+              caption: img.hasCaption() ? img.caption : null,
+              description: '',
+              getUrl: img.getUrl,
+            );
+          })
+          .toList(),
       answerSpaceType: proto.hasAnswerSpaceType()
           ? answerSpaceStrs[proto.answerSpaceType.clamp(0, 4)]
           : 'lines',

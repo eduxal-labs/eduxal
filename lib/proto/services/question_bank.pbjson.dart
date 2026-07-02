@@ -97,6 +97,14 @@ const Question$json = {
     },
     {'1': 'created', '3': 17, '4': 1, '5': 3, '10': 'created'},
     {'1': 'updated', '3': 18, '4': 1, '5': 3, '10': 'updated'},
+    {
+      '1': 'images',
+      '3': 19,
+      '4': 3,
+      '5': 11,
+      '6': '.question_bank.QuestionImage',
+      '10': 'images'
+    },
   ],
   '8': [
     {'1': '_stimulus'},
@@ -120,8 +128,37 @@ final $typed_data.Uint8List questionDescriptor = $convert.base64Decode(
     'GA4gASgJSARSDWV4YW1wbGVBbnN3ZXKIAQESNgoGcnVicmljGA8gAygLMh4ucXVlc3Rpb25fYm'
     'Fuay5SdWJyaWNDcml0ZXJpb25SBnJ1YnJpYxIxCgVwYXJ0cxgQIAMoCzIbLnF1ZXN0aW9uX2Jh'
     'bmsuUXVlc3Rpb25QYXJ0UgVwYXJ0cxIYCgdjcmVhdGVkGBEgASgDUgdjcmVhdGVkEhgKB3VwZG'
-    'F0ZWQYEiABKANSB3VwZGF0ZWRCCwoJX3N0aW11bHVzQgwKCl9tYXhfbWFya3NCDwoNX2Fuc3dl'
-    'cl9saW5lc0IXChVfYW5zd2VyX2JveF9oZWlnaHRfbW1CEQoPX2V4YW1wbGVfYW5zd2Vy');
+    'F0ZWQYEiABKANSB3VwZGF0ZWQSNAoGaW1hZ2VzGBMgAygLMhwucXVlc3Rpb25fYmFuay5RdWVz'
+    'dGlvbkltYWdlUgZpbWFnZXNCCwoJX3N0aW11bHVzQgwKCl9tYXhfbWFya3NCDwoNX2Fuc3dlcl'
+    '9saW5lc0IXChVfYW5zd2VyX2JveF9oZWlnaHRfbW1CEQoPX2V4YW1wbGVfYW5zd2Vy');
+
+@$core.Deprecated('Use questionImageDescriptor instead')
+const QuestionImage$json = {
+  '1': 'QuestionImage',
+  '2': [
+    {'1': 'context', '3': 1, '4': 1, '5': 5, '10': 'context'},
+    {'1': 'key', '3': 2, '4': 1, '5': 9, '10': 'key'},
+    {
+      '1': 'caption',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'caption',
+      '17': true
+    },
+    {'1': 'get_url', '3': 4, '4': 1, '5': 9, '10': 'getUrl'},
+  ],
+  '8': [
+    {'1': '_caption'},
+  ],
+};
+
+/// Descriptor for `QuestionImage`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List questionImageDescriptor = $convert.base64Decode(
+    'Cg1RdWVzdGlvbkltYWdlEhgKB2NvbnRleHQYASABKAVSB2NvbnRleHQSEAoDa2V5GAIgASgJUg'
+    'NrZXkSHQoHY2FwdGlvbhgDIAEoCUgAUgdjYXB0aW9uiAEBEhcKB2dldF91cmwYBCABKAlSBmdl'
+    'dFVybEIKCghfY2FwdGlvbg==');
 
 @$core.Deprecated('Use rubricCriterionDescriptor instead')
 const RubricCriterion$json = {

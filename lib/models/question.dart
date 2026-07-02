@@ -219,8 +219,24 @@ class Question {
       answerLines: proto.hasAnswerLines() ? proto.answerLines : 4,
       rubric: proto.rubric.map(RubricCriterion.fromProto).toList(),
       exampleAnswer: proto.hasExampleAnswer() ? proto.exampleAnswer : null,
-      // proto.images no longer exists in the updated proto; images are client-managed
-      images: const [],
+      images: proto.images
+          .map((img) {
+            final ctx = img.context == 1
+                ? ImageContext.rubric
+                : img.context == 2
+                    ? ImageContext.exampleAnswer
+                    : ImageContext.question;
+            final parts = img.key.split('/');
+            final filename = parts.isNotEmpty ? parts.last : 'image.webp';
+            return QuestionImage(
+              context: ctx,
+              filename: filename,
+              caption: img.hasCaption() ? img.caption : null,
+              description: '',
+              getUrl: img.getUrl,
+            );
+          })
+          .toList(),
       created: DateTime.fromMillisecondsSinceEpoch(
         proto.created.toInt() * 1000,
       ),

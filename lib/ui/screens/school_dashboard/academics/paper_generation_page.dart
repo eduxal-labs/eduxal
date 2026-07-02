@@ -1211,17 +1211,80 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
           if (question.images.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: question.images.map((img) {
-                  return _ImageBadge(
-                    filename: img.filename,
-                    context: img.context,
-                    cs: cs,
-                    isDark: isDark,
-                  );
-                }).toList(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: question.images.map((img) {
+                      return _ImageBadge(
+                        filename: img.filename,
+                        context: img.context,
+                        cs: cs,
+                        isDark: isDark,
+                        getUrl: img.getUrl,
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 8),
+                  ...question.images.map((img) {
+                    if (img.getUrl == null || img.getUrl!.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          color: cs.surfaceContainerLow,
+                          constraints: const BoxConstraints(maxHeight: 250),
+                          width: double.infinity,
+                          child: Image.network(
+                            img.getUrl!,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.broken_image_outlined, color: cs.error, size: 20),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Failed to load image (${img.filename})',
+                                        style: TextStyle(color: cs.error, fontSize: 12),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12.0),
+                                  child: SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      value: loadingProgress.expectedTotalBytes != null
+                                          ? loadingProgress.cumulativeBytesLoaded /
+                                              loadingProgress.expectedTotalBytes!
+                                          : null,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ],
               ),
             ),
 
@@ -2789,12 +2852,14 @@ class _ImageBadge extends StatelessWidget {
     required this.context,
     required this.cs,
     required this.isDark,
+    this.getUrl,
   });
 
   final String filename;
   final ImageContext context;
   final ColorScheme cs;
   final bool isDark;
+  final String? getUrl;
 
   String get _contextLabel => switch (context) {
     ImageContext.question => 'Question',

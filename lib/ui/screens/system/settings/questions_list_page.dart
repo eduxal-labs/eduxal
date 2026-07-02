@@ -774,65 +774,105 @@ class _QuestionExpandedContent extends StatelessWidget {
             const SizedBox(height: 6),
             ...question.images.map(
               (img) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Row(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.image_outlined,
-                      size: 14,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.35),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        img.filename,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w300,
-                          color: cs.onSurface.withValues(alpha: 0.70),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.image_outlined,
+                          size: 14,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.35),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: cs.secondaryContainer.withValues(
-                          alpha: isDark ? 0.25 : 0.45,
-                        ),
-                        borderRadius: BorderRadius.circular(
-                          AppTheme.kChipRadius,
-                        ),
-                      ),
-                      child: Text(
-                        _imageContextLabel(img.context),
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w500,
-                          color: cs.onSecondaryContainer.withValues(
-                            alpha: 0.70,
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            img.filename,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w300,
+                              color: cs.onSurface.withValues(alpha: 0.70),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      ),
-                    ),
-                    if (img.caption != null && img.caption!.isNotEmpty) ...[
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          img.caption!,
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w300,
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.50),
-                            fontStyle: FontStyle.italic,
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          decoration: BoxDecoration(
+                            color: cs.secondaryContainer.withValues(
+                              alpha: isDark ? 0.25 : 0.45,
+                            ),
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.kChipRadius,
+                            ),
+                          ),
+                          child: Text(
+                            _imageContextLabel(img.context),
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w500,
+                              color: cs.onSecondaryContainer.withValues(
+                                alpha: 0.70,
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (img.caption != null && img.caption!.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              img.caption!,
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w300,
+                                color: cs.onSurfaceVariant.withValues(alpha: 0.50),
+                                fontStyle: FontStyle.italic,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (img.getUrl != null && img.getUrl!.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          color: cs.surfaceContainerLow,
+                          constraints: const BoxConstraints(maxHeight: 150),
+                          width: double.infinity,
+                          child: Image.network(
+                            img.getUrl!,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) => Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Text(
+                                'Failed to load image preview',
+                                style: TextStyle(color: cs.error, fontSize: 11),
+                              ),
+                            ),
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(8.0),
+                                  child: SizedBox(
+                                    height: 16,
+                                    width: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 1.5),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ),
                     ],

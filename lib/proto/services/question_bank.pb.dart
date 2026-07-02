@@ -37,6 +37,7 @@ class Question extends $pb.GeneratedMessage {
     $core.Iterable<QuestionPart>? parts,
     $fixnum.Int64? created,
     $fixnum.Int64? updated,
+    $core.Iterable<QuestionImage>? images,
   }) {
     final result = create();
     if (id != null) result.id = id;
@@ -57,6 +58,7 @@ class Question extends $pb.GeneratedMessage {
     if (parts != null) result.parts.addAll(parts);
     if (created != null) result.created = created;
     if (updated != null) result.updated = updated;
+    if (images != null) result.images.addAll(images);
     return result;
   }
 
@@ -93,6 +95,8 @@ class Question extends $pb.GeneratedMessage {
         subBuilder: QuestionPart.create)
     ..aInt64(17, _omitFieldNames ? '' : 'created')
     ..aInt64(18, _omitFieldNames ? '' : 'updated')
+    ..pPM<QuestionImage>(19, _omitFieldNames ? '' : 'images',
+        subBuilder: QuestionImage.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -262,6 +266,99 @@ class Question extends $pb.GeneratedMessage {
   $core.bool hasUpdated() => $_has(17);
   @$pb.TagNumber(18)
   void clearUpdated() => $_clearField(18);
+
+  @$pb.TagNumber(19)
+  $pb.PbList<QuestionImage> get images => $_getList(18);
+}
+
+class QuestionImage extends $pb.GeneratedMessage {
+  factory QuestionImage({
+    $core.int? context,
+    $core.String? key,
+    $core.String? caption,
+    $core.String? getUrl,
+  }) {
+    final result = create();
+    if (context != null) result.context = context;
+    if (key != null) result.key = key;
+    if (caption != null) result.caption = caption;
+    if (getUrl != null) result.getUrl = getUrl;
+    return result;
+  }
+
+  QuestionImage._();
+
+  factory QuestionImage.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory QuestionImage.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'QuestionImage',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'question_bank'),
+      createEmptyInstance: create)
+    ..aI(1, _omitFieldNames ? '' : 'context')
+    ..aOS(2, _omitFieldNames ? '' : 'key')
+    ..aOS(3, _omitFieldNames ? '' : 'caption')
+    ..aOS(4, _omitFieldNames ? '' : 'getUrl')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  QuestionImage clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  QuestionImage copyWith(void Function(QuestionImage) updates) =>
+      super.copyWith((message) => updates(message as QuestionImage))
+          as QuestionImage;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static QuestionImage create() => QuestionImage._();
+  @$core.override
+  QuestionImage createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static QuestionImage getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<QuestionImage>(create);
+  static QuestionImage? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get context => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set context($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasContext() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearContext() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get key => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set key($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasKey() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearKey() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get caption => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set caption($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasCaption() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearCaption() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get getUrl => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set getUrl($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasGetUrl() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearGetUrl() => $_clearField(4);
 }
 
 class RubricCriterion extends $pb.GeneratedMessage {
