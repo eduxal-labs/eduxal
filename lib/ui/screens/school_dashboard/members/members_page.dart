@@ -75,14 +75,21 @@ class _MembersPageBodyState extends State<_MembersPageBody>
     if (entry is OwnerEntry) {
       return _MemberTab.values; // Owners see all member tabs
     }
+    final isTeacher = entry is TeacherEntry;
     final perms = widget.schoolContext.permissions;
     return [
-      if (perms.can(Resource.departments, Action.read)) _MemberTab.departments,
-      if (perms.can(Resource.owners, Action.read)) _MemberTab.owners,
-      if (perms.can(Resource.teachers, Action.read)) _MemberTab.teachers,
-      if (perms.can(Resource.staff, Action.read)) _MemberTab.staff,
-      if (perms.can(Resource.students, Action.read)) _MemberTab.students,
-      if (perms.can(Resource.students, Action.read)) _MemberTab.guardians,
+      if (perms.can(Resource.departments, Action.read) || isTeacher)
+        _MemberTab.departments,
+      if (perms.can(Resource.owners, Action.read) || isTeacher)
+        _MemberTab.owners,
+      if (perms.can(Resource.teachers, Action.read) || isTeacher)
+        _MemberTab.teachers,
+      if (perms.can(Resource.staff, Action.read) || isTeacher)
+        _MemberTab.staff,
+      if (perms.can(Resource.students, Action.read) || isTeacher)
+        _MemberTab.students,
+      if (perms.can(Resource.students, Action.read) || isTeacher)
+        _MemberTab.guardians,
     ];
   }
 

@@ -524,7 +524,10 @@ class _AcademicsGradeTreeState extends State<_AcademicsGradeTree> {
     // When the current entry is a TeacherEntry, filter the grade/stream tree
     // to only those where the teacher has assignments (class_teachers or
     // subject_teachers) for the active term.
-    final teacherId = entry is TeacherEntry ? entry.teacher.user : null;
+    final teacherId = (entry is TeacherEntry &&
+            !perms.can(Resource.classes, Action.read))
+        ? entry.teacher.user
+        : null;
 
     return StreamBuilder<List<SchoolStream>>(
       stream: catalogDao.watchAllStreamsForSchool(_schoolId),

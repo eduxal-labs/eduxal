@@ -2205,6 +2205,15 @@ class _SeederImpl {
           Action.delete.mask,
       Resource.grades: Action.read.mask | Action.update.mask | Action.mark.mask,
       Resource.announcements: Action.read.mask,
+      Resource.exams:
+          Action.create.mask |
+          Action.read.mask |
+          Action.update.mask |
+          Action.delete.mask,
+      Resource.teachers: Action.read.mask,
+      Resource.staff: Action.read.mask,
+      Resource.owners: Action.read.mask,
+      Resource.departments: Action.read.mask,
     };
 
     // Encode to canonical binary blob format for the blob column.

@@ -754,14 +754,18 @@ class _PaperDetailPageState extends State<PaperDetailPage>
       subject: _paper.subject,
       paper: _paper.paper,
     );
-    _paperStream = _dao.watchPaper(
-      schoolId: widget.schoolId,
-      examId: _exam.id,
-      subject: _paper.subject,
-      paperNum: _paper.paper,
-      grade: _paper.grade,
-      stream: _paper.stream,
-    );
+    if (widget.serverPaperId != null) {
+      _paperStream = _dao.watchPaperV2AsLegacy(widget.serverPaperId!);
+    } else {
+      _paperStream = _dao.watchPaper(
+        schoolId: widget.schoolId,
+        examId: _exam.id,
+        subject: _paper.subject,
+        paperNum: _paper.paper,
+        grade: _paper.grade,
+        stream: _paper.stream,
+      );
+    }
     _subscribeStudents();
     _tryLoadExistingPdf();
     _loadPaperTotalMarks();
@@ -1533,38 +1537,51 @@ class _PaperHeaderState extends State<_PaperHeader>
     try {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
 
+      String? actualServerId = widget.serverPaperId;
+      actualServerId ??= await widget.dao.getServerPaperId(
+        schoolId: widget.schoolId,
+        examId: widget.exam.exam.id,
+        subject: paper.subject,
+        grade: paper.grade,
+        stream: paper.stream,
+      );
+
       final accessToken = cache.currentUser?.accessToken;
-      if (accessToken != null) {
-        String? actualServerId = widget.serverPaperId;
-        actualServerId ??= await widget.dao.getServerPaperId(
-            schoolId: widget.schoolId,
-            examId: widget.exam.exam.id,
-            subject: paper.subject,
-            grade: paper.grade,
-            stream: paper.stream,
-          );
-        if (actualServerId != null) {
-          final v2StatusInt = switch (next) {
-            PaperStatus.pending => 0,
-            PaperStatus.progress => 4,
-            PaperStatus.done => 5,
-            PaperStatus.marked => 6,
-          };
-          final res = await paperService.forceSetPaperStatus(
-            paperId: actualServerId,
-            status: v2StatusInt,
-            accessToken: accessToken,
-          );
-          if (res case Err(:final error)) {
-            if (mounted) {
-              showPermissionDenied(
-                context,
-                error.message ?? 'Permission denied',
-              );
-            }
-            return;
+      if (accessToken != null && actualServerId != null) {
+        final v2StatusInt = switch (next) {
+          PaperStatus.pending => 0,
+          PaperStatus.progress => 4,
+          PaperStatus.done => 5,
+          PaperStatus.marked => 6,
+        };
+        final res = await paperService.forceSetPaperStatus(
+          paperId: actualServerId,
+          status: v2StatusInt,
+          accessToken: accessToken,
+        );
+        if (res case Err(:final error)) {
+          if (mounted) {
+            showPermissionDenied(
+              context,
+              error.message ?? 'Permission denied',
+            );
           }
+          return;
         }
+      }
+
+      if (actualServerId != null) {
+        final v2StatusInt = switch (next) {
+          PaperStatus.pending => 0,
+          PaperStatus.progress => 4,
+          PaperStatus.done => 5,
+          PaperStatus.marked => 6,
+        };
+        final v2Status = PaperV2Status.values[v2StatusInt];
+        await widget.dao.updatePaperV2Status(
+          serverPaperId: actualServerId,
+          status: v2Status,
+        );
       }
 
       await widget.dao.updatePaper(

@@ -2633,6 +2633,27 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     return rows.isNotEmpty ? rows.first : null;
   }
 
+  /// Watch a single paper in [PapersV2] by server-issued UUID and map to legacy model.
+  Stream<Paper?> watchPaperV2AsLegacy(String serverPaperId) {
+    return (select(papersV2)..where((t) => t.id.equals(serverPaperId)))
+        .watchSingleOrNull()
+        .map((pv2) => pv2 != null ? _paperExamFromV2(pv2).paper : null);
+  }
+
+  /// Update the status of a paper in [PapersV2] by server-issued UUID.
+  Future<void> updatePaperV2Status({
+    required String serverPaperId,
+    required PaperV2Status status,
+  }) async {
+    final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
+    await (update(papersV2)..where((t) => t.id.equals(serverPaperId))).write(
+      PapersV2Companion(
+        status: Value(status),
+        updated: Value(now),
+      ),
+    );
+  }
+
   /// Update the status of a paper in [PapersV2] after generation completes.
   Future<void> updatePaperStatusAfterGeneration({
     required String serverPaperId,
