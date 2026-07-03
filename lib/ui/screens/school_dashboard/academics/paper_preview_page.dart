@@ -236,6 +236,74 @@ class _PaperPreviewPageState extends State<PaperPreviewPage> {
                 StimulusBlock(stimulus: question.stimulus!),
               // Question body
               renderBody(question.body, question.bodyFormat),
+              // Question images
+              if (question.images.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                ...question.images.map((img) {
+                  if (img.getUrl == null || img.getUrl!.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+                  final isSvg = img.filename.toLowerCase().endsWith('.svg') ||
+                      (img.getUrl != null && img.getUrl!.toLowerCase().contains('.svg'));
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        color: Theme.of(context).colorScheme.surfaceContainerLow,
+                        constraints: const BoxConstraints(maxHeight: 200),
+                        child: isSvg
+                            ? SvgPicture.network(
+                                img.getUrl!,
+                                fit: BoxFit.contain,
+                                placeholderBuilder: (context) => const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(12.0),
+                                    child: SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : Image.network(
+                                img.getUrl!,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) => Padding(
+                                  padding: const EdgeInsets.all(12.0),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.broken_image_outlined, color: Colors.red, size: 20),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Failed to load image (${img.filename})',
+                                          style: const TextStyle(color: Colors.red, fontSize: 12),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return const Center(
+                                    child: Padding(
+                                      padding: EdgeInsets.all(12.0),
+                                      child: SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    ),
+                  );
+                }),
+              ],
               // Parts
               if (question.parts.isNotEmpty) _renderParts(question.parts),
               // Answer space (question-level — only when no parts, or parts list

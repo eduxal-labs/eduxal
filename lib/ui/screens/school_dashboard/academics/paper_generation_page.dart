@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:grpc/grpc.dart' hide ConnectionState;
 
 import '../../../../client.dart';
@@ -1240,46 +1241,69 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
                           color: cs.surfaceContainerLow,
                           constraints: const BoxConstraints(maxHeight: 250),
                           width: double.infinity,
-                          child: Image.network(
-                            img.getUrl!,
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Padding(
-                                padding: const EdgeInsets.all(12.0),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.broken_image_outlined, color: cs.error, size: 20),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'Failed to load image (${img.filename})',
-                                        style: TextStyle(color: cs.error, fontSize: 12),
+                          child: () {
+                            final isSvg = img.filename.toLowerCase().endsWith('.svg') ||
+                                (img.getUrl != null && img.getUrl!.toLowerCase().contains('.svg'));
+                            if (isSvg) {
+                              return SvgPicture.network(
+                                img.getUrl!,
+                                fit: BoxFit.contain,
+                                placeholderBuilder: (context) => Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12.0),
+                                    child: SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12.0),
-                                  child: SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      value: loadingProgress.expectedTotalBytes != null
-                                          ? loadingProgress.cumulativeBytesLoaded /
-                                              loadingProgress.expectedTotalBytes!
-                                          : null,
                                     ),
                                   ),
                                 ),
                               );
-                            },
-                          ),
+                            }
+                            return Image.network(
+                              img.getUrl!,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Padding(
+                                  padding: const EdgeInsets.all(12.0),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.broken_image_outlined, color: cs.error, size: 20),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Failed to load image (${img.filename})',
+                                          style: TextStyle(color: cs.error, fontSize: 12),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12.0),
+                                    child: SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        value: loadingProgress.expectedTotalBytes != null
+                                            ? loadingProgress.cumulativeBytesLoaded /
+                                                loadingProgress.expectedTotalBytes!
+                                            : null,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                          }(),
                         ),
                       ),
                     );

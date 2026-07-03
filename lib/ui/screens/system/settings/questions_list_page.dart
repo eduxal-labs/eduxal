@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../../client.dart';
 import '../../../../models/question.dart';
@@ -849,30 +850,50 @@ class _QuestionExpandedContent extends StatelessWidget {
                           color: cs.surfaceContainerLow,
                           constraints: const BoxConstraints(maxHeight: 150),
                           width: double.infinity,
-                          child: Image.network(
-                            img.getUrl!,
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) => Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Text(
-                                'Failed to load image preview',
-                                style: TextStyle(color: cs.error, fontSize: 11),
-                              ),
-                            ),
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return const Center(
-                                child: Padding(
-                                  padding: EdgeInsets.all(8.0),
-                                  child: SizedBox(
-                                    height: 16,
-                                    width: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 1.5),
+                          child: () {
+                            final isSvg = img.filename.toLowerCase().endsWith('.svg') ||
+                                (img.getUrl != null && img.getUrl!.toLowerCase().contains('.svg'));
+                            if (isSvg) {
+                              return SvgPicture.network(
+                                img.getUrl!,
+                                fit: BoxFit.contain,
+                                placeholderBuilder: (context) => const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(8.0),
+                                    child: SizedBox(
+                                      height: 16,
+                                      width: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 1.5),
+                                    ),
                                   ),
                                 ),
                               );
-                            },
-                          ),
+                            }
+                            return Image.network(
+                              img.getUrl!,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) => Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Text(
+                                  'Failed to load image preview',
+                                  style: TextStyle(color: cs.error, fontSize: 11),
+                                ),
+                              ),
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(8.0),
+                                    child: SizedBox(
+                                      height: 16,
+                                      width: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 1.5),
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                          }(),
                         ),
                       ),
                     ],
