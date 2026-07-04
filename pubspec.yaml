@@ -58,7 +58,7 @@ dependencies:
 
   path: any
 dependency_overrides:
-  url_launcher_android: 6.3.29
+  url_launcher_android: 6.3.32
 
 dev_dependencies:
   flutter_test:
