@@ -14,6 +14,7 @@ import '../../../../models/timetable_rules.dart';
 import '../../../../core/extensions.dart';
 import '../../../../services/timetable_generator.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/edu_tab_bar.dart';
 import 'timetable_shared.dart';
 
 // ── Public data classes (used by main shell) ──────────────────────────────────
@@ -1060,13 +1061,11 @@ class _Stage0DaysSlotsState extends State<_Stage0DaysSlots>
     super.dispose();
   }
 
-  int get _currentDay => _activeDays[_tabCtrl.index];
 
   void _toggleDay(int d) {
     setState(() {
       if (_activeDays.contains(d)) {
         if (_activeDays.length > 1) {
-          final index = _activeDays.indexOf(d);
           _activeDays.remove(d);
           // daySlots and dayStartTimes are kept in case the user re-adds the day
           

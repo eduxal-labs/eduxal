@@ -23,6 +23,7 @@ import '../../../../database/daos/exams_grades_dao.dart';
 import '../../../../database/daos/members_dao.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
 import '../../../../database/tables/enums.dart';
+import '../../../../models/event.dart';
 
 import '../../../../models/paper_generation.dart';
 import '../../../../models/result.dart';

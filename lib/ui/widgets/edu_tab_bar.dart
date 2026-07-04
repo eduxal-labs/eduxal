@@ -61,6 +61,7 @@ class EduTabBar extends StatelessWidget {
     this.isScrollable = true,
     this.height,
     this.padding,
+    this.onTap,
   });
 
   /// The [TabController] driving this tab bar.
@@ -77,6 +78,9 @@ class EduTabBar extends StatelessWidget {
 
   /// Outer padding around the strip container. Defaults to horizontal 16, vertical 8.
   final EdgeInsetsGeometry? padding;
+
+  /// Optional callback when a tab is tapped.
+  final ValueChanged<int>? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -141,6 +145,7 @@ class EduTabBar extends StatelessWidget {
         ),
         overlayColor: WidgetStateProperty.all(Colors.transparent),
         splashFactory: NoSplash.splashFactory,
+        onTap: onTap,
         tabs: tabs.map((tab) {
           if (iconOnly) {
             return Tab(
@@ -220,6 +225,7 @@ class EduTabBarBottom extends StatelessWidget implements PreferredSizeWidget {
     this.isScrollable = true,
     this.height,
     this.padding,
+    this.onTap,
   });
 
   /// The [TabController] driving this tab bar.
@@ -234,10 +240,12 @@ class EduTabBarBottom extends StatelessWidget implements PreferredSizeWidget {
   /// Override the strip height. Defaults to 38 for text tabs, 36 for icon-only.
   final double? height;
 
-  /// Outer padding around the strip container.
   /// Defaults to `EdgeInsets.fromLTRB(16, 4, 16, 10)` — slightly more bottom
   /// padding to breathe below the AppBar.
   final EdgeInsetsGeometry? padding;
+
+  /// Optional callback when a tab is tapped.
+  final ValueChanged<int>? onTap;
 
   double get _stripHeight {
     final bool iconOnly = tabs.every((t) => t.label == null && t.icon != null);
@@ -263,6 +271,7 @@ class EduTabBarBottom extends StatelessWidget implements PreferredSizeWidget {
       isScrollable: isScrollable,
       height: height,
       padding: padding ?? const EdgeInsets.fromLTRB(16, 4, 16, 10),
+      onTap: onTap,
     );
   }
 }
