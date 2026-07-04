@@ -2669,10 +2669,12 @@ class _WizardEntityRow extends StatefulWidget {
     required this.onTap,
     required this.expandedContent,
     this.subtitleTrailing,
+    this.subtitleColor,
   });
 
   final String name;
   final String subtitle;
+  final Color? subtitleColor;
   final IconData icon;
   final bool isExpanded;
   final ColorScheme cs;
@@ -2841,8 +2843,9 @@ class _WizardEntityRowState extends State<_WizardEntityRow>
                                               style: TextStyle(
                                                 fontSize: 11.5,
                                                 fontWeight: FontWeight.w400,
-                                                color: cs.onSurfaceVariant
-                                                    .withValues(alpha: 0.55),
+                                                color: widget.subtitleColor ??
+                                                    cs.onSurfaceVariant
+                                                        .withValues(alpha: 0.55),
                                               ),
                                               overflow: TextOverflow.ellipsis,
                                             ),
@@ -3561,19 +3564,35 @@ class _Stage3RemainderSlotsState extends State<_Stage3RemainderSlots> {
     }
   }
 
-  void _onBoostChanged(String streamKey, int sid, int delta, int maxRemainder) {
+  void _onBoostChanged(
+    String streamKey,
+    int sid,
+    int delta,
+    int maxRemainder,
+    List<int> subjects,
+    int remainder,
+  ) {
     final currentMap = widget.rules.remainderAllocation[streamKey] ?? {};
     final updatedMap = Map<int, int>.from(currentMap);
-    
+
+    // If the map is empty, it means we are using the default "first R subjects get +1".
+    // When the user first interacts with any subject in this stream, we materialise
+    // those defaults so that the change is relative to what they actually see.
+    if (updatedMap.isEmpty && remainder > 0) {
+      for (int i = 0; i < subjects.length; i++) {
+        updatedMap[subjects[i]] = i < remainder ? 1 : 0;
+      }
+    }
+
     final currentBoost = updatedMap[sid] ?? 0;
     final newBoost = (currentBoost + delta).clamp(0, maxRemainder);
-    
-    // Check if new total exceeds maxRemainder.
+
+    // Check if new total exceeds maxRemainder across all subjects in this stream.
     int currentTotal = 0;
     updatedMap.forEach((key, value) {
       if (key != sid) currentTotal += value;
     });
-    
+
     if (currentTotal + newBoost <= maxRemainder) {
       updatedMap[sid] = newBoost;
       final updated = Map<String, Map<int, int>>.from(widget.rules.remainderAllocation);
@@ -3717,11 +3736,19 @@ class _Stage3RemainderSlotsState extends State<_Stage3RemainderSlots> {
         ? 'All'
         : (resolvedName ?? 'Stream $stream');
 
+    int allocatedTotal = 0;
+    rules.remainderAllocation[streamKey]?.forEach((_, v) => allocatedTotal += v);
+    if (rules.remainderAllocation[streamKey]?.isEmpty ?? true) {
+      allocatedTotal = r.remainder;
+    }
+    final underAllocated = allocatedTotal < r.remainder;
+
     return _WizardEntityRow(
       name: streamLabel,
       subtitle:
           '${r.totalPerWeek} lessons \u00B7 ${subjects.length} subjects'
-          ' \u00B7 ${r.base} base + ${r.remainder} extra',
+          ' \u00B7 ${r.base} base + ${r.remainder} extra${underAllocated ? ' (${r.remainder - allocatedTotal} missing!)' : ''}',
+      subtitleColor: underAllocated ? cs.error : null,
       icon: Icons.group_outlined,
       isExpanded: isExpanded,
       cs: cs,
@@ -3785,8 +3812,22 @@ class _Stage3RemainderSlotsState extends State<_Stage3RemainderSlots> {
                     currentTotal: allocatedTotal,
                     cs: cs,
                     isDark: isDark,
-                    onIncrement: () => _onBoostChanged(streamKey, sid, 1, r.remainder),
-                    onDecrement: () => _onBoostChanged(streamKey, sid, -1, r.remainder),
+                    onIncrement: () => _onBoostChanged(
+                      streamKey,
+                      sid,
+                      1,
+                      r.remainder,
+                      subjects,
+                      r.remainder,
+                    ),
+                    onDecrement: () => _onBoostChanged(
+                      streamKey,
+                      sid,
+                      -1,
+                      r.remainder,
+                      subjects,
+                      r.remainder,
+                    ),
                   );
                 },
               ),

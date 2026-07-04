@@ -38,3 +38,21 @@
 -dontwarn com.google.android.play.core.splitcompat.**
 -dontwarn com.google.android.play.core.splitinstall.**
 -dontwarn com.google.android.play.core.tasks.**
+-dontwarn com.google.android.play.core.splitinstall.**
+
+# Huawei HMS / HiAnalytics
+-dontwarn com.huawei.hms.**
+-dontwarn com.huawei.hianalytics.**
+-dontwarn com.huawei.libcore.**
+-dontwarn com.huawei.secure.**
+
+# Cronet / Chromium
+-dontwarn org.chromium.net.**
+-dontwarn org.chromium.net.impl.**
+
+# Conscrypt
+-dontwarn org.conscrypt.**
+
+# BouncyCastle
+-dontwarn org.bouncycastle.crypto.**
+-dontwarn org.bouncycastle.jsse.**

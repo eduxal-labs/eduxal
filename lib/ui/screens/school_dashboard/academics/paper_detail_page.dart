@@ -579,21 +579,28 @@ class _PaperDetailPageState extends State<PaperDetailPage>
         await paperService.generateAssessment(paperId: paperId, accessToken: token);
       }
 
-      // ── Step 2.1: Wait for server generation to complete ──────────────────
+      // ── Step 2.1: Wait for ALL students to be ready ──────────────────────────
       // This prevents the "missing papers" issue where the client fetches URLs
-      // before the background workers have finished generating them.
-      bool isReady = false;
+      // before the background workers have finished generating every single paper.
+      bool allReady = false;
       int pollAttempts = 0;
-      while (!isReady && pollAttempts < 15) { // Max 30 seconds
+      const int maxPollAttempts = 20; // Up to 40 seconds
+      
+      while (!allReady && pollAttempts < maxPollAttempts) {
         final statusRes = await paperService.getStudentPapersStatus(
           paperId: paperId,
           accessToken: token,
         );
+        
         if (statusRes case Ok(value: final status)) {
-          if (status.phase == PaperGenerationPhase.complete) {
-            isReady = true;
+          // Check if every student record says it is ready.
+          final allStudentsGenerated = status.students.every((s) => s.isReady);
+          final serverSaysComplete = status.phase == PaperGenerationPhase.complete;
+          
+          if (allStudentsGenerated && serverSaysComplete) {
+            allReady = true;
           } else {
-            // Still generating. Wait 2 seconds.
+            // Still generating some papers. Wait 2 seconds.
             await Future.delayed(const Duration(seconds: 2));
             pollAttempts++;
             if (!mounted) return;

@@ -36,27 +36,30 @@ dependencies:
   cupertino_icons: ^1.0.8
   grpc: ^5.1.0
   protobuf: ^6.0.0
-  drift: ^2.31.0
+  drift: ^2.34.0
   drift_flutter: ^0.3.0
-  path_provider: ^2.1.5
-  share_plus: ^13.1.0
+  path_provider: ^2.1.6
+  share_plus: ^13.2.0
   async: ^2.13.0
-  image_picker: ^1.2.1
-  flutter_image_compress: ^2.3.0
-  cunning_document_scanner: ^1.4.0
+  image_picker: ^1.2.3
+  flutter_image_compress: ^2.4.0
+  cunning_document_scanner: ^2.5.0
   fixnum: ^1.1.1
   fl_chart: ^1.2.0
   bson: ^5.0.8
   image: ^4.8.0
-  connectivity_plus: ^7.1.1
+  connectivity_plus: ^7.2.0
   file_picker: ^12.0.0-beta.5
-  url_launcher: ^6.3.0
+  url_launcher: 6.3.1
 
-  printing: ^5.13.2
+  printing: ^5.15.0
   flutter_math_fork: ^0.7.4
   flutter_svg: ^2.0.10+1
 
   path: any
+dependency_overrides:
+  url_launcher_android: 6.3.29
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -67,7 +70,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
-  drift_dev: ^2.31.0
+  drift_dev: ^2.34.1+1
   build_runner: ^2.11.1
   flutter_launcher_icons: ^0.14.3
 

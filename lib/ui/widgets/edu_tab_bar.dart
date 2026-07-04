@@ -198,7 +198,19 @@ class EduTabBar extends StatelessWidget {
       ),
     );
 
-    // Always hug content width — tabs take only as much space as they need.
+    if (isScrollable) {
+      // For scrollable tabs, we wrap in a SingleChildScrollView so that the
+      // background "pill" container can be wider than the screen and scroll
+      // horizontally as a single unit.
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: padding ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: strip,
+      );
+    }
+
+    // Fixed-width tabs fill available space or align left.
     strip = Align(alignment: Alignment.centerLeft, child: strip);
 
     return Padding(

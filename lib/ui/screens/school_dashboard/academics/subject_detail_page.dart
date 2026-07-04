@@ -1111,7 +1111,7 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet>
       controller: _gradeTabController!,
       tabs: tabs,
       isScrollable: true,
-      padding: EdgeInsets.zero,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
     );
   }
 

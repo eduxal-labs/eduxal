@@ -290,28 +290,13 @@ class _CreateAssessmentPageState extends State<CreateAssessmentPage>
           ),
         ],
       ),
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(48),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_gradeTabController != null)
-              EduTabBar(
-                controller: _gradeTabController!,
-                tabs: _allowedGrades
-                    .map((e) => EduTab(label: e.value))
-                    .toList(),
-                isScrollable: true,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-              ),
-            Divider(
-              height: 1,
-              thickness: 0.5,
-              color: AppTheme.borderColor(isDark, cs),
+      bottom: _gradeTabController == null
+          ? null
+          : EduTabBarBottom(
+              controller: _gradeTabController!,
+              tabs: _allowedGrades.map((e) => EduTab(label: e.value)).toList(),
+              isScrollable: true,
             ),
-          ],
-        ),
-      ),
     );
   }
 
