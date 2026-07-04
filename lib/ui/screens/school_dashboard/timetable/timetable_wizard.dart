@@ -1031,36 +1031,79 @@ class _Stage0DaysSlots extends StatefulWidget {
   State<_Stage0DaysSlots> createState() => _Stage0DaysSlotsState();
 }
 
-class _Stage0DaysSlotsState extends State<_Stage0DaysSlots> {
+class _Stage0DaysSlotsState extends State<_Stage0DaysSlots>
+    with SingleTickerProviderStateMixin {
   late List<int> _activeDays;
-  late List<TimetableSlot> _slots;
-  late TimeOfDay _dayStart;
+  late Map<int, List<TimetableSlot>> _daySlots;
+  late Map<int, TimeOfDay> _dayStartTimes;
+  late TabController _tabCtrl;
 
   @override
   void initState() {
     super.initState();
     _activeDays = List<int>.from(widget.rules.activeDays);
-    _slots = List<TimetableSlot>.from(widget.rules.slots);
-    _dayStart = widget.rules.dayStartTime;
+    _daySlots = Map.from(widget.rules.daySlots);
+    _dayStartTimes = Map.from(widget.rules.dayStartTimes);
+    
+    // Ensure maps are populated for active days
+    for (final day in _activeDays) {
+      _daySlots.putIfAbsent(day, () => []);
+      _dayStartTimes.putIfAbsent(day, () => const TimeOfDay(hour: 8, minute: 0));
+    }
+    
+    _tabCtrl = TabController(length: _activeDays.length, vsync: this);
   }
+
+  @override
+  void dispose() {
+    _tabCtrl.dispose();
+    super.dispose();
+  }
+
+  int get _currentDay => _activeDays[_tabCtrl.index];
 
   void _toggleDay(int d) {
     setState(() {
       if (_activeDays.contains(d)) {
         if (_activeDays.length > 1) {
-          _activeDays = List.from(_activeDays)..remove(d);
+          final index = _activeDays.indexOf(d);
+          _activeDays.remove(d);
+          // daySlots and dayStartTimes are kept in case the user re-adds the day
+          
+          // Recreate controller with new length
+          final oldIndex = _tabCtrl.index;
+          _tabCtrl.dispose();
+          _tabCtrl = TabController(
+            length: _activeDays.length,
+            vsync: this,
+            initialIndex: oldIndex.clamp(0, _activeDays.length - 1),
+          );
         }
       } else {
-        _activeDays = List.from(_activeDays)
-          ..add(d)
-          ..sort();
+        _activeDays.add(d);
+        _activeDays.sort();
+        _daySlots.putIfAbsent(d, () => []);
+        _dayStartTimes.putIfAbsent(d, () => const TimeOfDay(hour: 8, minute: 0));
+        
+        // Recreate controller
+        final oldIndex = _tabCtrl.index;
+        _tabCtrl.dispose();
+        _tabCtrl = TabController(
+          length: _activeDays.length,
+          vsync: this,
+          initialIndex: oldIndex,
+        );
       }
     });
     _notify();
   }
 
-  void _removeSlot(int index) {
-    setState(() => _slots = List<TimetableSlot>.from(_slots)..removeAt(index));
+  void _removeSlot(int day, int index) {
+    setState(() {
+      final slots = List<TimetableSlot>.from(_daySlots[day]!);
+      slots.removeAt(index);
+      _daySlots[day] = slots;
+    });
     _notify();
   }
 
@@ -1068,26 +1111,26 @@ class _Stage0DaysSlotsState extends State<_Stage0DaysSlots> {
     widget.onChanged(
       widget.rules.copyWith(
         activeDays: List<int>.from(_activeDays),
-        dayStartTime: _dayStart,
-        slots: List<TimetableSlot>.from(_slots),
+        dayStartTimes: Map.from(_dayStartTimes),
+        daySlots: Map.from(_daySlots),
       ),
     );
   }
 
-  Future<void> _pickDayStart() async {
+  Future<void> _pickDayStart(int day) async {
     final picked = await showDrumTimePicker(
       context: context,
-      initialTime: _dayStart,
+      initialTime: _dayStartTimes[day] ?? const TimeOfDay(hour: 8, minute: 0),
     );
     if (picked != null) {
       setState(() {
-        _dayStart = picked;
+        _dayStartTimes[day] = picked;
         _notify();
       });
     }
   }
 
-  Future<void> _promptAdd(SlotType type, BuildContext ctx) async {
+  Future<void> _promptAdd(int day, SlotType type, BuildContext ctx) async {
     final label = type == SlotType.lesson ? 'Lesson' : 'Break';
     final defaultMins = type == SlotType.lesson ? 40 : 10;
     final result = await showDialog<int>(
@@ -1097,20 +1140,21 @@ class _Stage0DaysSlotsState extends State<_Stage0DaysSlots> {
           _DurationPickerDialog(slotLabel: label, initialMinutes: defaultMins),
     );
     if (result == null || result < 5 || result > 240) return;
-    setState(
-      () => _slots = [
-        ..._slots,
-        TimetableSlot(type: type, durationMinutes: result),
-      ],
-    );
+    setState(() {
+      final slots = List<TimetableSlot>.from(_daySlots[day] ?? []);
+      slots.add(TimetableSlot(type: type, durationMinutes: result));
+      _daySlots[day] = slots;
+    });
     _notify();
   }
 
-  List<({int i, String range, int dur, SlotType type})> _rows() {
+  List<({int i, String range, int dur, SlotType type})> _rows(int day) {
     final result = <({int i, String range, int dur, SlotType type})>[];
-    int cursor = _dayStart.hour * 3600 + _dayStart.minute * 60;
-    for (int i = 0; i < _slots.length; i++) {
-      final s = _slots[i];
+    final startTime = _dayStartTimes[day] ?? const TimeOfDay(hour: 8, minute: 0);
+    final slots = _daySlots[day] ?? [];
+    int cursor = startTime.hour * 3600 + startTime.minute * 60;
+    for (int i = 0; i < slots.length; i++) {
+      final s = slots[i];
       final end = cursor + s.durationMinutes * 60;
       result.add((
         i: i,
@@ -1127,246 +1171,292 @@ class _Stage0DaysSlotsState extends State<_Stage0DaysSlots> {
   Widget build(BuildContext context) {
     final cs = widget.cs;
     final isDark = widget.isDark;
-    final rows = _rows();
-    final lessonCount = _slots.where((s) => s.type == SlotType.lesson).length;
 
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: 16,
-          children: [
-            // ── Section A: Day selector ──────────────────────────────────────
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              spacing: 8,
-              children: [
-                const _SectionLabel('School Days'),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: ToggleButtons(
-                    isSelected: [
-                      _activeDays.contains(1),
-                      _activeDays.contains(2),
-                      _activeDays.contains(3),
-                      _activeDays.contains(4),
-                      _activeDays.contains(5),
-                      _activeDays.contains(6),
-                      _activeDays.contains(7),
-                    ],
-                    onPressed: (i) => _toggleDay(i + 1),
-                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                    borderColor: AppTheme.borderColor(isDark, cs),
-                    selectedBorderColor: cs.primary.withValues(alpha: 0.55),
-                    selectedColor: cs.primary,
-                    fillColor: cs.primary.withValues(
-                      alpha: isDark ? 0.15 : 0.10,
-                    ),
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.65),
-                    textStyle: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 44,
-                      minHeight: 36,
-                    ),
-                    children: const [
-                      Text('Mon'),
-                      Text('Tue'),
-                      Text('Wed'),
-                      Text('Thu'),
-                      Text('Fri'),
-                      Text('Sat'),
-                      Text('Sun'),
-                    ],
+    return Column(
+      children: [
+        // ── Day Selector (Persistent at top) ──────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: 8,
+            children: [
+              const _SectionLabel('School Days'),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: ToggleButtons(
+                  isSelected: List.generate(
+                    7,
+                    (i) => _activeDays.contains(i + 1),
                   ),
-                ),
-              ],
-            ),
-
-            // ── Section B: Day-start time ────────────────────────────────────
-            InkWell(
-              onTap: _pickDayStart,
-              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-              splashFactory: NoSplash.splashFactory,
-              child: Container(
-                height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: AppTheme.nestedBg(isDark, cs),
+                  onPressed: (i) => _toggleDay(i + 1),
                   borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                  border: Border.all(color: AppTheme.borderColor(isDark, cs)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.wb_sunny_outlined,
-                      size: 14,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Starts at',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: cs.primary.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(
-                          AppTheme.kChipRadius,
-                        ),
-                      ),
-                      child: Text(
-                        _dayStart.format(context),
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: cs.primary,
-                        ),
-                      ),
-                    ),
+                  borderColor: AppTheme.borderColor(isDark, cs),
+                  selectedBorderColor: cs.primary.withValues(alpha: 0.55),
+                  selectedColor: cs.primary,
+                  fillColor: cs.primary.withValues(
+                    alpha: isDark ? 0.15 : 0.10,
+                  ),
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                  textStyle: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 36,
+                  ),
+                  children: const [
+                    Text('Mon'),
+                    Text('Tue'),
+                    Text('Wed'),
+                    Text('Thu'),
+                    Text('Fri'),
+                    Text('Sat'),
+                    Text('Sun'),
                   ],
                 ),
               ),
-            ),
+            ],
+          ),
+        ),
 
-            const Divider(height: 1, thickness: 0.5),
+        // ── Tabs for Day-specific config ────────────────────────────────────
+        EduTabBar(
+          controller: _tabCtrl,
+          isScrollable: true,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          tabs: _activeDays.map((d) {
+            final label = switch (d) {
+              1 => 'Mon',
+              2 => 'Tue',
+              3 => 'Wed',
+              4 => 'Thu',
+              5 => 'Fri',
+              6 => 'Sat',
+              7 => 'Sun',
+              _ => '$d',
+            };
+            return EduTab(label: label);
+          }).toList(),
+          onTap: (idx) => setState(() {}),
+        ),
 
-            // ── Section C: Slot list ─────────────────────────────────────────
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              spacing: 0,
-              children: [
-                _SectionLabel(
-                  'Slot Sequence',
-                  trailing: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: cs.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
-                    ),
-                    child: Text(
-                      '$lessonCount lesson${lessonCount == 1 ? "" : "s"}',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        color: cs.primary,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (rows.isEmpty)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 32,
-                      horizontal: 20,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.nestedBg(isDark, cs),
+        Expanded(
+          child: TabBarView(
+            controller: _tabCtrl,
+            children: _activeDays.map((day) {
+              final rows = _rows(day);
+              final daySlots = _daySlots[day] ?? [];
+              final lessonCount =
+                  daySlots.where((s) => s.type == SlotType.lesson).length;
+              final dayStart =
+                  _dayStartTimes[day] ?? const TimeOfDay(hour: 8, minute: 0);
+
+              return SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: 16,
+                  children: [
+                    // Day-start time
+                    InkWell(
+                      onTap: () => _pickDayStart(day),
                       borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                      border: Border.all(
-                        color: AppTheme.borderColor(isDark, cs),
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.view_timeline_outlined,
-                          size: 28,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          'No slots yet',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                      splashFactory: NoSplash.splashFactory,
+                      child: Container(
+                        height: 48,
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        decoration: BoxDecoration(
+                          color: AppTheme.nestedBg(isDark, cs),
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.kCardRadius),
+                          border: Border.all(
+                            color: AppTheme.borderColor(isDark, cs),
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Add lesson and break slots below.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.35),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.wb_sunny_outlined,
+                              size: 14,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Starts at',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w400,
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: cs.primary.withValues(alpha: 0.10),
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.kChipRadius,
+                                ),
+                              ),
+                              child: Text(
+                                dayStart.format(context),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: cs.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const Divider(height: 1, thickness: 0.5),
+
+                    // Slot list
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      spacing: 0,
+                      children: [
+                        _SectionLabel(
+                          'Slot Sequence',
+                          trailing: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: cs.primary.withValues(alpha: 0.1),
+                              borderRadius:
+                                  BorderRadius.circular(AppTheme.kChipRadius),
+                            ),
+                            child: Text(
+                              '$lessonCount lesson${lessonCount == 1 ? "" : "s"}',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                                color: cs.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (rows.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 32,
+                              horizontal: 20,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.nestedBg(isDark, cs),
+                              borderRadius:
+                                  BorderRadius.circular(AppTheme.kCardRadius),
+                              border: Border.all(
+                                color: AppTheme.borderColor(isDark, cs),
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.view_timeline_outlined,
+                                  size: 28,
+                                  color:
+                                      cs.onSurfaceVariant.withValues(alpha: 0.3),
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'No slots yet',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.5,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Add lesson and break slots below.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w400,
+                                    color: cs.onSurfaceVariant.withValues(
+                                      alpha: 0.35,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          Container(
+                            decoration: BoxDecoration(
+                              color: AppTheme.modalBg(isDark, cs),
+                              borderRadius:
+                                  BorderRadius.circular(AppTheme.kCardRadius),
+                              border: Border.all(
+                                color: AppTheme.borderColor(isDark, cs),
+                              ),
+                            ),
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: rows.length,
+                              separatorBuilder: (_, _) =>
+                                  AppTheme.tableRowDivider(isDark, cs),
+                              itemBuilder: (_, idx) {
+                                final r = rows[idx];
+                                return _SlotRowTile(
+                                  index: r.i,
+                                  timeRange: r.range,
+                                  duration: r.dur,
+                                  isBreak: r.type == SlotType.breakSlot,
+                                  cs: cs,
+                                  isDark: isDark,
+                                  onDelete: () => _removeSlot(day, r.i),
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+
+                    // Add-slot actions
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _AddSlotButton(
+                            label: '+ Add Lesson',
+                            color: AppTheme.brandGreen,
+                            onTap: () =>
+                                _promptAdd(day, SlotType.lesson, context),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _AddSlotButton(
+                            label: '+ Add Break',
+                            color: const Color(0xFFFFA726),
+                            onTap: () =>
+                                _promptAdd(day, SlotType.breakSlot, context),
                           ),
                         ),
                       ],
                     ),
-                  )
-                else
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppTheme.modalBg(isDark, cs),
-                      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                      border: Border.all(
-                        color: AppTheme.borderColor(isDark, cs),
-                      ),
-                    ),
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: rows.length,
-                      separatorBuilder: (_, _) =>
-                          AppTheme.tableRowDivider(isDark, cs),
-                      itemBuilder: (_, idx) {
-                        final r = rows[idx];
-                        return _SlotRowTile(
-                          index: r.i,
-                          timeRange: r.range,
-                          duration: r.dur,
-                          isBreak: r.type == SlotType.breakSlot,
-                          cs: cs,
-                          isDark: isDark,
-                          onDelete: () => _removeSlot(r.i),
-                        );
-                      },
-                    ),
-                  ),
-              ],
-            ),
-
-            // ── Section D: Add-slot actions ──────────────────────────────────
-            Row(
-              children: [
-                Expanded(
-                  child: _AddSlotButton(
-                    label: '+ Add Lesson',
-                    color: AppTheme.brandGreen,
-                    onTap: () => _promptAdd(SlotType.lesson, context),
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _AddSlotButton(
-                    label: '+ Add Break',
-                    color: const Color(0xFFFFA726),
-                    onTap: () => _promptAdd(SlotType.breakSlot, context),
-                  ),
-                ),
-              ],
-            ),
-          ],
+              );
+            }).toList(),
+          ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -2846,7 +2936,8 @@ class _ConstraintChipRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typeColor = isBlock ? cs.error : cs.primary;
-    final allLessonSlots = rules.buildLessonSlots();
+    final displayDay = days.isNotEmpty ? days.first : 1;
+    final allLessonSlots = rules.buildLessonSlotsForDay(displayDay);
 
     final slotLabels = slotIndices.map((idx) {
       final match = allLessonSlots.where((s) => s.index == idx).firstOrNull;
@@ -3139,7 +3230,13 @@ class _ConstraintEntryFormState extends State<_ConstraintEntryForm> {
   Widget build(BuildContext context) {
     final cs = widget.cs;
     final isDark = widget.isDark;
-    final lessonSlots = widget.rules.buildLessonSlots();
+
+    // Use the first selected day to show slots, or the first active day if none selected.
+    final displayDay = _selectedDays.isNotEmpty
+        ? _selectedDays.first
+        : (widget.rules.activeDays.isNotEmpty ? widget.rules.activeDays.first : 1);
+
+    final lessonSlots = widget.rules.buildLessonSlotsForDay(displayDay);
 
     return SingleChildScrollView(
       child: Column(
@@ -3261,7 +3358,40 @@ class _ConstraintEntryFormState extends State<_ConstraintEntryForm> {
                 ),
                 const SizedBox(height: 14),
                 // Slots selector
-                const _SectionLabel('Slots'),
+                Row(
+                  children: [
+                    const _SectionLabel('Slots'),
+                    const Spacer(),
+                    if (lessonSlots.isNotEmpty)
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            if (_selectedSlots.length == lessonSlots.length) {
+                              _selectedSlots.clear();
+                            } else {
+                              _selectedSlots.clear();
+                              _selectedSlots.addAll(lessonSlots.map((s) => s.index));
+                            }
+                          });
+                        },
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          _selectedSlots.length == lessonSlots.length
+                              ? 'Deselect All'
+                              : 'Select All',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: cs.primary,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
                 const SizedBox(height: 8),
                 if (lessonSlots.isEmpty)
                   Text(
@@ -3380,10 +3510,13 @@ class _ConstraintEntryFormState extends State<_ConstraintEntryForm> {
   required TimetableRules rules,
   required int subjectCount,
 }) {
-  final slotsPerDay = rules.slots
-      .where((s) => s.type == SlotType.lesson)
-      .length;
-  final total = slotsPerDay * rules.activeDays.length;
+  int total = 0;
+  for (final day in rules.activeDays) {
+    total += (rules.daySlots[day] ?? [])
+        .where((s) => s.type == SlotType.lesson)
+        .length;
+  }
+  
   if (subjectCount == 0) return (base: 0, remainder: 0, totalPerWeek: total);
   return (
     base: total ~/ subjectCount,
@@ -3429,10 +3562,25 @@ class _Stage3RemainderSlotsState extends State<_Stage3RemainderSlots> {
     }
   }
 
-  void _onReorder(String streamKey, List<int> newOrder) {
-    final updated = Map<String, List<int>>.from(widget.rules.remainderPriority);
-    updated[streamKey] = newOrder;
-    widget.onChanged(widget.rules.copyWith(remainderPriority: updated));
+  void _onBoostChanged(String streamKey, int sid, int delta, int maxRemainder) {
+    final currentMap = widget.rules.remainderAllocation[streamKey] ?? {};
+    final updatedMap = Map<int, int>.from(currentMap);
+    
+    final currentBoost = updatedMap[sid] ?? 0;
+    final newBoost = (currentBoost + delta).clamp(0, maxRemainder);
+    
+    // Check if new total exceeds maxRemainder.
+    int currentTotal = 0;
+    updatedMap.forEach((key, value) {
+      if (key != sid) currentTotal += value;
+    });
+    
+    if (currentTotal + newBoost <= maxRemainder) {
+      updatedMap[sid] = newBoost;
+      final updated = Map<String, Map<int, int>>.from(widget.rules.remainderAllocation);
+      updated[streamKey] = updatedMap;
+      widget.onChanged(widget.rules.copyWith(remainderAllocation: updated));
+    }
   }
 
   @override
@@ -3553,17 +3701,6 @@ class _Stage3RemainderSlotsState extends State<_Stage3RemainderSlots> {
     final isExpanded = _expandedStreams[streamKey] ?? false;
     final subjects = streamAssignments.map((a) => a.subjectId).toSet().toList();
     final r = _computeRemainder(rules: rules, subjectCount: subjects.length);
-
-    // Build priority order (from rules or default ascending).
-    final savedOrder = rules.remainderPriority[streamKey];
-    final orderedSubjects = savedOrder != null
-        ? savedOrder.where((sid) => subjects.contains(sid)).toList()
-        : (List<int>.from(subjects)..sort());
-    // Append any subjects not yet in the ordered list (newly added).
-    for (final sid in subjects) {
-      if (!orderedSubjects.contains(sid)) orderedSubjects.add(sid);
-    }
-
     String? resolvedName;
     if (stream != null) {
       for (final c in widget.config.curricula) {
@@ -3601,7 +3738,7 @@ class _Stage3RemainderSlotsState extends State<_Stage3RemainderSlots> {
             ),
           ),
         ),
-        child: orderedSubjects.isEmpty
+        child: subjects.isEmpty
             ? Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
@@ -3612,27 +3749,45 @@ class _Stage3RemainderSlotsState extends State<_Stage3RemainderSlots> {
                   ),
                 ),
               )
-            : ReorderableListView.builder(
+            : ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                onReorder: (oldIndex, newIndex) {
-                  if (newIndex > oldIndex) newIndex--;
-                  final newOrder = List<int>.from(orderedSubjects);
-                  final item = newOrder.removeAt(oldIndex);
-                  newOrder.insert(newIndex, item);
-                  _onReorder(streamKey, newOrder);
-                },
-                itemCount: orderedSubjects.length,
+                itemCount: subjects.length,
+                separatorBuilder: (ctx, i) => Divider(
+                  height: 1,
+                  thickness: 0.5,
+                  color: AppTheme.borderColor(isDark, cs),
+                  indent: 12,
+                  endIndent: 12,
+                ),
                 itemBuilder: (ctx, i) {
-                  final sid = orderedSubjects[i];
-                  final isExtra = i < r.remainder;
+                  final sid = subjects[i];
+                  final boostMap = rules.remainderAllocation[streamKey] ?? {};
+                  final currentBoost = boostMap[sid] ?? 0;
+                  
+                  // If no allocation is set, default to uniform +1 for first R subjects
+                  // but only visually for the user to start with.
+                  final effectiveBoost = (rules.remainderAllocation[streamKey]?.isEmpty ?? true)
+                      ? (i < r.remainder ? 1 : 0)
+                      : currentBoost;
+
+                  // Calculate total allocated to show warning if under-allocated.
+                  int allocatedTotal = 0;
+                  boostMap.forEach((_, v) => allocatedTotal += v);
+                  if (rules.remainderAllocation[streamKey]?.isEmpty ?? true) {
+                    allocatedTotal = r.remainder;
+                  }
+
                   return _RemainderSubjectTile(
                     key: ValueKey(sid),
-                    index: i,
                     name: _subjectName(sid),
-                    isExtra: isExtra,
+                    boost: effectiveBoost,
+                    maxRemainder: r.remainder,
+                    currentTotal: allocatedTotal,
                     cs: cs,
                     isDark: isDark,
+                    onIncrement: () => _onBoostChanged(streamKey, sid, 1, r.remainder),
+                    onDecrement: () => _onBoostChanged(streamKey, sid, -1, r.remainder),
                   );
                 },
               ),
@@ -3644,51 +3799,104 @@ class _Stage3RemainderSlotsState extends State<_Stage3RemainderSlots> {
 class _RemainderSubjectTile extends StatelessWidget {
   const _RemainderSubjectTile({
     super.key,
-    required this.index,
     required this.name,
-    required this.isExtra,
+    required this.boost,
+    required this.maxRemainder,
+    required this.currentTotal,
     required this.cs,
     required this.isDark,
+    required this.onIncrement,
+    required this.onDecrement,
   });
 
-  final int index;
   final String name;
-  final bool isExtra;
+  final int boost;
+  final int maxRemainder;
+  final int currentTotal;
   final ColorScheme cs;
   final bool isDark;
+  final VoidCallback onIncrement;
+  final VoidCallback onDecrement;
 
   @override
   Widget build(BuildContext context) {
+    final canIncrement = currentTotal < maxRemainder;
+    final canDecrement = boost > 0;
+
     return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      color: AppTheme.nestedBg(isDark, cs),
+      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          ReorderableDragStartListener(
-            index: index,
-            child: MouseRegion(
-              cursor: SystemMouseCursors.grab,
-              child: Icon(
-                Icons.drag_handle_rounded,
-                size: 18,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.35),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              name,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: cs.onSurface,
-              ),
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  name,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: cs.onSurface,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (boost > 0)
+                  Text(
+                    '+$boost extra lesson${boost > 1 ? 's' : ''}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.brandGreen,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+              ],
             ),
           ),
-          if (isExtra) _DiffBadge(label: '+1', color: AppTheme.brandGreen),
+          Container(
+            decoration: BoxDecoration(
+              color: AppTheme.nestedBg(isDark, cs),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: AppTheme.borderColor(isDark, cs),
+                width: 0.5,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  onPressed: canDecrement ? onDecrement : null,
+                  icon: const Icon(Icons.remove_rounded, size: 16),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  color: cs.primary,
+                  disabledColor: cs.onSurfaceVariant.withValues(alpha: 0.2),
+                ),
+                SizedBox(
+                  width: 24,
+                  child: Text(
+                    '$boost',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: boost > 0 ? cs.primary : cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: canIncrement ? onIncrement : null,
+                  icon: const Icon(Icons.add_rounded, size: 16),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  color: cs.primary,
+                  disabledColor: cs.onSurfaceVariant.withValues(alpha: 0.2),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -3832,7 +4040,11 @@ class _SummarySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final slotCount = rules.buildLessonSlots().length;
+    int totalLessons = 0;
+    for (final day in rules.activeDays) {
+      totalLessons += rules.buildLessonSlotsForDay(day).length;
+    }
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -3844,8 +4056,8 @@ class _SummarySection extends StatelessWidget {
           isDark: isDark,
         ),
         _StatChip(
-          label: 'Slots/Day',
-          value: '$slotCount',
+          label: 'Lessons/Wk',
+          value: '$totalLessons',
           cs: cs,
           isDark: isDark,
         ),

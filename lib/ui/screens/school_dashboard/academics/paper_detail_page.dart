@@ -569,23 +569,38 @@ class _PaperDetailPageState extends State<PaperDetailPage>
       }
 
       // Step 2 — ensure per-student PDFs are generated on the server.
-      // This is a no-op if already generated; callers may have skipped Phase 1.
       final examType = widget.exam.exam.type;
       if (examType == ExamType.assessment) {
-        await paperService.generateAssessment(
-          paperId: paperId,
-          accessToken: token,
-        );
+        await paperService.generateAssessment(paperId: paperId, accessToken: token);
       } else if (examType == ExamType.assignment) {
-        await paperService.generateAssignment(
-          paperId: paperId,
-          accessToken: token,
-        );
+        await paperService.generateAssignment(paperId: paperId, accessToken: token);
       } else {
-        await paperService.generateAssessment(
+        await paperService.generateAssessment(paperId: paperId, accessToken: token);
+      }
+
+      // ── Step 2.1: Wait for server generation to complete ──────────────────
+      // This prevents the "missing papers" issue where the client fetches URLs
+      // before the background workers have finished generating them.
+      bool isReady = false;
+      int pollAttempts = 0;
+      while (!isReady && pollAttempts < 15) { // Max 30 seconds
+        final statusRes = await paperService.getStudentPapersStatus(
           paperId: paperId,
           accessToken: token,
         );
+        if (statusRes case Ok(:final status)) {
+          if (status.phase == PaperGenerationPhase.complete) {
+            isReady = true;
+          } else {
+            // Still generating. Wait 2 seconds.
+            await Future.delayed(const Duration(seconds: 2));
+            pollAttempts++;
+            if (!mounted) return;
+          }
+        } else {
+          // If status check fails, proceed to individual downloads and hope for the best.
+          break;
+        }
       }
 
       // Step 3 — download each student PDF.
@@ -603,30 +618,36 @@ class _PaperDetailPageState extends State<PaperDetailPage>
           continue;
         }
 
-        final pdfResult = await paperService.getStudentPaperPdf(
-          paperId: paperId,
-          studentId: student.adm.toString(),
-          accessToken: token,
-        );
-        if (!mounted) return;
-
-        if (pdfResult case Ok(:final value) when value.pdfUrl.isNotEmpty) {
-          final file = await FileCache.download(value.pdfUrl, studentPath);
+        bool success = false;
+        // Retry logic: try fetching/downloading up to 3 times per student.
+        for (int retry = 0; retry < 3; retry++) {
+          final pdfResult = await paperService.getStudentPaperPdf(
+            paperId: paperId,
+            studentId: student.adm.toString(),
+            accessToken: token,
+          );
           if (!mounted) return;
-          setState(() {
+
+          if (pdfResult case Ok(:final value) when value.pdfUrl.isNotEmpty) {
+            final file = await FileCache.download(value.pdfUrl, studentPath);
+            if (!mounted) return;
             if (file != null) {
-              _localStudentPdfs.add(student.adm);
-            } else {
-              _failedStudentPdfs.add(student.adm);
+              setState(() {
+                _localStudentPdfs.add(student.adm);
+                _failedStudentPdfs.remove(student.adm);
+              });
+              success = true;
+              break; 
             }
-            _pdfDownloadCount++;
-          });
-        } else {
-          setState(() {
-            _failedStudentPdfs.add(student.adm);
-            _pdfDownloadCount++;
-          });
+          }
+          // Exponential-ish backoff or simple delay.
+          await Future.delayed(Duration(seconds: 1 + retry));
         }
+
+        if (!success) {
+          setState(() => _failedStudentPdfs.add(student.adm));
+        }
+        setState(() => _pdfDownloadCount++);
       }
 
       if (!mounted) return;

@@ -158,30 +158,36 @@ class SubjectConstraintEntry {
 /// and checks whether their overall slot index satisfies the constraints.
 class TimetableRules {
   TimetableRules({
-    TimeOfDay? dayStartTime,
-    List<TimetableSlot>? slots,
+    Map<int, TimeOfDay>? dayStartTimes,
+    Map<int, List<TimetableSlot>>? daySlots,
     List<int>? activeDays,
     this.maxLessonsPerDayTeacher = 6,
     this.maxLessonsPerDayClass = 8,
     this.allowDoubles = false,
-    Map<String, List<int>>? remainderPriority,
+    Map<String, Map<int, int>>? remainderAllocation,
     List<TeacherConstraintEntry>? teacherConstraints,
     List<SubjectConstraintEntry>? subjectConstraints,
-  }) : dayStartTime = dayStartTime ?? const TimeOfDay(hour: 8, minute: 0),
-       slots = slots ?? [],
+  }) : dayStartTimes = dayStartTimes ?? {},
+       daySlots = daySlots ?? {},
        activeDays = activeDays ?? [1, 2, 3, 4, 5],
-       remainderPriority = remainderPriority ?? {},
+       remainderAllocation = remainderAllocation ?? {},
        teacherConstraints = teacherConstraints ?? [],
-       subjectConstraints = subjectConstraints ?? [];
+       subjectConstraints = subjectConstraints ?? [] {
+    // Ensure all active days have at least a default start time and empty slot list
+    // if not provided.
+    for (final day in this.activeDays) {
+      this.dayStartTimes.putIfAbsent(day, () => const TimeOfDay(hour: 8, minute: 0));
+      this.daySlots.putIfAbsent(day, () => []);
+    }
+  }
 
   // ── Day configuration ────────────────────────────────────────────────────
 
-  /// The time the school day begins.  All slot start times are derived from
-  /// this anchor plus cumulative preceding-slot durations.
-  final TimeOfDay dayStartTime;
+  /// The time the school day begins for each day.
+  final Map<int, TimeOfDay> dayStartTimes;
 
-  /// Ordered sequence of lesson and break slots that make up one school day.
-  final List<TimetableSlot> slots;
+  /// Ordered sequence of lesson and break slots for each day.
+  final Map<int, List<TimetableSlot>> daySlots;
 
   /// Days of the week that are scheduled.  Stored as weekday indices
   /// (1 = Monday … 7 = Sunday).
@@ -199,15 +205,15 @@ class TimetableRules {
   /// class — no two instances of the same subject on the same day.
   final bool allowDoubles;
 
-  /// Per-stream remainder subject priority.
+  /// Per-stream remainder subject allocation.
   ///
   /// Key format: "{grade}_{stream}" (e.g. "44_1") or "{grade}_null" for
   /// grades with a single un-streamed class.
   ///
-  /// Value: ordered list of subject IDs. The first `remainder` subjects in
-  /// this list receive one extra lesson per week beyond the base allocation.
-  /// If a key is absent, the generator uses ascending subject-ID order.
-  final Map<String, List<int>> remainderPriority;
+  /// Value: Map of subject IDs to the number of EXTRA lessons per week
+  /// (beyond the base allocation). The sum of these values should equal
+  /// (totalWeeklySlots % numSubjects).
+  final Map<String, Map<int, int>> remainderAllocation;
 
   // ── Constraints ──────────────────────────────────────────────────────────
 
@@ -219,18 +225,15 @@ class TimetableRules {
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
-  /// Produces the ordered list of **lesson-only** slots with their computed
-  /// start and end times (in seconds since midnight) and their 0-based index
-  /// position in the overall [slots] list.
-  ///
-  /// Break slots are excluded from the returned list but their durations still
-  /// advance the running time cursor.
-  ///
-  /// Use this list to build the solver's slot domain and for display labels
-  /// in the wizard UI.
-  List<({int index, int start, int end})> buildLessonSlots() {
+  /// Produces the ordered list of **lesson-only** slots for a specific day
+  /// with their computed start and end times (in seconds since midnight)
+  /// and their 0-based index position in that day's slot list.
+  List<({int index, int start, int end})> buildLessonSlotsForDay(int day) {
     final result = <({int index, int start, int end})>[];
-    int cursor = dayStartTime.hour * 3600 + dayStartTime.minute * 60;
+    final startTime = dayStartTimes[day] ?? const TimeOfDay(hour: 8, minute: 0);
+    final slots = daySlots[day] ?? [];
+    
+    int cursor = startTime.hour * 3600 + startTime.minute * 60;
     for (int i = 0; i < slots.length; i++) {
       final s = slots[i];
       final end = cursor + s.durationMinutes * 60;
@@ -245,24 +248,24 @@ class TimetableRules {
   // ── copyWith ─────────────────────────────────────────────────────────────
 
   TimetableRules copyWith({
-    TimeOfDay? dayStartTime,
-    List<TimetableSlot>? slots,
+    Map<int, TimeOfDay>? dayStartTimes,
+    Map<int, List<TimetableSlot>>? daySlots,
     List<int>? activeDays,
     int? maxLessonsPerDayTeacher,
     int? maxLessonsPerDayClass,
     bool? allowDoubles,
-    Map<String, List<int>>? remainderPriority,
+    Map<String, Map<int, int>>? remainderAllocation,
     List<TeacherConstraintEntry>? teacherConstraints,
     List<SubjectConstraintEntry>? subjectConstraints,
   }) => TimetableRules(
-    dayStartTime: dayStartTime ?? this.dayStartTime,
-    slots: slots ?? this.slots,
+    dayStartTimes: dayStartTimes ?? Map.from(this.dayStartTimes),
+    daySlots: daySlots ?? Map.from(this.daySlots),
     activeDays: activeDays ?? this.activeDays,
     maxLessonsPerDayTeacher:
         maxLessonsPerDayTeacher ?? this.maxLessonsPerDayTeacher,
     maxLessonsPerDayClass: maxLessonsPerDayClass ?? this.maxLessonsPerDayClass,
     allowDoubles: allowDoubles ?? this.allowDoubles,
-    remainderPriority: remainderPriority ?? this.remainderPriority,
+    remainderAllocation: remainderAllocation ?? this.remainderAllocation,
     teacherConstraints: teacherConstraints ?? this.teacherConstraints,
     subjectConstraints: subjectConstraints ?? this.subjectConstraints,
   );
@@ -270,73 +273,130 @@ class TimetableRules {
   // ── JSON serialisation ───────────────────────────────────────────────────
 
   Map<String, dynamic> toJson() => {
-    'version': 2,
-    'day_start_hour': dayStartTime.hour,
-    'day_start_minute': dayStartTime.minute,
-    'slots': slots.map((s) => s.toJson()).toList(),
+    'version': 3,
+    'day_start_times': dayStartTimes.map((k, v) => MapEntry(k.toString(), {
+      'hour': v.hour,
+      'minute': v.minute,
+    })),
+    'day_slots': daySlots.map((k, v) => MapEntry(k.toString(), v.map((s) => s.toJson()).toList())),
     'active_days': activeDays,
     'max_lessons_teacher': maxLessonsPerDayTeacher,
     'max_lessons_class': maxLessonsPerDayClass,
     'allow_doubles': allowDoubles,
-    'remainder_priority': remainderPriority.map((k, v) => MapEntry(k, v)),
+    'remainder_allocation': remainderAllocation.map(
+      (k, v) => MapEntry(k, v.map((sk, sv) => MapEntry(sk.toString(), sv))),
+    ),
     'teacher_constraints': teacherConstraints.map((e) => e.toJson()).toList(),
     'subject_constraints': subjectConstraints.map((e) => e.toJson()).toList(),
   };
 
   /// Deserialise from a JSON map.
-  ///
-  /// If the stored data uses the v1 (legacy time-range) format, or if any
-  /// parse error occurs, [TimetableRules.defaults()] is returned so the app
-  /// never crashes on malformed or outdated saved rules.
   factory TimetableRules.fromJson(Map<String, dynamic> json) {
     try {
       final version = (json['version'] as int?) ?? 1;
       if (version < 2) {
-        // Legacy v1 format used entirely different keys (day_start, day_end,
-        // lesson_duration, etc.).  It cannot be migrated losslessly, so we
-        // discard it and open the wizard with defaults.
         return TimetableRules.defaults();
       }
 
-      return TimetableRules(
-        dayStartTime: TimeOfDay(
+      final activeDays = ((json['active_days'] as List<dynamic>?) ?? [1, 2, 3, 4, 5])
+            .cast<int>();
+
+      if (version == 2) {
+        // Migrate v2 (global slots) to v3 (per-day slots)
+        final globalStart = TimeOfDay(
           hour: (json['day_start_hour'] as int?) ?? 8,
           minute: (json['day_start_minute'] as int?) ?? 0,
-        ),
-        slots: ((json['slots'] as List<dynamic>?) ?? [])
+        );
+        final globalSlots = ((json['slots'] as List<dynamic>?) ?? [])
             .map((e) => TimetableSlot.fromJson(e as Map<String, dynamic>))
-            .toList(),
-        activeDays: ((json['active_days'] as List<dynamic>?) ?? [1, 2, 3, 4, 5])
-            .cast<int>(),
+            .toList();
+
+        final dayStartTimes = <int, TimeOfDay>{};
+        final daySlots = <int, List<TimetableSlot>>{};
+        for (final day in activeDays) {
+          dayStartTimes[day] = globalStart;
+          daySlots[day] = List.from(globalSlots);
+        }
+
+        return TimetableRules(
+          dayStartTimes: dayStartTimes,
+          daySlots: daySlots,
+          activeDays: activeDays,
+          maxLessonsPerDayTeacher: (json['max_lessons_teacher'] as int?) ?? 6,
+          maxLessonsPerDayClass: (json['max_lessons_class'] as int?) ?? 8,
+          allowDoubles: (json['allow_doubles'] as bool?) ?? false,
+          remainderAllocation: () {
+            // Priority list is no longer supported in v3, but we can't easily
+            // migrate without subject counts. Solver will use defaults or
+            // new allocation map.
+            return <String, Map<int, int>>{};
+          }(),
+          teacherConstraints:
+              ((json['teacher_constraints'] as List<dynamic>?) ?? [])
+                  .map((e) => TeacherConstraintEntry.fromJson(e as Map<String, dynamic>))
+                  .toList(),
+          subjectConstraints:
+              ((json['subject_constraints'] as List<dynamic>?) ?? [])
+                  .map((e) => SubjectConstraintEntry.fromJson(e as Map<String, dynamic>))
+                  .toList(),
+        );
+      }
+
+      // Version 3+
+      return TimetableRules(
+        dayStartTimes: () {
+          final raw = json['day_start_times'] as Map<String, dynamic>?;
+          if (raw == null) return <int, TimeOfDay>{};
+          return raw.map((k, v) {
+            final m = v as Map<String, dynamic>;
+            return MapEntry(int.parse(k), TimeOfDay(hour: m['hour'] as int, minute: m['minute'] as int));
+          });
+        }(),
+        daySlots: () {
+          final raw = json['day_slots'] as Map<String, dynamic>?;
+          if (raw == null) return <int, List<TimetableSlot>>{};
+          return raw.map((k, v) {
+            return MapEntry(
+              int.parse(k),
+              (v as List<dynamic>).map((e) => TimetableSlot.fromJson(e as Map<String, dynamic>)).toList(),
+            );
+          });
+        }(),
+        activeDays: activeDays,
         maxLessonsPerDayTeacher: (json['max_lessons_teacher'] as int?) ?? 6,
         maxLessonsPerDayClass: (json['max_lessons_class'] as int?) ?? 8,
         allowDoubles: (json['allow_doubles'] as bool?) ?? false,
-        remainderPriority: () {
-          final raw = json['remainder_priority'] as Map<String, dynamic>?;
-          if (raw == null) return <String, List<int>>{};
-          return raw.map(
-            (k, v) => MapEntry(k, (v as List<dynamic>).cast<int>()),
-          );
+        remainderAllocation: () {
+          final raw = json['remainder_allocation'] as Map<String, dynamic>?;
+          if (raw == null) {
+            // Check for legacy remainder_priority (migration)
+            final legacy = json['remainder_priority'] as Map<String, dynamic>?;
+            if (legacy != null) {
+              // We can't fully migrate here because we don't know the remainder
+              // count without the subjects list. The generator will handle
+              // the default allocation if this map is empty.
+              return <String, Map<int, int>>{};
+            }
+            return <String, Map<int, int>>{};
+          }
+          return raw.map((k, v) {
+            final m = v as Map<String, dynamic>;
+            return MapEntry(
+              k,
+              m.map((sk, sv) => MapEntry(int.parse(sk), sv as int)),
+            );
+          });
         }(),
         teacherConstraints:
             ((json['teacher_constraints'] as List<dynamic>?) ?? [])
-                .map(
-                  (e) => TeacherConstraintEntry.fromJson(
-                    e as Map<String, dynamic>,
-                  ),
-                )
+                .map((e) => TeacherConstraintEntry.fromJson(e as Map<String, dynamic>))
                 .toList(),
         subjectConstraints:
             ((json['subject_constraints'] as List<dynamic>?) ?? [])
-                .map(
-                  (e) => SubjectConstraintEntry.fromJson(
-                    e as Map<String, dynamic>,
-                  ),
-                )
+                .map((e) => SubjectConstraintEntry.fromJson(e as Map<String, dynamic>))
                 .toList(),
       );
     } catch (_) {
-      // Any unexpected format → safe fallback.
       return TimetableRules.defaults();
     }
   }

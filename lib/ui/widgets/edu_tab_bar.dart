@@ -24,13 +24,16 @@ import 'package:flutter/material.dart';
 /// Provide either [label] for text tabs or [icon] for icon-only tabs.
 /// Both can be provided simultaneously if desired.
 class EduTab {
-  const EduTab({this.label, this.icon});
+  const EduTab({this.label, this.icon, this.count});
 
   /// Text label shown in the tab.
   final String? label;
 
   /// Icon shown in the tab (used for icon-only mode).
   final IconData? icon;
+
+  /// Optional numeric badge count shown next to the label.
+  final int? count;
 }
 
 /// A polished, elevated tab bar used by all inner pages across the school
@@ -101,8 +104,8 @@ class EduTabBar extends StatelessWidget {
       ),
       child: TabBar(
         controller: controller,
-        isScrollable: true,
-        tabAlignment: TabAlignment.start,
+        isScrollable: isScrollable,
+        tabAlignment: isScrollable ? TabAlignment.start : TabAlignment.fill,
         splashBorderRadius: BorderRadius.circular(8),
         dividerColor: Colors.transparent,
         dividerHeight: 0,
@@ -145,21 +148,45 @@ class EduTabBar extends StatelessWidget {
               icon: Icon(tab.icon, size: 17),
             );
           }
-          if (tab.icon != null && tab.label != null) {
-            // Combined: icon + label
+
+          final labelWidget = Text(tab.label ?? '');
+          final badgeWidget = tab.count != null && tab.count! > 0
+              ? Container(
+                  margin: const EdgeInsets.only(left: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: isDark ? 0.25 : 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${tab.count}',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: cs.primary,
+                    ),
+                  ),
+                )
+              : null;
+
+          if (tab.icon != null || badgeWidget != null) {
             return Tab(
               height: stripHeight - 8,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(tab.icon, size: 15),
-                  const SizedBox(width: 6),
-                  Text(tab.label!),
+                  if (tab.icon != null) ...[
+                    Icon(tab.icon, size: 15),
+                    const SizedBox(width: 6),
+                  ],
+                  labelWidget,
+                  if (badgeWidget != null) badgeWidget,
                 ],
               ),
             );
           }
+
           // Text-only (the common case for inner pages)
           return Tab(height: stripHeight - 8, text: tab.label ?? '');
         }).toList(),

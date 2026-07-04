@@ -873,7 +873,8 @@ class _CreatePaperSheet extends StatefulWidget {
   State<_CreatePaperSheet> createState() => _CreatePaperSheetState();
 }
 
-class _CreatePaperSheetState extends State<_CreatePaperSheet> {
+class _CreatePaperSheetState extends State<_CreatePaperSheet>
+    with TickerProviderStateMixin {
   int _step = 0;
   ExamType? _pickedType;
 
@@ -891,6 +892,7 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
   late final int _currentGrade;
   late final List<MapEntry<int, String>> _allowedGrades;
   late int _selectedGrade;
+  TabController? _gradeTabController;
 
   @override
   void initState() {
@@ -898,6 +900,22 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
     _currentGrade = widget.grade;
     _selectedGrade = _currentGrade;
     _allowedGrades = _computeAllowedGrades();
+
+    if (_allowedGrades.length > 1) {
+      final initialIdx = _allowedGrades.indexWhere((e) => e.key == _selectedGrade);
+      _gradeTabController = TabController(
+        length: _allowedGrades.length,
+        vsync: this,
+        initialIndex: initialIdx >= 0 ? initialIdx : 0,
+      );
+      _gradeTabController!.addListener(() {
+        if (_gradeTabController!.indexIsChanging) return;
+        final newGrade = _allowedGrades[_gradeTabController!.index].key;
+        if (newGrade != _selectedGrade) {
+          setState(() => _selectedGrade = newGrade);
+        }
+      });
+    }
   }
 
   int _selectedCountForGrade(int grade) =>
@@ -924,6 +942,7 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
     _nameCtrl.dispose();
     _marksCtrl.dispose();
     _durationCtrl.dispose();
+    _gradeTabController?.dispose();
     super.dispose();
   }
 
@@ -1079,231 +1098,20 @@ class _CreatePaperSheetState extends State<_CreatePaperSheet> {
     StateSetter setModalState,
     bool isAssessment,
   ) {
-    if (isAssessment) {
-      return _buildAssessmentButtonGroup(cs, isDark, setModalState);
-    }
-    return _buildAssignmentGradeTabs(cs, isDark, setModalState);
-  }
+    if (_gradeTabController == null) return const SizedBox.shrink();
 
-  /// Shadcn-style connected toggle group for assessments.
-  Widget _buildAssessmentButtonGroup(
-    ColorScheme cs,
-    bool isDark,
-    StateSetter setModalState,
-  ) {
-    final n = _allowedGrades.length;
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(9),
-          border: Border.all(
-            color: cs.outlineVariant.withValues(alpha: isDark ? 0.30 : 0.40),
-            width: 0.5,
-          ),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8.5),
-          child: IntrinsicHeight(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: List.generate(n, (i) {
-                final e = _allowedGrades[i];
-                final isSelected = e.key == _selectedGrade;
-                final isLast = i == n - 1;
+    final tabs = _allowedGrades.map((e) {
+      return EduTab(
+        label: e.value,
+        count: isAssessment ? null : _selectedCountForGrade(e.key),
+      );
+    }).toList();
 
-                return InkWell(
-                  onTap: () {
-                    setModalState(() {
-                      _selectedGrade = e.key;
-                      _selectedTopicIds.clear();
-                      _selectedByGrade.clear();
-                    });
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 160),
-                    curve: Curves.easeOut,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? cs.surface
-                          : Colors.transparent,
-                      border: isLast
-                          ? null
-                          : Border(
-                              right: BorderSide(
-                                color: cs.outlineVariant.withValues(
-                                  alpha: isDark ? 0.25 : 0.35,
-                                ),
-                                width: 0.5,
-                              ),
-                            ),
-                      boxShadow: isSelected
-                          ? [
-                              BoxShadow(
-                                color: Colors.black.withValues(
-                                  alpha: isDark ? 0.12 : 0.05,
-                                ),
-                                blurRadius: 3,
-                                offset: const Offset(0, 1),
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: Text(
-                      e.value,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.w400,
-                        color: isSelected
-                            ? cs.onSurface
-                            : cs.onSurfaceVariant.withValues(alpha: 0.60),
-                      ),
-                    ),
-                  ),
-                );
-              }),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// EduTabBar-style tabs for assignments — background strip with a pill
-  /// indicator and per-grade badge counts.
-  Widget _buildAssignmentGradeTabs(
-    ColorScheme cs,
-    bool isDark,
-    StateSetter setModalState,
-  ) {
-    return Container(
-      height: 38,
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: isDark
-            ? cs.surfaceContainerHighest.withValues(alpha: 0.6)
-            : cs.surfaceContainerHighest.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.08 : 0.03),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.zero,
-        children: _allowedGrades.map((e) {
-          final isSelected = e.key == _selectedGrade;
-          final count = _selectedCountForGrade(e.key);
-
-          return Padding(
-            padding: EdgeInsets.only(
-              left: e.key == _allowedGrades.first.key ? 0 : 2,
-              right: e.key == _allowedGrades.last.key ? 0 : 2,
-            ),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              curve: Curves.easeOut,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: isSelected
-                  ? BoxDecoration(
-                      color: cs.surface,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(
-                            alpha: isDark ? 0.16 : 0.07,
-                          ),
-                          blurRadius: 5,
-                          offset: const Offset(0, 1.5),
-                        ),
-                        BoxShadow(
-                          color: Colors.black.withValues(
-                            alpha: isDark ? 0.06 : 0.02,
-                          ),
-                          blurRadius: 1,
-                          offset: const Offset(0, 0.5),
-                        ),
-                      ],
-                    )
-                  : null,
-              child: Material(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
-                child: InkWell(
-                  onTap: () {
-                    setModalState(() {
-                      _selectedGrade = e.key;
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(8),
-                  splashFactory: NoSplash.splashFactory,
-                  overlayColor:
-                      WidgetStateProperty.all(Colors.transparent),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        e.value,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: isSelected
-                              ? FontWeight.w500
-                              : FontWeight.w400,
-                          letterSpacing: 0.15,
-                          color: isSelected
-                              ? cs.onSurface
-                              : cs.onSurfaceVariant
-                                  .withValues(alpha: 0.7),
-                        ),
-                      ),
-                      if (count > 0) ...[
-                        const SizedBox(width: 6),
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 160),
-                          curve: Curves.easeOut,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? cs.surfaceContainerHighest.withValues(
-                                    alpha: isDark ? 0.7 : 0.8)
-                                : cs.surfaceContainerHighest.withValues(
-                                    alpha: isDark ? 0.5 : 0.7),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            '$count',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: isSelected
-                                  ? cs.onSurfaceVariant.withValues(
-                                      alpha: 0.8)
-                                  : cs.onSurfaceVariant
-                                      .withValues(alpha: 0.7),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
+    return EduTabBar(
+      controller: _gradeTabController!,
+      tabs: tabs,
+      isScrollable: true,
+      padding: EdgeInsets.zero,
     );
   }
 

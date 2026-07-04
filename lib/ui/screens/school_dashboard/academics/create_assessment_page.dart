@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../client.dart';
-
+import '../../../../core/extensions.dart';
+import '../../../../database/daos/catalog_dao.dart';
+import '../../../../database/database.dart';
+import '../../../../database/tables/enums.dart';
 import '../../../../models/result.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/edu_tab_bar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Create Assessment Page
@@ -23,6 +27,7 @@ class CreateAssessmentPage extends StatefulWidget {
     required this.subjectId,
     required this.subjectName,
     required this.grade,
+    required this.curriculumType,
     this.stream,
   });
 
@@ -30,16 +35,22 @@ class CreateAssessmentPage extends StatefulWidget {
   final int subjectId;
   final String subjectName;
   final int grade;
+  final CurriculumType curriculumType;
   final int? stream;
 
   @override
   State<CreateAssessmentPage> createState() => _CreateAssessmentPageState();
 }
 
-class _CreateAssessmentPageState extends State<CreateAssessmentPage> {
+class _CreateAssessmentPageState extends State<CreateAssessmentPage>
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _marksCtrl = TextEditingController(text: '40');
+
+  late int _selectedGrade;
+  TabController? _gradeTabController;
+  List<MapEntry<int, String>> _allowedGrades = [];
 
   int? _selectedTopicId;
   DateTime? _selectedDate;
@@ -53,24 +64,59 @@ class _CreateAssessmentPageState extends State<CreateAssessmentPage> {
   @override
   void initState() {
     super.initState();
+    _selectedGrade = widget.grade;
+    _allowedGrades = _computeAllowedGrades();
+
+    if (_allowedGrades.length > 1) {
+      final initialIdx =
+          _allowedGrades.indexWhere((e) => e.key == _selectedGrade);
+      _gradeTabController = TabController(
+        length: _allowedGrades.length,
+        vsync: this,
+        initialIndex: initialIdx >= 0 ? initialIdx : 0,
+      )..addListener(() {
+        if (_gradeTabController!.indexIsChanging) return;
+        final newGrade = _allowedGrades[_gradeTabController!.index].key;
+        if (newGrade != _selectedGrade) {
+          setState(() {
+            _selectedGrade = newGrade;
+            _selectedTopicId = null;
+            _loadTopics();
+          });
+        }
+      });
+    }
+
     _loadTopics();
+  }
+
+  List<MapEntry<int, String>> _computeAllowedGrades() {
+    final labels = gradeLabelsFor(widget.curriculumType);
+    final entries = labels.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+
+    // For now, allow all grades in the curriculum.
+    // In the future, we could filter by teacher assignments.
+    return entries;
   }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _marksCtrl.dispose();
+    _gradeTabController?.dispose();
     super.dispose();
   }
 
   // ── Data loading ──────────────────────────────────────────────────────────
 
   Future<void> _loadTopics() async {
+    setState(() => _topicsLoading = true);
     try {
       final rows = await catalogDao
           .watchTopicsBySubjectAndGrade(
             subjectId: widget.subjectId,
-            grade: widget.grade,
+            grade: _selectedGrade,
           )
           .first;
       if (!mounted) return;
@@ -113,7 +159,7 @@ class _CreateAssessmentPageState extends State<CreateAssessmentPage> {
       school: widget.schoolId,
       eventId: '',
       subject: widget.subjectId,
-      grade: widget.grade,
+      grade: _selectedGrade,
       stream: widget.stream ?? 0,
       type: 0,
       name: _nameCtrl.text.trim(),
@@ -243,11 +289,25 @@ class _CreateAssessmentPageState extends State<CreateAssessmentPage> {
         ],
       ),
       bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Divider(
-          height: 1,
-          thickness: 0.5,
-          color: AppTheme.borderColor(isDark, cs),
+        preferredSize: const Size.fromHeight(48),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_gradeTabController != null)
+              EduTabBar(
+                controller: _gradeTabController!,
+                tabs: _allowedGrades
+                    .map((e) => EduTab(label: e.value))
+                    .toList(),
+                isScrollable: true,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+            Divider(
+              height: 1,
+              thickness: 0.5,
+              color: AppTheme.borderColor(isDark, cs),
+            ),
+          ],
         ),
       ),
     );

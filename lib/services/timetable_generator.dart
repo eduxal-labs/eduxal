@@ -136,7 +136,7 @@ class _Slot {
   final int startSeconds;
   final int endSeconds;
 
-  /// 0-based index of this slot in [TimetableRules.slots] (all slot types).
+  /// 0-based index of this slot in rules.daySlots[day] (all slot types).
   final int slotIndexInRules;
 
   @override
@@ -268,30 +268,31 @@ class TimetableGenerator {
   /// Backtrack-node interval between milestone progress log lines.
   static const int _kLogEveryNIterations = 5000;
 
-  /// Cached count of lesson-only slots per day, derived from [rules].
-  late final int _lessonSlotsPerDay = rules.slots
-      .where((s) => s.type == SlotType.lesson)
-      .length;
+  /// Total lesson slots available across all active days.
+  late final int _totalLessonsPerWeek = () {
+    int total = 0;
+    for (final d in rules.activeDays) {
+      total += (rules.daySlots[d] ?? [])
+          .where((s) => s.type == SlotType.lesson)
+          .length;
+    }
+    return total;
+  }();
 
-  /// Effective daily lesson cap for teachers — the minimum of the physical
-  /// slot count and the configured [TimetableRules.maxLessonsPerDayTeacher].
-  ///
-  /// Used in [_isConsistentFast] and [_propagateInPlace] instead of the raw
-  /// [_lessonSlotsPerDay] so that the user-configured cap is actually
-  /// enforced during search.
-  late final int _effectiveTeacherDayCap = min(
-    _lessonSlotsPerDay,
-    rules.maxLessonsPerDayTeacher,
-  );
+  /// Effective daily lesson cap for teachers on a specific day.
+  int _effectiveTeacherDayCap(int dayIndex) {
+    final slotsOnDay = (rules.daySlots[dayIndex] ?? [])
+        .where((s) => s.type == SlotType.lesson)
+        .length;
+    return min(slotsOnDay, rules.maxLessonsPerDayTeacher);
+  }
 
-  /// Effective daily lesson cap for classes.
-  ///
-  /// Currently set to [_lessonSlotsPerDay] because [_computeLessonsPerWeek]
-  /// assumes 100% slot utilisation (totalLessons = slotsPerDay × activeDays).
-  /// Enforcing [TimetableRules.maxLessonsPerDayClass] as a hard constraint
-  /// would require reducing total weekly lessons to
-  /// `maxLessonsPerDayClass × activeDays`, which is a separate feature.
-  late final int _effectiveClassDayCap = _lessonSlotsPerDay;
+  /// Effective daily lesson cap for classes on a specific day.
+  int _effectiveClassDayCap(int dayIndex) {
+    return (rules.daySlots[dayIndex] ?? [])
+        .where((s) => s.type == SlotType.lesson)
+        .length;
+  }
 
   // ── O(1) consistency lookup tables ───────────────────────────────────────
   //
@@ -401,15 +402,14 @@ class TimetableGenerator {
   /// Returns a map: `teacherId → { dayIndex → availableSlotCount }`.
   /// Days with zero available slots are **omitted** from the inner map, so
   /// `result[t]!.length` gives the number of days the teacher can work.
-  Map<String, Map<int, int>> _computeTeacherAvailability(
-    List<({int index, int start, int end})> lessonSlots,
-  ) {
+  Map<String, Map<int, int>> _computeTeacherAvailability() {
     final result = <String, Map<int, int>>{};
     final teacherIds = assignments.map((a) => a.teacherUserId).toSet();
 
     for (final teacherId in teacherIds) {
       final daySlots = <int, int>{};
       for (final dayIndex in rules.activeDays) {
+        final lessonSlots = rules.buildLessonSlotsForDay(dayIndex);
         int count = 0;
         for (final ls in lessonSlots) {
           if (_isSlotAllowedForTeacher(
@@ -432,8 +432,10 @@ class TimetableGenerator {
   /// blocking constraints and the [_effectiveTeacherDayCap].
   int _teacherEffectiveCapacity(Map<int, int> daySlots) {
     int cap = 0;
-    for (final slotCount in daySlots.values) {
-      cap += min(slotCount, _effectiveTeacherDayCap);
+    for (final e in daySlots.entries) {
+      final dayIndex = e.key;
+      final slotCount = e.value;
+      cap += min(slotCount, _effectiveTeacherDayCap(dayIndex));
     }
     return cap;
   }
@@ -449,9 +451,8 @@ class TimetableGenerator {
   /// for the 3-4 instances in the same (grade, stream, subject) group.  The
   /// remaining ~100 unrelated variables keep full 50-slot domains, making the
   /// search tree enormously wide.  By pre-committing to a day before search,
-  /// every domain shrinks to at most [lessonSlotsPerDay] slots (10 here), the
-  /// no-doubles constraint is satisfied structurally, and the solver only
-  /// needs to find a valid *slot* within each pre-assigned day.
+  /// every domain shrinks to at most the lesson slots for that day, 
+  /// satisfying no-doubles by construction.
   ///
   /// **v3 algorithm — constraint-aware with MRV ordering:**
   ///
@@ -472,8 +473,7 @@ class TimetableGenerator {
     _dayForVariable.clear();
 
     // Pre-compute available days per teacher.
-    final lessonSlots = rules.buildLessonSlots();
-    final teacherAvailability = _computeTeacherAvailability(lessonSlots);
+    final teacherAvailability = _computeTeacherAvailability();
 
     // Per-class per-day instance count: (grade, stream, dayIndex) → count.
     final classLoad = <(int, int, int), int>{};
@@ -589,8 +589,7 @@ class TimetableGenerator {
     _log(
       'input: assignments=${assignments.length}  '
       'activeDays=${rules.activeDays.length}  '
-      'slotsInDay=${rules.slots.length}  '
-      'lessonSlotsPerDay=$_lessonSlotsPerDay  '
+      'totalWeeklyLessons=$_totalLessonsPerWeek  '
       'maxRestarts=$maxRestarts  '
       'allowDoubles=${rules.allowDoubles}  '
       'teacherConstraints=${rules.teacherConstraints.length}  '
@@ -606,8 +605,7 @@ class TimetableGenerator {
     }
     _log('Phase 0: OK  [${stopwatch.elapsedMilliseconds}ms]');
 
-    final lessonSlots = rules.buildLessonSlots();
-    if (lessonSlots.isEmpty) {
+    if (_totalLessonsPerWeek == 0) {
       _log('Phase 0: FAILED — no lesson slots');
       return GeneratorFailure(
         reason:
@@ -616,11 +614,6 @@ class TimetableGenerator {
         conflicts: [],
       );
     }
-    _log(
-      'lessonSlots: count=${lessonSlots.length}  '
-      'first=${lessonSlots.first.start}s–${lessonSlots.first.end}s  '
-      'last=${lessonSlots.last.start}s–${lessonSlots.last.end}s',
-    );
 
     // ── Phase 1 — Expand assignments into variables ──────────────────────────
     _log('Phase 1: expanding assignments into variables …');
@@ -680,7 +673,7 @@ class TimetableGenerator {
     // Scale restart count based on problem tightness.  When teachers have
     // blocked days, the day pre-assignment has less flexibility and benefits
     // from additional random restarts to explore different orderings.
-    final teacherAvailForRestarts = _computeTeacherAvailability(lessonSlots);
+    final teacherAvailForRestarts = _computeTeacherAvailability();
     final hasConstrainedTeacher = teacherAvailForRestarts.values.any(
       (daySlots) => daySlots.length < rules.activeDays.length,
     );
@@ -712,7 +705,7 @@ class TimetableGenerator {
         '[+${restartStart}ms] ────────────────────────',
       );
 
-      final domains = _buildDomains(variables, lessonSlots);
+      final domains = _buildDomains(variables);
       _log('  domains built: ${_domainSummary(domains)}');
 
       // Warn if any variable already has an empty domain before search starts —
@@ -751,7 +744,7 @@ class TimetableGenerator {
       _log(
         '  starting search  '
         '[undo-trail · O(1) consistency'
-        '${!rules.allowDoubles ? " · day-preassign ($_lessonSlotsPerDay-slot domains)" : " · no-doubles propagation"}] …',
+        '${!rules.allowDoubles ? " · day-preassign" : " · no-doubles propagation"}] …',
       );
 
       final unassigned = List<_Variable>.from(variables);
@@ -772,7 +765,7 @@ class TimetableGenerator {
         // ── Phase 4 — Soft score ─────────────────────────────────────────────
         _log('Phase 4: computing soft score …');
         final t4 = stopwatch.elapsedMilliseconds;
-        final score = _softScore(result, lessonSlots);
+        final score = _softScore(result);
         _log(
           'Phase 4: softScore=$score  [${stopwatch.elapsedMilliseconds - t4}ms]',
         );
@@ -833,41 +826,13 @@ class TimetableGenerator {
   // ── Lessons-per-week computation ─────────────────────────────────────────
 
   /// Compute lessons-per-week for every (grade, stream, subjectId) triple.
-  ///
-  /// 1. Counts lesson slots per day from [TimetableRules.slots].
-  /// 2. Multiplies by active-day count to get total weekly lessons.
-  /// 3. For each (grade, stream) group of assignments, divides total weekly
-  ///    lessons by subject count to get the base, computes the remainder, and
-  ///    applies the priority order from [TimetableRules.remainderPriority].
-  /// 4. **Constraint-aware remainder** (v3): when `allowDoubles=false`, the
-  ///    remainder boost (+1 lesson) is only given to subjects whose teacher
-  ///    has enough available days for `base + 1` distinct instances.  If the
-  ///    teacher is blocked to fewer days than `base + 1`, the boost is
-  ///    redistributed to the next eligible subject in priority order.
   Map<(int, int, int), int> _computeLessonsPerWeek() {
-    final lessonSlotsPerDay = rules.slots
-        .where((s) => s.type == SlotType.lesson)
-        .length;
-    final totalPerWeek = lessonSlotsPerDay * rules.activeDays.length;
+    final totalPerWeek = _totalLessonsPerWeek;
 
     // Group assignments by (grade, stream).
     final groups = <(int, int), List<SolverAssignment>>{};
     for (final a in assignments) {
       groups.putIfAbsent((a.grade, a.stream), () => []).add(a);
-    }
-
-    // Pre-compute teacher availability for constraint-aware remainder
-    // allocation.  When allowDoubles=false, subjects whose teacher has fewer
-    // available days than (base+1) cannot receive the remainder boost.
-    Map<String, Map<int, int>>? teacherAvail;
-    if (!rules.allowDoubles) {
-      teacherAvail = _computeTeacherAvailability(rules.buildLessonSlots());
-    }
-
-    // Subject → teacher lookup.
-    final subjectTeacherMap = <(int, int, int), String>{};
-    for (final a in assignments) {
-      subjectTeacherMap[(a.grade, a.stream, a.subjectId)] = a.teacherUserId;
     }
 
     final result = <(int, int, int), int>{};
@@ -880,49 +845,26 @@ class TimetableGenerator {
       final remainder = totalPerWeek % subjects.length;
 
       // Determine priority order for this (grade, stream).
-      final priorityKey = '${grade}_$stream';
-      final priorityOrder =
-          rules.remainderPriority[priorityKey] ??
-          (List<int>.from(subjects)..sort());
+      final streamKey = '${grade}_$stream';
+      final allocation = rules.remainderAllocation[streamKey];
+      final boostMap = <int, int>{};
 
-      // Build the ranked list (only subjects in this stream, in priority order).
-      final priorityRanked = priorityOrder
-          .where((id) => subjects.contains(id))
-          .toList();
-      // Append any subjects not yet in the ranked list (newly added subjects).
-      for (final sid in subjects) {
-        if (!priorityRanked.contains(sid)) priorityRanked.add(sid);
-      }
-
-      // Determine which subjects receive the remainder boost (+1 lesson).
-      final boostSet = <int>{};
-      if (!rules.allowDoubles && teacherAvail != null && remainder > 0) {
-        // Constraint-aware: only boost subjects whose teacher has enough
-        // available days for (base+1) distinct lesson instances.  Ineligible
-        // subjects are skipped; their boost goes to the next eligible subject.
-        for (final sid in priorityRanked) {
-          if (boostSet.length >= remainder) break;
-          final teacherId = subjectTeacherMap[(grade, stream, sid)];
-          if (teacherId == null) continue;
-          final availDays = teacherAvail[teacherId]?.length ?? 0;
-          if (availDays >= base + 1) {
-            boostSet.add(sid);
-          }
+      if (allocation != null && allocation.isNotEmpty) {
+        // Use user-defined allocation.
+        for (final sid in subjects) {
+          boostMap[sid] = allocation[sid] ?? 0;
         }
       } else {
-        // Original behaviour: top `remainder` subjects in priority order.
-        for (final sid in priorityRanked) {
-          if (boostSet.length >= remainder) break;
-          boostSet.add(sid);
+        // Fallback: uniform distribution (+1 lesson to first R subjects).
+        final sortedSubjects = List<int>.from(subjects)..sort();
+        for (int i = 0; i < sortedSubjects.length; i++) {
+          boostMap[sortedSubjects[i]] = i < remainder ? 1 : 0;
         }
       }
 
       for (final sid in subjects) {
-        final lessons = boostSet.contains(sid) ? base + 1 : base;
-        result[(grade, stream, sid)] = lessons.clamp(
-          1,
-          lessonSlotsPerDay * rules.activeDays.length,
-        );
+        final boost = boostMap[sid] ?? 0;
+        result[(grade, stream, sid)] = base + boost;
       }
     }
     return result;
@@ -947,18 +889,9 @@ class TimetableGenerator {
       return issues;
     }
 
-    final lessonSlots = rules.buildLessonSlots();
-    if (lessonSlots.isEmpty) {
-      issues.add(
-        'No lesson slots fit within the configured school day. '
-        'Add at least one lesson slot in the slot builder.',
-      );
-      return issues;
-    }
-
-    final slotsPerDay = lessonSlots.length;
-    final activeDayCount = rules.activeDays.length;
-    final teacherAvail = _computeTeacherAvailability(lessonSlots);
+    // Calculate total slots correctly by summing per-day lesson slots.
+    final totalSlotsAvailable = _totalLessonsPerWeek;
+    final teacherAvail = _computeTeacherAvailability();
 
     // ── C1: Teacher capacity ─────────────────────────────────────────────────
     // For each teacher, verify that total assigned lessons fit within their
@@ -984,9 +917,7 @@ class TimetableGenerator {
       if (entry.value > capacity) {
         issues.add(
           'Teacher ${entry.key} needs ${entry.value} lessons/week but has '
-          'capacity for only $capacity (${daySlots.length} available day(s), '
-          'max $_effectiveTeacherDayCap/day). Reduce their teaching load, '
-          'remove a blocking constraint, or increase the daily lesson cap.',
+          'capacity for only $capacity.',
         );
       }
     }
@@ -999,14 +930,12 @@ class TimetableGenerator {
       classTotalLessons[key] = (classTotalLessons[key] ?? 0) + n;
     }
 
-    final totalSlotsAvailable = slotsPerDay * activeDayCount;
     for (final entry in classTotalLessons.entries) {
-      if (entry.value > totalSlotsAvailable) {
+      if (entry.value > _totalLessonsPerWeek) {
         issues.add(
           'Class (grade=${entry.key.$1}, stream=${entry.key.$2}) requires '
           '${entry.value} lessons per week but the school day only has '
-          '$totalSlotsAvailable available slots ($slotsPerDay/day × '
-          '$activeDayCount days).',
+          '$_totalLessonsPerWeek available slots.',
         );
       }
     }
@@ -1033,8 +962,9 @@ class TimetableGenerator {
         // feasible lesson slot.
         int feasibleDays = 0;
         for (final dayIndex in rules.activeDays) {
+          final lessonSlotsOnDay = rules.buildLessonSlotsForDay(dayIndex);
           bool hasFeasibleSlot = false;
-          for (final ls in lessonSlots) {
+          for (final ls in lessonSlotsOnDay) {
             if (_isSlotAllowedForTeacher(
                   teacherId: teacherId,
                   slotIndex: ls.index,
@@ -1082,10 +1012,11 @@ class TimetableGenerator {
         final classSubjects = classEntry.value;
 
         for (final dayIndex in rules.activeDays) {
+          final lessonSlotsOnDay = rules.buildLessonSlotsForDay(dayIndex);
           int availableSubjects = 0;
           for (final a in classSubjects) {
             bool hasFeasibleSlot = false;
-            for (final ls in lessonSlots) {
+            for (final ls in lessonSlotsOnDay) {
               if (_isSlotAllowedForTeacher(
                     teacherId: a.teacherUserId,
                     slotIndex: ls.index,
@@ -1103,7 +1034,7 @@ class TimetableGenerator {
             if (hasFeasibleSlot) availableSubjects++;
           }
 
-          if (availableSubjects < slotsPerDay) {
+          if (availableSubjects < lessonSlotsOnDay.length) {
             final blocked = classSubjects.length - availableSubjects;
             final dayName =
                 const {
@@ -1119,9 +1050,8 @@ class TimetableGenerator {
             issues.add(
               'Class (grade=$grade, stream=$stream) on $dayName: '
               '$blocked of ${classSubjects.length} subjects are blocked, '
-              'leaving only $availableSubjects available — but $slotsPerDay '
-              'slots must be filled. Remove a blocking constraint on '
-              '$dayName or reduce the number of lesson slots per day.',
+              'leaving only $availableSubjects available — but '
+              '${lessonSlotsOnDay.length} slots must be filled.',
             );
           }
         }
@@ -1163,10 +1093,7 @@ class TimetableGenerator {
 
   // ── Phase 1 — Domain construction ────────────────────────────────────────
 
-  Map<_Variable, List<_Slot>> _buildDomains(
-    List<_Variable> variables,
-    List<({int index, int start, int end})> lessonSlots,
-  ) {
+  Map<_Variable, List<_Slot>> _buildDomains(List<_Variable> variables) {
     final domains = <_Variable, List<_Slot>>{};
 
     for (final variable in variables) {
@@ -1179,11 +1106,10 @@ class TimetableGenerator {
 
       for (final dayIndex in rules.activeDays) {
         final day = _weekdayIndexToDay(dayIndex);
-
-        // Skip days that don't match the pre-assigned day.
         if (forcedDay != null && day != forcedDay) continue;
 
-        for (final ls in lessonSlots) {
+        final lessonSlotsOnDay = rules.buildLessonSlotsForDay(dayIndex);
+        for (final ls in lessonSlotsOnDay) {
           if (!_isSlotAllowedForTeacher(
             teacherId: variable.teacherUserId,
             slotIndex: ls.index,
@@ -1417,14 +1343,14 @@ class TimetableGenerator {
     // 3. Teacher daily lesson cap — uses the effective cap (the minimum of the
     //    physical slot count and the user-configured maxLessonsPerDayTeacher).
     if ((_teacherDayCount[(variable.teacherUserId, slot.day)] ?? 0) >=
-        _effectiveTeacherDayCap) {
+        _effectiveTeacherDayCap(rules.weekdayToIndex(slot.day))) {
       return false;
     }
 
     // 4. Class daily lesson cap — uses the effective cap (the minimum of the
     //    physical slot count and the user-configured maxLessonsPerDayClass).
     if ((_classDayCount[(variable.grade, variable.stream, slot.day)] ?? 0) >=
-        _effectiveClassDayCap) {
+        _effectiveClassDayCap(rules.weekdayToIndex(slot.day))) {
       return false;
     }
 
@@ -1484,8 +1410,9 @@ class TimetableGenerator {
     final classDayCount =
         _classDayCount[(placed.grade, placed.stream, slot.day)] ?? 0;
 
-    final teacherAtCap = teacherDayCount >= _effectiveTeacherDayCap;
-    final classAtCap = classDayCount >= _effectiveClassDayCap;
+    final dayIdx = rules.weekdayToIndex(slot.day);
+    final teacherAtCap = teacherDayCount >= _effectiveTeacherDayCap(dayIdx);
+    final classAtCap = classDayCount >= _effectiveClassDayCap(dayIdx);
 
     for (final v in remaining) {
       final sameTeacher = v.teacherUserId == placed.teacherUserId;
@@ -1549,16 +1476,18 @@ class TimetableGenerator {
 
   // ── Phase 3 — Soft scoring ────────────────────────────────────────────────
 
-  int _softScore(
-    Map<_Variable, _Slot> assignment,
-    List<({int index, int start, int end})> lessonSlots,
-  ) {
+  int _softScore(Map<_Variable, _Slot> assignment) {
     int score = 0;
 
-    final avgSlotDurSecs = lessonSlots.isEmpty
-        ? 2400
-        : lessonSlots.map((s) => s.end - s.start).reduce((a, b) => a + b) ~/
-              lessonSlots.length;
+    // Estimate average slot duration from the assignment itself
+    int avgSlotDurSecs = 2400;
+    if (assignment.isNotEmpty) {
+      int totalDur = 0;
+      for (final s in assignment.values) {
+        totalDur += (s.endSeconds - s.startSeconds);
+      }
+      avgSlotDurSecs = totalDur ~/ assignment.length;
+    }
 
     final teacherDayStarts = <String, Map<DayOfWeek, List<int>>>{};
     final classDaySubjects =
