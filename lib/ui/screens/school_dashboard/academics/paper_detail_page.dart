@@ -589,7 +589,7 @@ class _PaperDetailPageState extends State<PaperDetailPage>
           paperId: paperId,
           accessToken: token,
         );
-        if (statusRes case Ok(:final status)) {
+        if (statusRes case Ok(value: final status)) {
           if (status.phase == PaperGenerationPhase.complete) {
             isReady = true;
           } else {

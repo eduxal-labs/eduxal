@@ -6,6 +6,8 @@ import '../../../../core/extensions.dart';
 import '../../../../database/daos/catalog_dao.dart';
 import '../../../../database/database.dart';
 import '../../../../database/tables/enums.dart';
+import '../../../../database/tables/curriculum_subjects.dart';
+import '../../../../models/school_config.dart';
 import '../../../../models/result.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/edu_tab_bar.dart';

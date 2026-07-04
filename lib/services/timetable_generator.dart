@@ -986,7 +986,7 @@ class TimetableGenerator {
           issues.add(
             'Subject $subjectId for class (grade=$grade, stream=$stream) '
             'needs $count lessons/week on distinct days, but its teacher '
-            'is only available on $feasibleDays of $activeDayCount active '
+            'is only available on $feasibleDays of ${rules.activeDays.length} active '
             'days. Remove a blocking constraint, reduce this subject\'s '
             'lessons, or enable "allow doubles".',
           );

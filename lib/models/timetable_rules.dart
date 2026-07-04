@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart' show TimeOfDay;
+import '../database/tables/enums.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Slot model
@@ -192,6 +193,12 @@ class TimetableRules {
   /// Days of the week that are scheduled.  Stored as weekday indices
   /// (1 = Monday … 7 = Sunday).
   final List<int> activeDays;
+
+  /// Returns the 0-based index of a [day] within the [activeDays] list.
+  int weekdayToIndex(DayOfWeek day) {
+    final int val = (day == DayOfWeek.sunday) ? 7 : day.index;
+    return activeDays.indexOf(val);
+  }
 
   // ── Load constraints ─────────────────────────────────────────────────────
 
