@@ -4,18 +4,20 @@
 [Setup]
 AppName=Eduxal
 AppVersion=1.0.0
-DefaultDirName={autopf}\Eduxal
+DefaultDirName={localappdata}\Programs\Eduxal
 DefaultGroupName=Eduxal
 OutputDir=..\build\windows\x64\runner
-OutputBaseFilename=eduxal-windows-installer-x64
+OutputBaseFilename=eduxal installer
 Compression=lzma
 SolidCompression=yes
 SetupIconFile=runner\resources\app_icon.ico
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
-DisableWelcomePage=no
-DisableDirPage=no
+DisableWelcomePage=yes
+DisableDirPage=yes
 DisableProgramGroupPage=yes
+DisableReadyPage=yes
+PrivilegesRequired=lowest
 
 [Files]
 Source: "..\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs
@@ -23,10 +25,8 @@ Source: "..\vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
 [Icons]
 Name: "{group}\Eduxal"; Filename: "{app}\eduxal.exe"
-Name: "{autodesktop}\Eduxal"; Filename: "{app}\eduxal.exe"; Tasks: desktopicon
+Name: "{autodesktop}\Eduxal"; Filename: "{app}\eduxal.exe"
 
-[Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Run]
 Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/quiet /norestart"; Check: VCUpdateNeeded; StatusMsg: "Installing Microsoft Visual C++ Redistributable..."

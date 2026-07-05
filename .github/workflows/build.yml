@@ -125,7 +125,7 @@ jobs:
         shell: pwsh
         run: |
           Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath eduxal-windows-x64.zip
-          Copy-Item "build\windows\x64\runner\eduxal-windows-installer-x64.exe" "eduxal-windows-installer-x64.exe"
+          Copy-Item "build\windows\x64\runner\eduxal installer.exe" "eduxal installer.exe"
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -133,7 +133,7 @@ jobs:
           name: windows-build
           path: |
             eduxal-windows-x64.zip
-            eduxal-windows-installer-x64.exe
+            eduxal installer.exe
           retention-days: 1
         continue-on-error: true
 
@@ -185,7 +185,7 @@ jobs:
           cp android-build/eduxal-android.apk upload/${BUILD_FOLDER}/android/eduxal-android.apk
           cp linux-build/eduxal-linux-x64.tar.gz upload/${BUILD_FOLDER}/linux/eduxal-linux-x64.tar.gz
           cp windows-build/eduxal-windows-x64.zip upload/${BUILD_FOLDER}/windows/eduxal-windows-x64.zip
-          cp windows-build/eduxal-windows-installer-x64.exe upload/${BUILD_FOLDER}/windows/eduxal-windows-installer-x64.exe
+          cp "windows-build/eduxal installer.exe" "upload/${BUILD_FOLDER}/windows/eduxal installer.exe"
 
           # Generate latest.json
           cat > upload/latest.json << EOF
@@ -197,7 +197,7 @@ jobs:
             "artifacts": {
               "android": "builds/${BUILD_FOLDER}/android/eduxal-android.apk",
               "linux": "builds/${BUILD_FOLDER}/linux/eduxal-linux-x64.tar.gz",
-              "windows": "builds/${BUILD_FOLDER}/windows/eduxal-windows-installer-x64.exe",
+              "windows": "builds/${BUILD_FOLDER}/windows/eduxal installer.exe",
               "windows_zip": "builds/${BUILD_FOLDER}/windows/eduxal-windows-x64.zip"
             }
           }
@@ -225,7 +225,7 @@ jobs:
             --arg timestamp "${TIMESTAMP}" \
             --arg android "builds/${BUILD_FOLDER}/android/eduxal-android.apk" \
             --arg linux "builds/${BUILD_FOLDER}/linux/eduxal-linux-x64.tar.gz" \
-            --arg windows "builds/${BUILD_FOLDER}/windows/eduxal-windows-installer-x64.exe" \
+            --arg windows "builds/${BUILD_FOLDER}/windows/eduxal installer.exe" \
             --arg windows_zip "builds/${BUILD_FOLDER}/windows/eduxal-windows-x64.zip" \
             '{build: $build, commit: $commit, branch: $branch, timestamp: $timestamp, artifacts: {android: $android, linux: $linux, windows: $windows, windows_zip: $windows_zip}}')
 
