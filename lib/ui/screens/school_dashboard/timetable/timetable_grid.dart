@@ -229,7 +229,7 @@ class _SchoolWideMatrixTabState extends State<SchoolWideMatrixTab> {
 // ── Desktop cross-matrix ──────────────────────────────────────────────────────
 
 /// Desktop: all days visible, left-axis pinned, columns scroll horizontally.
-class _SWDesktopMatrix extends StatelessWidget {
+class _SWDesktopMatrix extends StatefulWidget {
   const _SWDesktopMatrix({
     required this.entries,
     required this.gradeLabels,
@@ -241,18 +241,33 @@ class _SWDesktopMatrix extends StatelessWidget {
   final Map<int, String> streamNames;
 
   @override
+  State<_SWDesktopMatrix> createState() => _SWDesktopMatrixState();
+}
+
+class _SWDesktopMatrixState extends State<_SWDesktopMatrix> {
+  final ScrollController _horizontalController = ScrollController();
+  final ScrollController _verticalController = ScrollController();
+
+  @override
+  void dispose() {
+    _horizontalController.dispose();
+    _verticalController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
-    final cols = _swBuildColumns(entries);
-    final orderedDays = _swActiveDays(entries);
+    final cols = _swBuildColumns(widget.entries);
+    final orderedDays = _swActiveDays(widget.entries);
     if (cols.isEmpty || orderedDays.isEmpty) return const SizedBox.shrink();
     final totalW = _swTotalWidth(cols);
 
     // Group: day → grade (sorted) → sorted stream codes.
     final dayGradeStreamSets = <DayOfWeek, Map<int, Set<int>>>{};
-    for (final e in entries) {
+    for (final e in widget.entries) {
       dayGradeStreamSets
           .putIfAbsent(e.day, () => <int, Set<int>>{})
           .putIfAbsent(e.grade, () => <int>{})
@@ -267,27 +282,41 @@ class _SWDesktopMatrix extends StatelessWidget {
       };
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+    return Scrollbar(
+      controller: _verticalController,
+      thumbVisibility: true,
       child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeaderRow(cols, cs),
-            const SizedBox(height: _kSwColGap),
-            for (int di = 0; di < orderedDays.length; di++) ...[
-              if (di > 0) const SizedBox(height: 10),
-              _buildDayGroup(
-                orderedDays[di],
-                dayGroups[orderedDays[di]]!,
-                cols,
-                totalW,
-                cs,
-                isDark,
+        controller: _verticalController,
+        padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 24),
+        child: Scrollbar(
+          controller: _horizontalController,
+          thumbVisibility: true,
+          notificationPredicate: (notif) => notif.depth == 0,
+          child: SingleChildScrollView(
+            controller: _horizontalController,
+            scrollDirection: Axis.horizontal,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeaderRow(cols, cs),
+                  const SizedBox(height: _kSwColGap),
+                  for (int di = 0; di < orderedDays.length; di++) ...[
+                    if (di > 0) const SizedBox(height: 10),
+                    _buildDayGroup(
+                      orderedDays[di],
+                      dayGroups[orderedDays[di]]!,
+                      cols,
+                      totalW,
+                      cs,
+                      isDark,
+                    ),
+                  ],
+                ],
               ),
-            ],
-          ],
+            ),
+          ),
         ),
       ),
     );
@@ -412,7 +441,7 @@ class _SWDesktopMatrix extends StatelessWidget {
     ColorScheme cs,
     bool isDark,
   ) {
-    final label = gradeLabels[grade] ?? 'Grade $grade';
+    final label = widget.gradeLabels[grade] ?? 'Grade $grade';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -452,7 +481,7 @@ class _SWDesktopMatrix extends StatelessWidget {
     ColorScheme cs,
     bool isDark,
   ) {
-    final name = streamNames[streamCode] ?? 'Stream $streamCode';
+    final name = widget.streamNames[streamCode] ?? 'Stream $streamCode';
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -504,7 +533,7 @@ class _SWDesktopMatrix extends StatelessWidget {
     return SizedBox(
       width: _kSwTimeColW,
       child: _SWSlotCell(
-        entry: _swEntryAt(entries, day, grade, streamCode, tc.start),
+        entry: _swEntryAt(widget.entries, day, grade, streamCode, tc.start),
         cs: cs,
         isDark: isDark,
       ),
@@ -534,6 +563,9 @@ class _SWMobileViewState extends State<_SWMobileView> {
   late List<DayOfWeek> _days;
   int _selectedDayIndex = 0;
 
+  final ScrollController _horizontalController = ScrollController();
+  final ScrollController _verticalController = ScrollController();
+
   @override
   void initState() {
     super.initState();
@@ -545,6 +577,13 @@ class _SWMobileViewState extends State<_SWMobileView> {
     super.didUpdateWidget(old);
     _days = _swActiveDays(widget.entries);
     if (_selectedDayIndex >= _days.length) _selectedDayIndex = 0;
+  }
+
+  @override
+  void dispose() {
+    _horizontalController.dispose();
+    _verticalController.dispose();
+    super.dispose();
   }
 
   @override
@@ -619,29 +658,43 @@ class _SWMobileViewState extends State<_SWMobileView> {
                     ),
                   ),
                 )
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              : Scrollbar(
+                  controller: _verticalController,
+                  thumbVisibility: true,
                   child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildMobileHeaderRow(cols, cs),
-                        const SizedBox(height: _kSwColGap),
-                        for (int gi = 0; gi < sortedGrades.length; gi++) ...[
-                          if (gi > 0) const SizedBox(height: 8),
-                          _buildMobileGradeGroup(
-                            selectedDay,
-                            sortedGrades[gi],
-                            gradeStreams[sortedGrades[gi]]!,
-                            dayEntries,
-                            cols,
-                            totalW,
-                            cs,
-                            isDark,
+                    controller: _verticalController,
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                    child: Scrollbar(
+                      controller: _horizontalController,
+                      thumbVisibility: true,
+                      notificationPredicate: (notif) => notif.depth == 0,
+                      child: SingleChildScrollView(
+                        controller: _horizontalController,
+                        scrollDirection: Axis.horizontal,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildMobileHeaderRow(cols, cs),
+                              const SizedBox(height: _kSwColGap),
+                              for (int gi = 0; gi < sortedGrades.length; gi++) ...[
+                                if (gi > 0) const SizedBox(height: 8),
+                                _buildMobileGradeGroup(
+                                  selectedDay,
+                                  sortedGrades[gi],
+                                  gradeStreams[sortedGrades[gi]]!,
+                                  dayEntries,
+                                  cols,
+                                  totalW,
+                                  cs,
+                                  isDark,
+                                ),
+                              ],
+                            ],
                           ),
-                        ],
-                      ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
