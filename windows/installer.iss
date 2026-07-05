@@ -17,6 +17,7 @@ DisableWelcomePage=yes
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 DisableReadyPage=yes
+DisableFinishedPage=yes
 PrivilegesRequired=lowest
 
 [Files]
@@ -30,7 +31,7 @@ Name: "{autodesktop}\Eduxal"; Filename: "{app}\eduxal.exe"
 
 [Run]
 Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/quiet /norestart"; Check: VCUpdateNeeded; StatusMsg: "Installing Microsoft Visual C++ Redistributable..."
-Filename: "{app}\eduxal.exe"; Description: "{cm:LaunchProgram,Eduxal}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\eduxal.exe"; Flags: nowait runasoriginaluser
 
 [Code]
 function VCUpdateNeeded(): Boolean;
@@ -45,5 +46,27 @@ begin
     begin
       Result := False; // Already installed, skip installation
     end;
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  BatchFile: String;
+  BatchContent: String;
+  ErrorCode: Integer;
+begin
+  if CurStep = ssDone then
+  begin
+    BatchFile := ExpandConstant('{tmp}\SelfDelete.bat');
+    BatchContent := 
+      ':try_delete' + #13 + #10 +
+      'del "' + ExpandConstant('{srcexe}') + '"' + #13 + #10 +
+      'if exist "' + ExpandConstant('{srcexe}') + '" (' + #13 + #10 +
+      '  ping 127.0.0.1 -n 2 > nul' + #13 + #10 +
+      '  goto try_delete' + #13 + #10 +
+      ')' + #13 + #10 +
+      'del "%0"';
+    SaveStringToFile(BatchFile, BatchContent, False);
+    Exec(BatchFile, '', '', SW_HIDE, ewNoWait, ErrorCode);
   end;
 end;
