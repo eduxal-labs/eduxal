@@ -6,11 +6,11 @@ AppName=Eduxal
 AppVersion=1.0.0
 DefaultDirName={autopf}\Eduxal
 DefaultGroupName=Eduxal
-OutputDir=build\windows\x64\runner
+OutputDir=..\build\windows\x64\runner
 OutputBaseFilename=eduxal-windows-installer-x64
 Compression=lzma
 SolidCompression=yes
-SetupIconFile=windows\runner\resources\app_icon.ico
+SetupIconFile=runner\resources\app_icon.ico
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 DisableWelcomePage=no
@@ -18,8 +18,8 @@ DisableDirPage=no
 DisableProgramGroupPage=yes
 
 [Files]
-Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs
-Source: "vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
+Source: "..\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs
+Source: "..\vc_redist.x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
 [Icons]
 Name: "{group}\Eduxal"; Filename: "{app}\eduxal.exe"
