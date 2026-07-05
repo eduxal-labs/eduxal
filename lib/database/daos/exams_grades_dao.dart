@@ -1617,6 +1617,43 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
   /// If the grade already exists an updateGrade log is written; otherwise a
   /// markGrades log with a single record.
   /// Both operations are atomic in a single transaction.
+  Future<bool> _checkTeacherGradingAccess({
+    required String schoolId,
+    required String examId,
+    required int subject,
+    required int? paperNum,
+    required String accountId,
+  }) async {
+    final examRow = await (select(exams)..where((e) => e.id.equals(examId))..limit(1)).getSingleOrNull();
+    if (examRow == null) return false;
+
+    final paperRow = await (select(papers)
+          ..where((p) =>
+              p.school.equals(schoolId) &
+              p.exam.equals(examId) &
+              p.subject.equals(subject) &
+              (paperNum == null ? p.paper.isNull() : p.paper.equals(paperNum)))
+          ..limit(1))
+        .getSingleOrNull();
+    if (paperRow == null) return false;
+
+    if (examRow.teacher == accountId) return true;
+    if (paperRow.invigilator == accountId) return true;
+
+    // Check if the user is a registered teacher for this subject, grade, and stream in this term
+    final stRows = await (select(subjectTeachers)
+          ..where((st) =>
+              st.school.equals(schoolId) &
+              st.year.equals(examRow.year) &
+              st.term.equals(examRow.term) &
+              st.teacher.equals(accountId) &
+              st.subject.equals(subject) &
+              st.grade.equals(paperRow.grade) &
+              (paperRow.stream == null ? st.stream.isNull() : st.stream.equals(paperRow.stream!))))
+        .get();
+    return stRows.isNotEmpty;
+  }
+
   Future<void> upsertGrade({
     required GradesCompanion grade,
     required String accountId,
@@ -1626,7 +1663,23 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       schoolId: grade.school.value,
       recordId: null,
     );
-    if (!authResult.allowed) throw PermissionException(authResult.reason!);
+    if (!authResult.allowed) {
+      final schoolId = grade.school.value;
+      final examId = grade.exam.value;
+      final subject = grade.subject.value;
+      final paperNum = grade.paper.present ? grade.paper.value : null;
+
+      final isAuthorized = await _checkTeacherGradingAccess(
+        schoolId: schoolId,
+        examId: examId,
+        subject: subject,
+        paperNum: paperNum,
+        accountId: accountId,
+      );
+      if (!isAuthorized) {
+        throw PermissionException(authResult.reason!);
+      }
+    }
     await transaction(() async {
       final schoolId = grade.school.value;
       final examId = grade.exam.value;
@@ -1746,7 +1799,18 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       schoolId: schoolId,
       recordId: null,
     );
-    if (!authResult.allowed) throw PermissionException(authResult.reason!);
+    if (!authResult.allowed) {
+      final isAuthorized = await _checkTeacherGradingAccess(
+        schoolId: schoolId,
+        examId: examId,
+        subject: subject,
+        paperNum: paperNum,
+        accountId: accountId,
+      );
+      if (!isAuthorized) {
+        throw PermissionException(authResult.reason!);
+      }
+    }
     await transaction(() async {
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
 
