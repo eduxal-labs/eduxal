@@ -467,6 +467,23 @@ class _TimetableWizardState extends State<_TimetableWizard> {
     );
   }
 
+  void _onRulesChanged(TimetableRules newRules) {
+    setState(() {
+      _rules = newRules;
+    });
+    final term = widget.termContext.currentTerm;
+    if (term != null) {
+      FileCache.saveTimetableRules(
+        schoolId: widget.schoolContext.membership.school.id,
+        year: term.year,
+        term: term.term,
+        rules: newRules,
+      ).catchError((e) {
+        debugPrint('Failed to auto-save timetable rules: $e');
+      });
+    }
+  }
+
   Widget _buildStage(ColorScheme cs, bool isDark) {
     if (!_loaded && _stage >= 1) {
       return Center(
@@ -482,21 +499,21 @@ class _TimetableWizardState extends State<_TimetableWizard> {
         rules: _rules,
         cs: cs,
         isDark: isDark,
-        onChanged: (r) => setState(() => _rules = r),
+        onChanged: _onRulesChanged,
       ),
       1 => _Stage1TeacherConstraints(
         rules: _rules,
         teachers: _teachers,
         cs: cs,
         isDark: isDark,
-        onChanged: (r) => setState(() => _rules = r),
+        onChanged: _onRulesChanged,
       ),
       2 => _Stage2SubjectConstraints(
         rules: _rules,
         subjects: _subjects,
         cs: cs,
         isDark: isDark,
-        onChanged: (r) => setState(() => _rules = r),
+        onChanged: _onRulesChanged,
       ),
       3 => _Stage3RemainderSlots(
         rules: _rules,
@@ -505,7 +522,7 @@ class _TimetableWizardState extends State<_TimetableWizard> {
         config: widget.config,
         cs: cs,
         isDark: isDark,
-        onChanged: (r) => setState(() => _rules = r),
+        onChanged: _onRulesChanged,
       ),
       4 => _Stage3Generate(
         rules: _rules,
@@ -1038,13 +1055,15 @@ class _Stage0DaysSlotsState extends State<_Stage0DaysSlots>
   late Map<int, List<TimetableSlot>> _daySlots;
   late Map<int, TimeOfDay> _dayStartTimes;
   late TabController _tabCtrl;
+  late bool _allowDoubles;
 
   @override
   void initState() {
     super.initState();
-    _activeDays = List<int>.from(widget.rules.activeDays);
+    _activeDays = const [1, 2, 3, 4, 5, 6, 7];
     _daySlots = Map.from(widget.rules.daySlots);
     _dayStartTimes = Map.from(widget.rules.dayStartTimes);
+    _allowDoubles = widget.rules.allowDoubles;
     
     // Ensure maps are populated for active days
     for (final day in _activeDays) {
@@ -1061,41 +1080,48 @@ class _Stage0DaysSlotsState extends State<_Stage0DaysSlots>
     super.dispose();
   }
 
-
-  void _toggleDay(int d) {
+  void _cloneFromDay(int fromDay) {
+    final currentDay = _activeDays[_tabCtrl.index];
     setState(() {
-      if (_activeDays.contains(d)) {
-        if (_activeDays.length > 1) {
-          _activeDays.remove(d);
-          // daySlots and dayStartTimes are kept in case the user re-adds the day
-          
-          // Recreate controller with new length
-          final oldIndex = _tabCtrl.index;
-          _tabCtrl.dispose();
-          _tabCtrl = TabController(
-            length: _activeDays.length,
-            vsync: this,
-            initialIndex: oldIndex.clamp(0, _activeDays.length - 1),
-          );
-        }
-      } else {
-        _activeDays.add(d);
-        _activeDays.sort();
-        _daySlots.putIfAbsent(d, () => []);
-        _dayStartTimes.putIfAbsent(d, () => const TimeOfDay(hour: 8, minute: 0));
-        
-        // Recreate controller
-        final oldIndex = _tabCtrl.index;
-        _tabCtrl.dispose();
-        _tabCtrl = TabController(
-          length: _activeDays.length,
-          vsync: this,
-          initialIndex: oldIndex,
-        );
-      }
+      _daySlots[currentDay] = List<TimetableSlot>.from(
+        _daySlots[fromDay]!.map((s) => TimetableSlot(type: s.type, durationMinutes: s.durationMinutes)),
+      );
+      _dayStartTimes[currentDay] = _dayStartTimes[fromDay]!;
     });
     _notify();
   }
+
+  bool _areSlotsAndStartTimeEqual(int dayA, int dayB) {
+    if (_dayStartTimes[dayA] != _dayStartTimes[dayB]) return false;
+    final slotsA = _daySlots[dayA] ?? [];
+    final slotsB = _daySlots[dayB] ?? [];
+    if (slotsA.length != slotsB.length) return false;
+    for (int i = 0; i < slotsA.length; i++) {
+      if (slotsA[i] != slotsB[i]) return false;
+    }
+    return true;
+  }
+
+  List<int> _getUniqueDaysToCloneFrom(int currentDay) {
+    final candidateDays = _activeDays
+        .where((d) => d != currentDay && (_daySlots[d]?.isNotEmpty ?? false))
+        .toList();
+    final uniqueDays = <int>[];
+    for (final candidate in candidateDays) {
+      bool isDuplicate = false;
+      for (final unique in uniqueDays) {
+        if (_areSlotsAndStartTimeEqual(candidate, unique)) {
+          isDuplicate = true;
+          break;
+        }
+      }
+      if (!isDuplicate) {
+        uniqueDays.add(candidate);
+      }
+    }
+    return uniqueDays;
+  }
+
 
   void _removeSlot(int day, int index) {
     setState(() {
@@ -1112,6 +1138,7 @@ class _Stage0DaysSlotsState extends State<_Stage0DaysSlots>
         activeDays: List<int>.from(_activeDays),
         dayStartTimes: Map.from(_dayStartTimes),
         daySlots: Map.from(_daySlots),
+        allowDoubles: _allowDoubles,
       ),
     );
   }
@@ -1173,50 +1200,54 @@ class _Stage0DaysSlotsState extends State<_Stage0DaysSlots>
 
     return Column(
       children: [
-        // ── Day Selector (Persistent at top) ──────────────────────────────────
+        // ── Double Lessons Switch ─────────────────────────────────────────────
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: 8,
-            children: [
-              const _SectionLabel('School Days'),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: ToggleButtons(
-                  isSelected: List.generate(
-                    7,
-                    (i) => _activeDays.contains(i + 1),
-                  ),
-                  onPressed: (i) => _toggleDay(i + 1),
-                  borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                  borderColor: AppTheme.borderColor(isDark, cs),
-                  selectedBorderColor: cs.primary.withValues(alpha: 0.55),
-                  selectedColor: cs.primary,
-                  fillColor: cs.primary.withValues(
-                    alpha: isDark ? 0.15 : 0.10,
-                  ),
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.65),
-                  textStyle: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  constraints: const BoxConstraints(
-                    minWidth: 44,
-                    minHeight: 36,
-                  ),
-                  children: const [
-                    Text('Mon'),
-                    Text('Tue'),
-                    Text('Wed'),
-                    Text('Thu'),
-                    Text('Fri'),
-                    Text('Sat'),
-                    Text('Sun'),
-                  ],
-                ),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppTheme.nestedBg(isDark, cs),
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              border: Border.all(
+                color: AppTheme.borderColor(isDark, cs),
               ),
-            ],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Allow Double Lessons',
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Enables consecutive lesson slots of the same subject',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch.adaptive(
+                  value: _allowDoubles,
+                  activeTrackColor: AppTheme.brandGreen,
+                  onChanged: (val) {
+                    setState(() {
+                      _allowDoubles = val;
+                    });
+                    _notify();
+                  },
+                ),
+              ],
+            ),
           ),
         ),
 
@@ -1325,24 +1356,82 @@ class _Stage0DaysSlotsState extends State<_Stage0DaysSlots>
                       children: [
                         _SectionLabel(
                           'Slot Sequence',
-                          trailing: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: cs.primary.withValues(alpha: 0.1),
-                              borderRadius:
-                                  BorderRadius.circular(AppTheme.kChipRadius),
-                            ),
-                            child: Text(
-                              '$lessonCount lesson${lessonCount == 1 ? "" : "s"}',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                                color: cs.primary,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: cs.primary.withValues(alpha: 0.1),
+                                  borderRadius:
+                                      BorderRadius.circular(AppTheme.kChipRadius),
+                                ),
+                                child: Text(
+                                  '$lessonCount lesson${lessonCount == 1 ? "" : "s"}',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500,
+                                    color: cs.primary,
+                                  ),
+                                ),
                               ),
-                            ),
+                              if (_getUniqueDaysToCloneFrom(day).isNotEmpty) ...[
+                                const SizedBox(width: 8),
+                                PopupMenuButton<int>(
+                                  tooltip: 'Clone slot structure from another day',
+                                  icon: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.copy_all_rounded,
+                                        size: 13,
+                                        color: cs.primary,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Clone',
+                                        style: TextStyle(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: cs.primary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  onSelected: (fromDay) => _cloneFromDay(fromDay),
+                                  itemBuilder: (ctx) {
+                                    return _getUniqueDaysToCloneFrom(day)
+                                        .map((d) {
+                                          final name = switch (d) {
+                                            1 => 'Monday',
+                                            2 => 'Tuesday',
+                                            3 => 'Wednesday',
+                                            4 => 'Thursday',
+                                            5 => 'Friday',
+                                            6 => 'Saturday',
+                                            7 => 'Sunday',
+                                            _ => 'Day $d',
+                                          };
+                                          return PopupMenuItem<int>(
+                                            value: d,
+                                            child: Text(
+                                              'Clone from $name',
+                                              style: const TextStyle(fontSize: 12.5),
+                                            ),
+                                          );
+                                        }).toList();
+                                  },
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -3216,6 +3305,22 @@ class _ConstraintEntryFormState extends State<_ConstraintEntryForm> {
   final Set<int> _selectedDays = {};
   final Set<int> _selectedSlots = {};
   bool _isBlock = true;
+  late final ScrollController _daysScrollCtrl;
+  late final ScrollController _slotsScrollCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _daysScrollCtrl = ScrollController();
+    _slotsScrollCtrl = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _daysScrollCtrl.dispose();
+    _slotsScrollCtrl.dispose();
+    super.dispose();
+  }
 
   bool get _canSubmit => _selectedDays.isNotEmpty && _selectedSlots.isNotEmpty;
 
@@ -3313,49 +3418,55 @@ class _ConstraintEntryFormState extends State<_ConstraintEntryForm> {
                 // Days selector
                 const _SectionLabel('Days'),
                 const SizedBox(height: 8),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Builder(
-                    builder: (ctx) {
-                      final daysToShow = widget.rules.activeDays.toList()
-                        ..sort();
-                      return ToggleButtons(
-                        isSelected: daysToShow
-                            .map((d) => _selectedDays.contains(d))
-                            .toList(),
-                        onPressed: (i) {
-                          final d = daysToShow[i];
-                          setState(() {
-                            if (_selectedDays.contains(d)) {
-                              _selectedDays.remove(d);
-                            } else {
-                              _selectedDays.add(d);
-                            }
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(
-                          AppTheme.kCardRadius,
-                        ),
-                        borderColor: AppTheme.borderColor(isDark, cs),
-                        selectedBorderColor: cs.primary.withValues(alpha: 0.55),
-                        selectedColor: cs.primary,
-                        fillColor: cs.primary.withValues(
-                          alpha: isDark ? 0.15 : 0.10,
-                        ),
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.65),
-                        textStyle: const TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 44,
-                          minHeight: 36,
-                        ),
-                        children: daysToShow
-                            .map((d) => Text(_kWizDayShort[d] ?? 'D$d'))
-                            .toList(),
-                      );
-                    },
+                Scrollbar(
+                  controller: _daysScrollCtrl,
+                  thumbVisibility: true,
+                  child: SingleChildScrollView(
+                    controller: _daysScrollCtrl,
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Builder(
+                      builder: (ctx) {
+                        final daysToShow = widget.rules.activeDays.toList()
+                          ..sort();
+                        return ToggleButtons(
+                          isSelected: daysToShow
+                              .map((d) => _selectedDays.contains(d))
+                              .toList(),
+                          onPressed: (i) {
+                            final d = daysToShow[i];
+                            setState(() {
+                              if (_selectedDays.contains(d)) {
+                                _selectedDays.remove(d);
+                              } else {
+                                _selectedDays.add(d);
+                              }
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.kCardRadius,
+                          ),
+                          borderColor: AppTheme.borderColor(isDark, cs),
+                          selectedBorderColor: cs.primary.withValues(alpha: 0.55),
+                          selectedColor: cs.primary,
+                          fillColor: cs.primary.withValues(
+                            alpha: isDark ? 0.15 : 0.10,
+                          ),
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                          textStyle: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 44,
+                            minHeight: 36,
+                          ),
+                          children: daysToShow
+                              .map((d) => Text(_kWizDayShort[d] ?? 'D$d'))
+                              .toList(),
+                        );
+                      },
+                    ),
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -3404,47 +3515,53 @@ class _ConstraintEntryFormState extends State<_ConstraintEntryForm> {
                     ),
                   )
                 else
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: ToggleButtons(
-                      isSelected: lessonSlots
-                          .map((s) => _selectedSlots.contains(s.index))
-                          .toList(),
-                      onPressed: (i) {
-                        final idx = lessonSlots[i].index;
-                        setState(() {
-                          if (_selectedSlots.contains(idx)) {
-                            _selectedSlots.remove(idx);
-                          } else {
-                            _selectedSlots.add(idx);
-                          }
-                        });
-                      },
-                      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
-                      borderColor: AppTheme.borderColor(isDark, cs),
-                      selectedBorderColor: cs.primary.withValues(alpha: 0.55),
-                      selectedColor: cs.primary,
-                      fillColor: cs.primary.withValues(
-                        alpha: isDark ? 0.15 : 0.10,
-                      ),
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.65),
-                      textStyle: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w400,
-                      ),
-                      constraints: const BoxConstraints(minHeight: 36),
-                      children: lessonSlots
-                          .map(
-                            (s) => Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
+                  Scrollbar(
+                    controller: _slotsScrollCtrl,
+                    thumbVisibility: true,
+                    child: SingleChildScrollView(
+                      controller: _slotsScrollCtrl,
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: ToggleButtons(
+                        isSelected: lessonSlots
+                            .map((s) => _selectedSlots.contains(s.index))
+                            .toList(),
+                        onPressed: (i) {
+                          final idx = lessonSlots[i].index;
+                          setState(() {
+                            if (_selectedSlots.contains(idx)) {
+                              _selectedSlots.remove(idx);
+                            } else {
+                              _selectedSlots.add(idx);
+                            }
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                        borderColor: AppTheme.borderColor(isDark, cs),
+                        selectedBorderColor: cs.primary.withValues(alpha: 0.55),
+                        selectedColor: cs.primary,
+                        fillColor: cs.primary.withValues(
+                          alpha: isDark ? 0.15 : 0.10,
+                        ),
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                        textStyle: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        constraints: const BoxConstraints(minHeight: 36),
+                        children: lessonSlots
+                            .map(
+                              (s) => Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                child: Text(
+                                  '${fmtTimeSec(s.start)}\u2013${fmtTimeSec(s.end)}',
+                                ),
                               ),
-                              child: Text(
-                                '${fmtTimeSec(s.start)}\u2013${fmtTimeSec(s.end)}',
-                              ),
-                            ),
-                          )
-                          .toList(),
+                            )
+                            .toList(),
+                      ),
                     ),
                   ),
               ],

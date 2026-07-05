@@ -164,13 +164,13 @@ class TimetableRules {
     List<int>? activeDays,
     this.maxLessonsPerDayTeacher = 6,
     this.maxLessonsPerDayClass = 8,
-    this.allowDoubles = false,
+    this.allowDoubles = true,
     Map<String, Map<int, int>>? remainderAllocation,
     List<TeacherConstraintEntry>? teacherConstraints,
     List<SubjectConstraintEntry>? subjectConstraints,
   }) : dayStartTimes = dayStartTimes ?? {},
        daySlots = daySlots ?? {},
-       activeDays = activeDays ?? [1, 2, 3, 4, 5],
+       activeDays = activeDays ?? [1, 2, 3, 4, 5, 6, 7],
        remainderAllocation = remainderAllocation ?? {},
        teacherConstraints = teacherConstraints ?? [],
        subjectConstraints = subjectConstraints ?? [] {
@@ -305,7 +305,7 @@ class TimetableRules {
         return TimetableRules.defaults();
       }
 
-      final activeDays = ((json['active_days'] as List<dynamic>?) ?? [1, 2, 3, 4, 5])
+      final activeDays = ((json['active_days'] as List<dynamic>?) ?? [1, 2, 3, 4, 5, 6, 7])
             .cast<int>();
 
       if (version == 2) {
@@ -331,7 +331,7 @@ class TimetableRules {
           activeDays: activeDays,
           maxLessonsPerDayTeacher: (json['max_lessons_teacher'] as int?) ?? 6,
           maxLessonsPerDayClass: (json['max_lessons_class'] as int?) ?? 8,
-          allowDoubles: (json['allow_doubles'] as bool?) ?? false,
+          allowDoubles: (json['allow_doubles'] as bool?) ?? true,
           remainderAllocation: () {
             // Priority list is no longer supported in v3, but we can't easily
             // migrate without subject counts. Solver will use defaults or
@@ -372,7 +372,7 @@ class TimetableRules {
         activeDays: activeDays,
         maxLessonsPerDayTeacher: (json['max_lessons_teacher'] as int?) ?? 6,
         maxLessonsPerDayClass: (json['max_lessons_class'] as int?) ?? 8,
-        allowDoubles: (json['allow_doubles'] as bool?) ?? false,
+        allowDoubles: (json['allow_doubles'] as bool?) ?? true,
         remainderAllocation: () {
           final raw = json['remainder_allocation'] as Map<String, dynamic>?;
           if (raw == null) {

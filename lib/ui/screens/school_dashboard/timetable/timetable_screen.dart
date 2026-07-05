@@ -204,11 +204,20 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
 
   Future<void> _openRulesSheet() async {
     final term = widget.termContext.currentTerm;
-    if (term == null || _rules == null) return;
+    if (term == null) return;
+
+    final schoolId = widget.schoolContext.membership.school.id;
+    final latestRules = await FileCache.loadTimetableRules(
+      schoolId: schoolId,
+      year: term.year,
+      term: term.term,
+    );
+    if (!mounted) return;
+    setState(() => _rules = latestRules);
 
     final result = await showTimetableWizardDialog(
       context: context,
-      initialRules: _rules!,
+      initialRules: latestRules,
       schoolContext: widget.schoolContext,
       termContext: widget.termContext,
       config: _config ?? SchoolConfig.defaults(),
