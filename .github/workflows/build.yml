@@ -111,16 +111,29 @@ jobs:
       - name: Build Windows release
         run: flutter build windows --release
 
+      - name: Download Visual C++ Redistributable
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" -OutFile "vc_redist.x64.exe"
+
+      - name: Compile Inno Setup Installer
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" windows/installer.iss
+
       - name: Package Windows build
         shell: pwsh
         run: |
           Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath eduxal-windows-x64.zip
+          Copy-Item "build\windows\x64\runner\eduxal-windows-installer-x64.exe" "eduxal-windows-installer-x64.exe"
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: eduxal-windows-x64.zip
+          path: |
+            eduxal-windows-x64.zip
+            eduxal-windows-installer-x64.exe
           retention-days: 1
         continue-on-error: true
 
@@ -172,6 +185,7 @@ jobs:
           cp android-build/eduxal-android.apk upload/${BUILD_FOLDER}/android/eduxal-android.apk
           cp linux-build/eduxal-linux-x64.tar.gz upload/${BUILD_FOLDER}/linux/eduxal-linux-x64.tar.gz
           cp windows-build/eduxal-windows-x64.zip upload/${BUILD_FOLDER}/windows/eduxal-windows-x64.zip
+          cp windows-build/eduxal-windows-installer-x64.exe upload/${BUILD_FOLDER}/windows/eduxal-windows-installer-x64.exe
 
           # Generate latest.json
           cat > upload/latest.json << EOF
@@ -183,7 +197,8 @@ jobs:
             "artifacts": {
               "android": "builds/${BUILD_FOLDER}/android/eduxal-android.apk",
               "linux": "builds/${BUILD_FOLDER}/linux/eduxal-linux-x64.tar.gz",
-              "windows": "builds/${BUILD_FOLDER}/windows/eduxal-windows-x64.zip"
+              "windows": "builds/${BUILD_FOLDER}/windows/eduxal-windows-installer-x64.exe",
+              "windows_zip": "builds/${BUILD_FOLDER}/windows/eduxal-windows-x64.zip"
             }
           }
           EOF
@@ -210,8 +225,9 @@ jobs:
             --arg timestamp "${TIMESTAMP}" \
             --arg android "builds/${BUILD_FOLDER}/android/eduxal-android.apk" \
             --arg linux "builds/${BUILD_FOLDER}/linux/eduxal-linux-x64.tar.gz" \
-            --arg windows "builds/${BUILD_FOLDER}/windows/eduxal-windows-x64.zip" \
-            '{build: $build, commit: $commit, branch: $branch, timestamp: $timestamp, artifacts: {android: $android, linux: $linux, windows: $windows}}')
+            --arg windows "builds/${BUILD_FOLDER}/windows/eduxal-windows-installer-x64.exe" \
+            --arg windows_zip "builds/${BUILD_FOLDER}/windows/eduxal-windows-x64.zip" \
+            '{build: $build, commit: $commit, branch: $branch, timestamp: $timestamp, artifacts: {android: $android, linux: $linux, windows: $windows, windows_zip: $windows_zip}}')
 
           # Prepend new entry to existing array
           jq --argjson entry "${NEW_ENTRY}" '[$entry] + .' existing_index.json > upload/index.json
