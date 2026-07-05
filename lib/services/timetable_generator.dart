@@ -169,6 +169,12 @@ DayOfWeek _weekdayIndexToDay(int index) {
   return DayOfWeek.values[index]; // 1→monday … 6→saturday
 }
 
+/// Convert [DayOfWeek] to its 1-based weekday index (1=Mon … 7=Sun).
+int _dayToWeekdayIndex(DayOfWeek day) {
+  if (day == DayOfWeek.sunday) return 7;
+  return day.index;
+}
+
 // ── TimetableGenerator ────────────────────────────────────────────────────────
 
 /// Pure-Dart CSP backtracking solver for weekly timetable generation.
@@ -529,28 +535,78 @@ class TimetableGenerator {
         return scoreA.compareTo(scoreB);
       });
 
-      // Assign each instance to a distinct least-loaded available day.
+      // Assign each instance to a distinct least-loaded available day, respecting capacities.
       for (int i = 0; i < vars.length; i++) {
-        if (i >= candidateDays.length) {
-          // More instances than available days — leave remaining variables
-          // without a forced day so _buildDomains gives them full domains.
-          // This is a safety fallback; _computeLessonsPerWeek should already
-          // have capped instances to available days when allowDoubles=false.
-          _log(
-            '  ⚠️  group (grade=$grade, stream=$stream, '
-            'subject=${vars[i].subjectId}): instance ${vars[i].instanceIndex} '
-            'has no available day (teacher $teacherId has '
-            '${candidateDays.length} available days but needs '
-            '${vars.length} distinct days)',
-          );
-          break;
+        var filteredDays = candidateDays.where((d) {
+          final cLoad = classLoad[(grade, stream, d)] ?? 0;
+          final tLoad = teacherLoad[(teacherId, d)] ?? 0;
+
+          if (cLoad >= _effectiveClassDayCap(d)) return false;
+          if (tLoad >= _effectiveTeacherDayCap(d)) return false;
+
+          if (!rules.allowDoubles) {
+            bool alreadyHasSubject = false;
+            for (int j = 0; j < i; j++) {
+              if (_dayForVariable[vars[j]] == _weekdayIndexToDay(d)) {
+                alreadyHasSubject = true;
+                break;
+              }
+            }
+            if (alreadyHasSubject) return false;
+          }
+          return true;
+        }).toList();
+
+        // Fallback 1: Relax teacher cap if no days satisfy all.
+        if (filteredDays.isEmpty) {
+          filteredDays = candidateDays.where((d) {
+            final cLoad = classLoad[(grade, stream, d)] ?? 0;
+            if (cLoad >= _effectiveClassDayCap(d)) return false;
+
+            if (!rules.allowDoubles) {
+              bool alreadyHasSubject = false;
+              for (int j = 0; j < i; j++) {
+                if (_dayForVariable[vars[j]] == _weekdayIndexToDay(d)) {
+                  alreadyHasSubject = true;
+                  break;
+                }
+              }
+              if (alreadyHasSubject) return false;
+            }
+            return true;
+          }).toList();
         }
-        final dayIndex = candidateDays[i];
-        _dayForVariable[vars[i]] = _weekdayIndexToDay(dayIndex);
-        classLoad[(grade, stream, dayIndex)] =
-            (classLoad[(grade, stream, dayIndex)] ?? 0) + 1;
-        teacherLoad[(teacherId, dayIndex)] =
-            (teacherLoad[(teacherId, dayIndex)] ?? 0) + 1;
+
+        // Fallback 2: Relax no-doubles / teacher cap, satisfy absolute class slot cap.
+        if (filteredDays.isEmpty) {
+          filteredDays = candidateDays.where((d) {
+            final cLoad = classLoad[(grade, stream, d)] ?? 0;
+            return cLoad < _effectiveClassDayCap(d);
+          }).toList();
+        }
+
+        // Fallback 3: Use any candidate days.
+        if (filteredDays.isEmpty) {
+          filteredDays = candidateDays;
+        }
+
+        // Sort by combined load.
+        filteredDays.sort((a, b) {
+          final scoreA =
+              (classLoad[(grade, stream, a)] ?? 0) * 2 +
+              (teacherLoad[(teacherId, a)] ?? 0);
+          final scoreB =
+              (classLoad[(grade, stream, b)] ?? 0) * 2 +
+              (teacherLoad[(teacherId, b)] ?? 0);
+          return scoreA.compareTo(scoreB);
+        });
+
+        final chosenDay = filteredDays.first;
+        _dayForVariable[vars[i]] = _weekdayIndexToDay(chosenDay);
+        classLoad[(grade, stream, chosenDay)] =
+            (classLoad[(grade, stream, chosenDay)] ?? 0) + 1;
+        teacherLoad[(teacherId, chosenDay)] =
+            (teacherLoad[(teacherId, chosenDay)] ?? 0) + 1;
       }
     }
 
@@ -691,12 +747,10 @@ class TimetableGenerator {
     for (int restart = 0; restart < effectiveMaxRestarts; restart++) {
       _resetState();
 
-      // Pre-assign days before building domains when doubles are disabled.
-      // This shrinks every variable's domain from (slotsPerDay × activeDays)
-      // to just slotsPerDay, satisfying no-doubles by construction.
-      if (!rules.allowDoubles) {
-        _computeDayAssignments(variables);
-      }
+      // Pre-assign days before building domains.
+      // This shrinks every variable's domain to just slots on its assigned day,
+      // which dramatically reduces the search space.
+      _computeDayAssignments(variables);
 
       final restartStart = stopwatch.elapsedMilliseconds;
 
@@ -743,21 +797,59 @@ class TimetableGenerator {
 
       _log(
         '  starting search  '
-        '[undo-trail · O(1) consistency'
-        '${!rules.allowDoubles ? " · day-preassign" : " · no-doubles propagation"}] …',
+        '[undo-trail · O(1) consistency · day-preassign'
+        '${!rules.allowDoubles ? " · no-doubles propagation" : ""}] …',
       );
 
-      final unassigned = List<_Variable>.from(variables);
-      final assignment = <_Variable, _Slot>{};
-      final result = _solve(unassigned, assignment, domains);
+      final fullAssignment = <_Variable, _Slot>{};
+      bool daySolveSuccess = true;
 
-      totalIterations += _iterations;
+      // Group variables by their pre-assigned day.
+      final variablesByDay = <DayOfWeek, List<_Variable>>{};
+      for (final v in variables) {
+        final d = _dayForVariable[v];
+        if (d != null) {
+          variablesByDay.putIfAbsent(d, () => []).add(v);
+        }
+      }
+
+      int restartNodes = 0;
+      for (final day in DayOfWeek.values) {
+        final dayVars = variablesByDay[day] ?? [];
+        if (dayVars.isEmpty) continue;
+
+        final dayAssignment = <_Variable, _Slot>{};
+        final dayUnassigned = List<_Variable>.from(dayVars);
+
+        final dayDomains = <_Variable, List<_Slot>>{};
+        for (final v in dayVars) {
+          dayDomains[v] = List<_Slot>.from(domains[v]!);
+        }
+
+        // We reset _iterations for each day's independent search, so that the 5000-node
+        // cap applies per day rather than cumulatively across the week.
+        _iterations = 0;
+
+        final dayResult = _solve(dayUnassigned, dayAssignment, dayDomains);
+        restartNodes += _iterations;
+
+        if (dayResult == null) {
+          daySolveSuccess = false;
+          _log('    ❌ Day $day failed to solve');
+          break;
+        } else {
+          fullAssignment.addAll(dayResult);
+        }
+      }
+
+      final result = daySolveSuccess ? fullAssignment : null;
+      totalIterations += restartNodes;
 
       final restartElapsed = stopwatch.elapsedMilliseconds - restartStart;
       _log(
         '─── Restart ${restart + 1} END: '
         '${result != null ? "SOLUTION FOUND" : "no solution"}  '
-        'elapsed=${restartElapsed}ms  nodes=$_iterations',
+        'elapsed=${restartElapsed}ms  nodes=$restartNodes',
       );
       _logCounters();
 
@@ -889,8 +981,6 @@ class TimetableGenerator {
       return issues;
     }
 
-    // Calculate total slots correctly by summing per-day lesson slots.
-    final totalSlotsAvailable = _totalLessonsPerWeek;
     final teacherAvail = _computeTeacherAvailability();
 
     // ── C1: Teacher capacity ─────────────────────────────────────────────────
@@ -1208,6 +1298,9 @@ class TimetableGenerator {
     }
 
     _iterations++;
+    if (_iterations > 5000) {
+      return null; // Abort this restart due to node budget exhaustion and trigger a new randomized restart
+    }
 
     // ── Milestone progress snapshot ───────────────────────────────────────
     if (_iterations % _kLogEveryNIterations == 0) {
@@ -1343,14 +1436,14 @@ class TimetableGenerator {
     // 3. Teacher daily lesson cap — uses the effective cap (the minimum of the
     //    physical slot count and the user-configured maxLessonsPerDayTeacher).
     if ((_teacherDayCount[(variable.teacherUserId, slot.day)] ?? 0) >=
-        _effectiveTeacherDayCap(rules.weekdayToIndex(slot.day))) {
+        _effectiveTeacherDayCap(_dayToWeekdayIndex(slot.day))) {
       return false;
     }
 
     // 4. Class daily lesson cap — uses the effective cap (the minimum of the
     //    physical slot count and the user-configured maxLessonsPerDayClass).
     if ((_classDayCount[(variable.grade, variable.stream, slot.day)] ?? 0) >=
-        _effectiveClassDayCap(rules.weekdayToIndex(slot.day))) {
+        _effectiveClassDayCap(_dayToWeekdayIndex(slot.day))) {
       return false;
     }
 
@@ -1410,7 +1503,7 @@ class TimetableGenerator {
     final classDayCount =
         _classDayCount[(placed.grade, placed.stream, slot.day)] ?? 0;
 
-    final dayIdx = rules.weekdayToIndex(slot.day);
+    final dayIdx = _dayToWeekdayIndex(slot.day);
     final teacherAtCap = teacherDayCount >= _effectiveTeacherDayCap(dayIdx);
     final classAtCap = classDayCount >= _effectiveClassDayCap(dayIdx);
 
