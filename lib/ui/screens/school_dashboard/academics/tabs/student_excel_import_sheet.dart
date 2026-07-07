@@ -39,9 +39,30 @@ class StudentExcelImportSheet extends StatefulWidget {
 enum _ImportPhase {
   chooseFile,
   mapColumns,
+  fillGuardianNames,
   processing,
   completed,
 }
+
+class _GuardianNameInputRow {
+  _GuardianNameInputRow({
+    required this.rowIndex,
+    required this.studentName,
+    required this.phone,
+    required this.controller,
+  });
+  final int rowIndex;
+  final String studentName;
+  final String phone;
+  final TextEditingController controller;
+}
+
+class _SheetData {
+  _SheetData({required this.headerRowIndex, required this.headers});
+  final int headerRowIndex;
+  final List<String> headers;
+}
+
 
 class _StudentExcelImportSheetState extends State<StudentExcelImportSheet> {
   final _membersDao = MembersDao(db);
@@ -53,12 +74,19 @@ class _StudentExcelImportSheetState extends State<StudentExcelImportSheet> {
   File? _selectedFile;
   Excel? _excel;
   List<String> _headers = [];
+  int _headerRowIndex = 0;
 
   // Column mapping states (value is the selected header name)
   String? _admCol;
   String? _nameCol;
   String? _phoneCol;
   String? _guardianNameCol;
+
+  // Sheet and Guardian custom names states
+  String? _selectedSheetKey;
+  bool _autoGenerateGuardianNames = true;
+  List<_GuardianNameInputRow> _guardianNameInputRows = [];
+  final Map<int, String> _customGuardianNames = {};
 
   // Import progress tracking
   int _totalRows = 0;
@@ -73,12 +101,69 @@ class _StudentExcelImportSheetState extends State<StudentExcelImportSheet> {
     _memberService = MemberCreationService(_membersDao);
   }
 
+  @override
+  void dispose() {
+    _clearInputRows();
+    super.dispose();
+  }
+
+  void _clearInputRows() {
+    for (final row in _guardianNameInputRows) {
+      row.controller.dispose();
+    }
+    _guardianNameInputRows.clear();
+  }
+
   String _cellVal(dynamic cell) {
     if (cell == null) return '';
     final val = cell.value;
     if (val == null) return '';
     return val.toString().trim();
   }
+
+  _SheetData _extractSheetData(Sheet sheet) {
+    int headerRowIndex = 0;
+    List<String> headers = [];
+
+    for (int i = 0; i < sheet.rows.length && i < 10; i++) {
+      final row = sheet.rows[i];
+      final values = row.map((cell) => _cellVal(cell)).toList();
+      final nonCount = values.where((v) => v.isNotEmpty).length;
+
+      if (nonCount >= 2) {
+        final hasKeywords = values.any((v) {
+          final norm = v.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+          return norm.contains('name') ||
+              norm.contains('adm') ||
+              norm.contains('contact') ||
+              norm.contains('phone') ||
+              norm.contains('reg') ||
+              norm.contains('student') ||
+              norm.contains('roll') ||
+              norm.contains('id');
+        });
+
+        if (hasKeywords) {
+          headerRowIndex = i;
+          headers = values;
+          break;
+        }
+
+        if (headers.isEmpty) {
+          headerRowIndex = i;
+          headers = values;
+        }
+      }
+    }
+
+    if (headers.isEmpty && sheet.rows.isNotEmpty) {
+      headerRowIndex = 0;
+      headers = sheet.rows.first.map((cell) => _cellVal(cell)).toList();
+    }
+
+    return _SheetData(headerRowIndex: headerRowIndex, headers: headers);
+  }
+
 
   String? _findMatchingHeader(List<String> headers, List<String> keywords) {
     for (final header in headers) {
@@ -115,16 +200,18 @@ class _StudentExcelImportSheetState extends State<StudentExcelImportSheet> {
           throw Exception('The sheet is empty.');
         }
 
-        final headers = sheet.rows.first.map((cell) => _cellVal(cell)).toList();
-        if (headers.isEmpty || headers.every((h) => h.isEmpty)) {
-          throw Exception('No header columns detected in the first row.');
-        }
+        final sheetData = _extractSheetData(sheet);
+        final headers = sheetData.headers;
 
         setState(() {
           _selectedFile = file;
           _excel = excel;
+          _selectedSheetKey = firstSheetKey;
           _headers = headers;
+          _headerRowIndex = sheetData.headerRowIndex;
           _phase = _ImportPhase.mapColumns;
+          _customGuardianNames.clear();
+          _clearInputRows();
 
           // Fuzzy-match mapping defaults
           _admCol = _findMatchingHeader(headers, ['adm', 'admission', 'studentno', 'studentnum', 'reg', 'id']);
@@ -170,13 +257,13 @@ class _StudentExcelImportSheetState extends State<StudentExcelImportSheet> {
       return;
     }
 
-    final firstSheetKey = _excel!.tables.keys.first;
-    final sheet = _excel!.tables[firstSheetKey]!;
+    final sheetKey = _selectedSheetKey ?? _excel!.tables.keys.first;
+    final sheet = _excel!.tables[sheetKey]!;
     final rows = sheet.rows;
 
     setState(() {
       _phase = _ImportPhase.processing;
-      _totalRows = rows.length - 1; // skip header
+      _totalRows = rows.length - (_headerRowIndex + 1);
       _currentRow = 0;
       _successCount = 0;
       _failureCount = 0;
@@ -188,10 +275,10 @@ class _StudentExcelImportSheetState extends State<StudentExcelImportSheet> {
     final phoneIdx = _phoneCol != null ? _headers.indexOf(_phoneCol!) : -1;
     final guardianNameIdx = _guardianNameCol != null ? _headers.indexOf(_guardianNameCol!) : -1;
 
-    for (int i = 1; i < rows.length; i++) {
+    for (int i = _headerRowIndex + 1; i < rows.length; i++) {
       if (!mounted) break;
       final row = rows[i];
-      setState(() => _currentRow = i);
+      setState(() => _currentRow = i - _headerRowIndex);
 
       // Extract values using indices
       final studentName = nameIdx >= 0 && nameIdx < row.length ? _cellVal(row[nameIdx]) : '';
@@ -212,7 +299,15 @@ class _StudentExcelImportSheetState extends State<StudentExcelImportSheet> {
       }
 
       final guardianPhone = phoneIdx >= 0 && phoneIdx < row.length ? _cellVal(row[phoneIdx]) : '';
-      final guardianName = guardianNameIdx >= 0 && guardianNameIdx < row.length ? _cellVal(row[guardianNameIdx]) : '';
+      String guardianName = guardianNameIdx >= 0 && guardianNameIdx < row.length ? _cellVal(row[guardianNameIdx]) : '';
+      if (guardianName.isEmpty && guardianPhone.isNotEmpty) {
+        if (_customGuardianNames.containsKey(i)) {
+          guardianName = _customGuardianNames[i]!;
+        }
+        if (guardianName.isEmpty) {
+          guardianName = '$studentName Guardian';
+        }
+      }
 
       try {
         // Step 1: Create Student
@@ -275,6 +370,74 @@ class _StudentExcelImportSheetState extends State<StudentExcelImportSheet> {
     if (mounted) {
       setState(() => _phase = _ImportPhase.completed);
     }
+  }
+
+  void _onSheetChanged(String? sheetKey) {
+    if (sheetKey == null || _excel == null) return;
+    final sheet = _excel!.tables[sheetKey];
+    if (sheet == null || sheet.rows.isEmpty) return;
+
+    final sheetData = _extractSheetData(sheet);
+    final headers = sheetData.headers;
+    setState(() {
+      _selectedSheetKey = sheetKey;
+      _headers = headers;
+      _headerRowIndex = sheetData.headerRowIndex;
+      _customGuardianNames.clear();
+      _clearInputRows();
+
+      // Fuzzy-match mapping defaults
+      _admCol = _findMatchingHeader(headers, ['adm', 'admission', 'studentno', 'studentnum', 'reg', 'id']);
+      _nameCol = _findMatchingHeader(headers, ['name', 'studentname', 'fullname', 'fname', 'lname']);
+      _phoneCol = _findMatchingHeader(headers, ['parentphone', 'guardianphone', 'phone', 'mobile', 'contact', 'tel', 'parentcontact', 'guardiancontact']);
+      _guardianNameCol = _findMatchingHeader(headers, ['parentname', 'guardianname', 'parent', 'guardian', 'father', 'mother', 'gname', 'pname']);
+    });
+  }
+
+  void _handleStartImportClick() {
+    if (_nameCol == null) return;
+
+    if (_phoneCol != null && !_autoGenerateGuardianNames) {
+      // Prepare list of rows requiring manual guardian names
+      final sheetKey = _selectedSheetKey ?? _excel!.tables.keys.first;
+      final sheet = _excel!.tables[sheetKey]!;
+      final rows = sheet.rows;
+
+      final nameIdx = _headers.indexOf(_nameCol!);
+      final phoneIdx = _phoneCol != null ? _headers.indexOf(_phoneCol!) : -1;
+      final guardianNameIdx = _guardianNameCol != null ? _headers.indexOf(_guardianNameCol!) : -1;
+
+      final List<_GuardianNameInputRow> inputs = [];
+      for (int i = _headerRowIndex + 1; i < rows.length; i++) {
+        final row = rows[i];
+        final studentName = nameIdx >= 0 && nameIdx < row.length ? _cellVal(row[nameIdx]) : '';
+        if (studentName.isEmpty) continue;
+
+        final guardianPhone = phoneIdx >= 0 && phoneIdx < row.length ? _cellVal(row[phoneIdx]) : '';
+        final guardianName = guardianNameIdx >= 0 && guardianNameIdx < row.length ? _cellVal(row[guardianNameIdx]) : '';
+
+        if (guardianPhone.isNotEmpty && guardianName.isEmpty) {
+          inputs.add(
+            _GuardianNameInputRow(
+              rowIndex: i,
+              studentName: studentName,
+              phone: guardianPhone,
+              controller: TextEditingController(text: '$studentName Guardian'),
+            ),
+          );
+        }
+      }
+
+      if (inputs.isNotEmpty) {
+        setState(() {
+          _guardianNameInputRows = inputs;
+          _phase = _ImportPhase.fillGuardianNames;
+        });
+        return;
+      }
+    }
+
+    _startImport();
   }
 
   @override
@@ -369,6 +532,8 @@ class _StudentExcelImportSheetState extends State<StudentExcelImportSheet> {
         return _buildChooseFilePhase(cs, isDark);
       case _ImportPhase.mapColumns:
         return _buildMapColumnsPhase(cs, isDark);
+      case _ImportPhase.fillGuardianNames:
+        return _buildFillGuardianNamesPhase(cs, isDark);
       case _ImportPhase.processing:
         return _buildProcessingPhase(cs, isDark);
       case _ImportPhase.completed:
@@ -516,6 +681,63 @@ class _StudentExcelImportSheetState extends State<StudentExcelImportSheet> {
                 ),
                 const SizedBox(height: 20),
 
+                // Sheet Selector
+                if (_excel != null && _excel!.tables.keys.length > 1) ...[
+                  Text(
+                    'Select Sheet to Import',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    height: 48,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                      border: Border.all(
+                        color: cs.outlineVariant.withValues(alpha: 0.4),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.table_chart_outlined, size: 18, color: cs.onSurfaceVariant),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: _selectedSheetKey ?? _excel!.tables.keys.first,
+                              isExpanded: true,
+                              icon: Icon(
+                                Icons.arrow_drop_down_rounded,
+                                color: cs.onSurfaceVariant,
+                              ),
+                              items: _excel!.tables.keys.map((sheetName) {
+                                return DropdownMenuItem<String>(
+                                  value: sheetName,
+                                  child: Text(
+                                    sheetName,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: cs.onSurface,
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: _onSheetChanged,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+
                 // Fields
                 _buildMappingDropdown(
                   label: 'Student Name (Required)',
@@ -547,6 +769,63 @@ class _StudentExcelImportSheetState extends State<StudentExcelImportSheet> {
                   onChanged: (val) => setState(() => _guardianNameCol = val),
                   hint: 'Fall back to default if unmapped',
                 ),
+
+                // Guardian Name Handling option if phone number is mapped
+                if (_phoneCol != null) ...[
+                  const SizedBox(height: 24),
+                  Text(
+                    'Guardian Name Handling',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: cs.primary,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'How should we name guardians if their names are not in the spreadsheet?',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  RadioListTile<bool>(
+                    value: true,
+                    groupValue: _autoGenerateGuardianNames,
+                    title: Text(
+                      "Auto-generate as '[Student Name] Guardian'",
+                      style: TextStyle(fontSize: 13, color: cs.onSurface),
+                    ),
+                    subtitle: Text(
+                      "Example: 'John Doe Guardian'",
+                      style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                    activeColor: AppTheme.brandGreen,
+                    onChanged: (val) {
+                      if (val != null) setState(() => _autoGenerateGuardianNames = val);
+                    },
+                  ),
+                  RadioListTile<bool>(
+                    value: false,
+                    groupValue: _autoGenerateGuardianNames,
+                    title: Text(
+                      "Manually fill in guardian names before importing",
+                      style: TextStyle(fontSize: 13, color: cs.onSurface),
+                    ),
+                    subtitle: Text(
+                      "You will be prompted to enter a name for each guardian",
+                      style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                    activeColor: AppTheme.brandGreen,
+                    onChanged: (val) {
+                      if (val != null) setState(() => _autoGenerateGuardianNames = val);
+                    },
+                  ),
+                ],
               ],
             ),
           ),
@@ -577,7 +856,7 @@ class _StudentExcelImportSheetState extends State<StudentExcelImportSheet> {
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton(
-                  onPressed: _nameCol == null ? null : _startImport,
+                  onPressed: _nameCol == null ? null : _handleStartImportClick,
                   style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.brandGreen,
                     disabledBackgroundColor: cs.surfaceContainerHighest,
@@ -587,6 +866,185 @@ class _StudentExcelImportSheetState extends State<StudentExcelImportSheet> {
                     ),
                   ),
                   child: const Text('Start Import'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFillGuardianNamesPhase(ColorScheme cs, bool isDark) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Guardian Names Required',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: cs.primary,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'We found ${_guardianNameInputRows.length} students with contact numbers but no guardian name. Please fill them in below.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    for (final row in _guardianNameInputRows) {
+                      row.controller.text = '${row.studentName} Guardian';
+                    }
+                  });
+                },
+                icon: Icon(Icons.auto_awesome_outlined, size: 14, color: AppTheme.brandGreen),
+                label: Text(
+                  'Auto-fill all as "Student Name Guardian"',
+                  style: TextStyle(fontSize: 11.5, color: AppTheme.brandGreen),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: AppTheme.brandGreen.withValues(alpha: 0.3)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1, thickness: 0.5),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.all(20),
+            itemCount: _guardianNameInputRows.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 14),
+            itemBuilder: (context, index) {
+              final row = _guardianNameInputRows[index];
+              return Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                  border: Border.all(
+                    color: cs.outlineVariant.withValues(alpha: 0.3),
+                    width: 0.5,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.person_outline_rounded, size: 16, color: cs.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            row.studentName,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: cs.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            row.phone,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: row.controller,
+                      decoration: InputDecoration(
+                        labelText: 'Guardian Name',
+                        hintText: 'Enter guardian name...',
+                        labelStyle: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                        hintStyle: TextStyle(fontSize: 12, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                          borderSide: BorderSide(color: cs.outlineVariant),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                          borderSide: BorderSide(color: cs.primary),
+                        ),
+                      ),
+                      style: TextStyle(fontSize: 13, color: cs.onSurface),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        const Divider(height: 1, thickness: 0.5),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () {
+                    setState(() {
+                      _phase = _ImportPhase.mapColumns;
+                    });
+                  },
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                    ),
+                  ),
+                  child: const Text('Back'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () {
+                    setState(() {
+                      _customGuardianNames.clear();
+                      for (final row in _guardianNameInputRows) {
+                        _customGuardianNames[row.rowIndex] = row.controller.text.trim();
+                      }
+                    });
+                    _startImport();
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTheme.brandGreen,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                    ),
+                  ),
+                  child: const Text('Continue'),
                 ),
               ),
             ],
@@ -634,7 +1092,7 @@ class _StudentExcelImportSheetState extends State<StudentExcelImportSheet> {
               Expanded(
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
-                    value: _headers.contains(value) ? value : null,
+                    value: _headers.contains(value) && value != null && value.isNotEmpty ? value : null,
                     hint: Text(
                       hint ?? 'Select column...',
                       style: TextStyle(
@@ -659,7 +1117,10 @@ class _StudentExcelImportSheetState extends State<StudentExcelImportSheet> {
                             ),
                           ),
                         ),
-                      ..._headers.map((h) {
+                      ..._headers
+                          .where((h) => h.isNotEmpty)
+                          .toSet()
+                          .map((h) {
                         return DropdownMenuItem<String>(
                           value: h,
                           child: Text(
