@@ -354,6 +354,50 @@ class _StudentExcelImportSheetState extends State<StudentExcelImportSheet> {
             break;
 
           case Err(:final error):
+            if (error == MemberCreationError.alreadyExists && parsedAdm != null) {
+              try {
+                final existingStudent = await _membersDao.getStudent(widget.schoolId, parsedAdm);
+                if (existingStudent != null) {
+                  // Enroll the existing student (which automatically un-enrolls them from other classes in this term)
+                  await _enrollmentsDao.enrollStudent(
+                    schoolId: widget.schoolId,
+                    year: widget.year,
+                    term: widget.term,
+                    grade: widget.grade,
+                    stream: widget.streamCode,
+                    studentAdm: existingStudent.adm,
+                    accountId: accountId,
+                  );
+
+                  // Create/link Guardian if phone is provided
+                  if (guardianPhone.isNotEmpty) {
+                    final cleanPhone = guardianPhone.replaceAll(RegExp(r'[^0-9+]'), '');
+                    if (cleanPhone.length >= 7) {
+                      final parentName = guardianName.isNotEmpty ? guardianName : '${existingStudent.name} Guardian';
+                      final guardianResult = await _memberService.createGuardian(
+                        schoolId: widget.schoolId,
+                        studentAdm: existingStudent.adm,
+                        phone: cleanPhone,
+                        name: parentName,
+                      );
+                      if (guardianResult is Err) {
+                        _errors.add('Row ${i + 1} (${existingStudent.name}): Student enrolled, but guardian creation failed: ${(guardianResult as Err).error}');
+                      }
+                    } else {
+                      _errors.add('Row ${i + 1} (${existingStudent.name}): Invalid parent phone format "$guardianPhone". Guardian link skipped.');
+                    }
+                  }
+
+                  _successCount++;
+                  _errors.add('Row ${i + 1} (${existingStudent.name}): Existing student enrolled/transferred successfully.');
+                  break;
+                }
+              } catch (e) {
+                _failureCount++;
+                _errors.add('Row ${i + 1} ($studentName): Error enrolling existing student: ${e.toString()}');
+                break;
+              }
+            }
             _failureCount++;
             _errors.add('Row ${i + 1} ($studentName): Creation failed: ${error.name}');
             break;
