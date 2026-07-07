@@ -22,8 +22,6 @@ import '../../../theme/app_theme.dart';
 import '../../../widgets/active_term_provider.dart';
 import '../../../widgets/permission_denied_handler.dart';
 import '../../../../services/authorization_service.dart';
-import '../../../widgets/edu_tab_bar.dart';
-import 'lesson_management.dart';
 import 'timetable_grid.dart';
 import 'timetable_shared.dart';
 import 'timetable_wizard.dart';
@@ -52,16 +50,10 @@ class TimetableScreen extends StatelessWidget {
             schoolContext: schoolContext,
             termContext: termCtx,
           ),
-          TeacherEntry() =>
-            schoolContext.permissions.can(Resource.classes, Action.update)
-                ? _OwnerTimetableShell(
-                    schoolContext: schoolContext,
-                    termContext: termCtx,
-                  )
-                : _TeacherTimetableView(
-                    schoolContext: schoolContext,
-                    termContext: termCtx,
-                  ),
+          TeacherEntry() => _TeacherTimetableView(
+              schoolContext: schoolContext,
+              termContext: termCtx,
+            ),
           StudentEntry(:final student) => _ClassTimetableView(
             schoolContext: schoolContext,
             termContext: termCtx,
@@ -72,18 +64,62 @@ class TimetableScreen extends StatelessWidget {
             termContext: termCtx,
             studentAdm: ward.adm,
           ),
-          StaffEntry() =>
-            schoolContext.permissions.can(Resource.classes, Action.update)
-                ? _OwnerTimetableShell(
-                    schoolContext: schoolContext,
-                    termContext: termCtx,
-                  )
-                : _StaffReadOnlyTimetableView(
-                    schoolContext: schoolContext,
-                    termContext: termCtx,
-                  ),
+          StaffEntry() => const _RestrictedTimetableView(),
         };
       },
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// RESTRICTED VIEW — Shown when non-owners attempt to access the school matrix
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _RestrictedTimetableView extends StatelessWidget {
+  const _RestrictedTimetableView();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.lock_outline_rounded,
+              size: 22,
+              color: cs.error.withValues(alpha: 0.6),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Access Restricted',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: cs.onSurface,
+              letterSpacing: 0.1,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            'Only owners can view the school-wide timetable matrix.',
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -105,8 +141,7 @@ class _OwnerTimetableShell extends StatefulWidget {
   State<_OwnerTimetableShell> createState() => _OwnerTimetableShellState();
 }
 
-class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
-    with TickerProviderStateMixin {
+class _OwnerTimetableShellState extends State<_OwnerTimetableShell> {
   final _timetableDao = TimetableDao(db);
   final _catalogDao = CatalogDao(db);
 
@@ -115,9 +150,6 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
   bool _generating = false;
   bool _deleting = false;
   bool _hasTimetable = false;
-
-  late TabController _tabController;
-  int _currentTabIndex = 0;
 
   // Track term to detect changes in didUpdateWidget
   int? _lastYear;
@@ -129,12 +161,6 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this)
-      ..addListener(() {
-        if (!_tabController.indexIsChanging) {
-          setState(() => _currentTabIndex = _tabController.index);
-        }
-      });
     final term = widget.termContext.currentTerm;
     _lastYear = term?.year;
     _lastTerm = term?.term;
@@ -196,7 +222,6 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
 
   @override
   void dispose() {
-    _tabController.dispose();
     _hasTimetableSub?.cancel();
     _configSub?.cancel();
     super.dispose();
@@ -234,18 +259,6 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
     }
   }
 
-  Future<void> _openGenerateLessonsDialog() async {
-    final term = widget.termContext.currentTerm;
-    if (term == null) return;
-    await showGenerateLessonsDialog(
-      context,
-      schoolId: widget.schoolContext.membership.school.id,
-      year: term.year,
-      term: term.term,
-      timetableDao: _timetableDao,
-      config: _config ?? SchoolConfig.defaults(),
-    );
-  }
 
   Future<void> _deleteTimetable() async {
     final term = widget.termContext.currentTerm;
@@ -507,60 +520,21 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
         entry is OwnerEntry ||
         (perms.can(Resource.classes, Action.update) &&
             perms.can(Resource.classes, Action.delete));
-    // Generate lessons creates records in the lessons table — requires
-    // classes.update (to read timetable context) AND lessons.create.
-    final canGenerateLessons =
-        entry is OwnerEntry ||
-        (perms.can(Resource.classes, Action.update) &&
-            perms.can(Resource.lessons, Action.create));
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          EduTabBar(
-            controller: _tabController,
-            tabs: const [
-              EduTab(label: 'Timetable'),
-              EduTab(label: 'Lessons'),
-            ],
-          ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                // ── Tab 0: School-wide cross-matrix timetable ────────────
-                if (term == null)
-                  const NoTermState()
-                else if (_config!.isEmpty)
-                  EmptyConfigState(cs: cs)
-                else
-                  SchoolWideMatrixTab(
-                    schoolId: schoolId,
-                    year: term.year,
-                    term: term.term,
-                    config: _config!,
-                    timetableDao: _timetableDao,
-                  ),
-                // ── Tab 1: All lessons for the school this term ──────────
-                if (term != null)
-                  LessonsTab(
-                    schoolId: schoolId,
-                    year: term.year,
-                    term: term.term,
-                    timetableDao: _timetableDao,
-                    config: _config ?? SchoolConfig.defaults(),
-                  )
-                else
-                  const NoTermState(),
-              ],
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton:
-          _currentTabIndex == 0 && (canGenerate || canManage || canDelete)
+      body: term == null
+          ? const NoTermState()
+          : _config!.isEmpty
+              ? EmptyConfigState(cs: cs)
+              : SchoolWideMatrixTab(
+                  schoolId: schoolId,
+                  year: term.year,
+                  term: term.term,
+                  config: _config!,
+                  timetableDao: _timetableDao,
+                ),
+      floatingActionButton: (canGenerate || canManage || canDelete)
           ? Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -594,14 +568,6 @@ class _OwnerTimetableShellState extends State<_OwnerTimetableShell>
                               ),
                             )
                           : const Icon(Icons.delete_outline_rounded, size: 18),
-                    ),
-                  if (canDelete) const SizedBox(height: 12),
-                  // Generate Lessons FAB — requires classes.update + lessons.create
-                  if (canGenerateLessons)
-                    GenerateLessonsFab(
-                      heroTag: 'timetable_gen_lessons',
-                      onTap: _openGenerateLessonsDialog,
-                      cs: cs,
                     ),
                 ] else ...[
                   // No timetable yet — show the wizard FAB (requires classes.update + classes.delete)
@@ -730,80 +696,6 @@ class _TeacherTimetableViewState extends State<_TeacherTimetableView> {
   }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// STAFF READ-ONLY VIEW — School-wide matrix, no admin controls
-// ═════════════════════════════════════════════════════════════════════════════
-
-class _StaffReadOnlyTimetableView extends StatefulWidget {
-  const _StaffReadOnlyTimetableView({
-    required this.schoolContext,
-    required this.termContext,
-  });
-
-  final SchoolContext schoolContext;
-  final ActiveTermContext termContext;
-
-  @override
-  State<_StaffReadOnlyTimetableView> createState() =>
-      _StaffReadOnlyTimetableViewState();
-}
-
-class _StaffReadOnlyTimetableViewState
-    extends State<_StaffReadOnlyTimetableView> {
-  final _timetableDao = TimetableDao(db);
-  final _catalogDao = CatalogDao(db);
-  SchoolConfig? _config;
-  StreamSubscription<List<SchoolStream>>? _configSub;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadConfig();
-  }
-
-  void _loadConfig() {
-    final schoolId = widget.schoolContext.membership.school.id;
-    _configSub?.cancel();
-    _configSub = _catalogDao.watchAllStreamsForSchool(schoolId).listen((
-      streams,
-    ) {
-      if (mounted) setState(() => _config = buildConfigFromStreams(streams));
-    });
-  }
-
-  @override
-  void dispose() {
-    _configSub?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final term = widget.termContext.currentTerm;
-
-    if (_config == null) {
-      return Center(
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
-        ),
-      );
-    }
-
-    if (term == null) return const NoTermState();
-    if (_config!.isEmpty) return EmptyConfigState(cs: cs);
-
-    return SchoolWideMatrixTab(
-      schoolId: widget.schoolContext.membership.school.id,
-      year: term.year,
-      term: term.term,
-      config: _config!,
-      timetableDao: _timetableDao,
-    );
-  }
-}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // STUDENT / GUARDIAN VIEW — Class timetable (read-only)
@@ -929,3 +821,48 @@ class _ClassTimetableViewState extends State<_ClassTimetableView> {
     );
   }
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Generate Timetable — FAB
+// ═════════════════════════════════════════════════════════════════════════════
+
+class GenerateFab extends StatelessWidget {
+  const GenerateFab({
+    super.key,
+    required this.onTap,
+    required this.generating,
+    required this.cs,
+    this.heroTag,
+  });
+
+  final VoidCallback onTap;
+  final bool generating;
+  final ColorScheme cs;
+  final Object? heroTag;
+
+  @override
+  Widget build(BuildContext context) {
+    return FloatingActionButton.small(
+      heroTag: heroTag,
+      onPressed: generating ? null : onTap,
+      backgroundColor: AppTheme.brandGreen,
+      foregroundColor: Colors.white,
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+      ),
+      tooltip: 'Configure rules & generate timetable',
+      child: generating
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: Colors.white,
+              ),
+            )
+          : const Icon(Icons.add_rounded, size: 20),
+    );
+  }
+}
+

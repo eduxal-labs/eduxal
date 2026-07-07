@@ -55,10 +55,13 @@ dependencies:
   printing: ^5.15.0
   flutter_math_fork: ^0.7.4
   flutter_svg: ^2.0.10+1
+  excel: ^4.0.6
 
   path: any
 dependency_overrides:
   url_launcher_android: 6.3.32
+  xml: ^7.0.1
+  archive: ^3.6.1
 
 dev_dependencies:
   flutter_test:

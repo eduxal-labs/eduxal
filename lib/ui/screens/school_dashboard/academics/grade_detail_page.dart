@@ -33,6 +33,7 @@ import '../../../widgets/edu_tab_bar.dart';
 import 'tabs/comparisons_tab.dart';
 import 'tabs/exams_tab.dart';
 import 'tabs/students_tab.dart';
+import 'tabs/student_excel_import_sheet.dart';
 import 'tabs/subjects_tab.dart';
 import 'tabs/teachers_tab.dart';
 import 'tabs/attendance_tab.dart';
@@ -747,6 +748,13 @@ class _GradeDetailPageState extends State<GradeDetailPage>
             subtitle: 'Enroll a student into this class',
             onTap: () => _showEnrollSheet(context),
           ),
+        if (_can(Resource.students, Action.assign))
+          _FabAction(
+            icon: Icons.upload_file_outlined,
+            label: 'Import from Excel',
+            subtitle: 'Bulk enroll students using an .xlsx sheet',
+            onTap: () => _showExcelImportSheet(context),
+          ),
       ],
       1 => [
         // Exams tab — create requires create on exams.
@@ -919,6 +927,29 @@ class _GradeDetailPageState extends State<GradeDetailPage>
     showEduSheet(
       context: context,
       builder: (ctx) => _ClassTeacherPickerSheet(
+        schoolId: schoolId,
+        year: term.year,
+        term: term.term,
+        grade: widget.grade.grade,
+        gradeLabel: widget.gradeLabel,
+        streamCode: stream.code,
+        streamName: stream.name,
+      ),
+    );
+  }
+
+  void _showExcelImportSheet(BuildContext context) {
+    final termCtx = ActiveTermProvider.of(context);
+    final term = termCtx.currentTerm;
+    if (term == null) return;
+
+    final schoolId = widget.schoolContext.membership.school.id;
+    final stream = _selectedStream;
+    if (stream == null) return;
+
+    showEduSheet(
+      context: context,
+      builder: (ctx) => StudentExcelImportSheet(
         schoolId: schoolId,
         year: term.year,
         term: term.term,
