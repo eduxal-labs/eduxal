@@ -16,7 +16,9 @@ set -e
 
 INSTALL_DIR="/opt/eduxal"
 BIN_LINK="/usr/local/bin/eduxal"
-DESKTOP_FILE="/usr/share/applications/eduxal.desktop"
+DESKTOP_FILE="/usr/share/applications/com.example.eduxal.desktop"
+ICON_FILE="/usr/share/icons/hicolor/256x256/apps/com.example.eduxal.png"
+
 
 # ---------------------------------------------------------------------------
 # Ensure we are running as root; re-exec with sudo if not.
@@ -56,6 +58,14 @@ if [ -f "$DESKTOP_FILE" ]; then
     echo "  ✓ Removed $DESKTOP_FILE"
 else
     echo "  • $DESKTOP_FILE not found (skipped)"
+fi
+
+# Remove icon file from hicolor theme
+if [ -f "$ICON_FILE" ]; then
+    rm -f "$ICON_FILE"
+    echo "  ✓ Removed icon $ICON_FILE"
+else
+    echo "  • $ICON_FILE not found (skipped)"
 fi
 
 # ---------------------------------------------------------------------------

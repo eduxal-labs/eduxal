@@ -15,7 +15,7 @@ set -euo pipefail
 
 INSTALL_DIR="/opt/eduxal"
 BIN_LINK="/usr/local/bin/eduxal"
-DESKTOP_TARGET="/usr/share/applications/eduxal.desktop"
+DESKTOP_TARGET="/usr/share/applications/com.example.eduxal.desktop"
 
 # ---------------------------------------------------------------------------
 # 1. Ensure we are running as root (re-exec with sudo if not)
@@ -57,16 +57,23 @@ ln -sf "$INSTALL_DIR/eduxal" "$BIN_LINK"
 # ---------------------------------------------------------------------------
 echo ">> Installing desktop entry to $DESKTOP_TARGET ..."
 
-if [[ -f "$SCRIPT_DIR/eduxal.desktop" ]]; then
-    cp "$SCRIPT_DIR/eduxal.desktop" "$DESKTOP_TARGET"
-else
-    echo "   Warning: eduxal.desktop not found in $SCRIPT_DIR, skipping desktop entry."
+# Copy icon to hicolor icon theme so the system dock can display it natively
+echo ">> Installing application icon ..."
+if [[ -f "$SCRIPT_DIR/eduxal.png" ]]; then
+    mkdir -p /usr/share/icons/hicolor/256x256/apps/
+    cp "$SCRIPT_DIR/eduxal.png" /usr/share/icons/hicolor/256x256/apps/com.example.eduxal.png
 fi
 
-# Update Exec and Icon lines to use absolute paths
+if [[ -f "$SCRIPT_DIR/com.example.eduxal.desktop" ]]; then
+    cp "$SCRIPT_DIR/com.example.eduxal.desktop" "$DESKTOP_TARGET"
+else
+    echo "   Warning: com.example.eduxal.desktop not found in $SCRIPT_DIR, skipping desktop entry."
+fi
+
+# Update Exec and Icon lines
 if [[ -f "$DESKTOP_TARGET" ]]; then
     sed -i "s|^Exec=.*|Exec=$INSTALL_DIR/eduxal|" "$DESKTOP_TARGET"
-    sed -i "s|^Icon=.*|Icon=$INSTALL_DIR/eduxal.png|" "$DESKTOP_TARGET"
+    sed -i "s|^Icon=.*|Icon=com.example.eduxal|" "$DESKTOP_TARGET"
 fi
 
 # ---------------------------------------------------------------------------

@@ -7,7 +7,7 @@ AppVersion=1.0.0
 DefaultDirName={localappdata}\Programs\Eduxal
 DefaultGroupName=Eduxal
 OutputDir=..\build\windows\x64\runner
-OutputBaseFilename=eduxal installer
+OutputBaseFilename=eduxal
 Compression=lzma
 SolidCompression=yes
 SetupIconFile=runner\resources\app_icon.ico
@@ -34,6 +34,14 @@ Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/quiet /norestart"; Check: VCU
 Filename: "{app}\eduxal.exe"; Flags: nowait runasoriginaluser
 
 [Code]
+function SetForegroundWindow(hWnd: HWND): BOOL;
+external 'SetForegroundWindow@user32.dll stdcall';
+
+procedure InitializeWizard();
+begin
+  SetForegroundWindow(WizardForm.Handle);
+end;
+
 function VCUpdateNeeded(): Boolean;
 var
   InstalledValue: Cardinal;
