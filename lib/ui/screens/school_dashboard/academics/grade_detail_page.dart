@@ -310,7 +310,7 @@ class _GradeDetailPageState extends State<GradeDetailPage>
       // Subtle bounce when switching content tabs (if FAB is visible).
       if (!_isComparisons && _hasFabForContentTab(newIndex)) {
         _bounceFab();
-      } else if (!_hasFabForContentTab(newIndex)) {
+      } else if (_isComparisons || !_hasFabForContentTab(newIndex)) {
         _fabScaleController.reverse();
       } else {
         _fabScaleController.forward();
@@ -324,9 +324,12 @@ class _GradeDetailPageState extends State<GradeDetailPage>
     return _actionsForContentTab(index).isNotEmpty;
   }
 
-  /// Permission helper — checks RBAC via SchoolPermissions.
+  /// Permission helper — checks RBAC via SchoolPermissions.  Owners bypass
+  /// all permission checks.
   bool _can(Resource resource, Action action) {
-    return widget.schoolContext.permissions.can(resource, action);
+    final entry = widget.schoolContext.currentEntry.value;
+    final isOwner = entry is OwnerEntry;
+    return isOwner || widget.schoolContext.permissions.can(resource, action);
   }
 
   /// Maps a visible content tab index → logical index (0=Students, 1=Exams,
