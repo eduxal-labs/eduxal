@@ -714,17 +714,19 @@ class _GradeDetailPageState extends State<GradeDetailPage>
     return ScaleTransition(
       scale: _fabScaleAnimation,
       alignment: Alignment.center,
-      child: FloatingActionButton.small(
-        heroTag: 'fab_grade_detail',
-        onPressed: () => _handleFabTap(context),
-        tooltip: _fabTooltipForContentTab(_selectedContentIndex),
-        elevation: 4,
-        highlightElevation: 6,
-        backgroundColor: cs.primary,
-        foregroundColor: cs.onPrimary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        child: const Icon(Icons.add_rounded, size: 20),
-      ),
+      child: _isComparisons
+          ? const SizedBox.shrink()
+          : FloatingActionButton.small(
+              heroTag: 'fab_grade_detail',
+              onPressed: () => _handleFabTap(context),
+              tooltip: _fabTooltipForContentTab(_selectedContentIndex),
+              elevation: 4,
+              highlightElevation: 6,
+              backgroundColor: cs.primary,
+              foregroundColor: cs.onPrimary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              child: const Icon(Icons.add_rounded, size: 20),
+            ),
     );
   }
 
@@ -744,14 +746,14 @@ class _GradeDetailPageState extends State<GradeDetailPage>
     return switch (logical) {
       0 => [
         // Students tab — enroll requires assign on students.
-        if (_can(Resource.students, Action.assign))
+        if (_can(Resource.students, Action.assign) || _can(Resource.students, Action.create))
           _FabAction(
             icon: Icons.person_add_outlined,
             label: 'Add Student',
             subtitle: 'Enroll a student into this class',
             onTap: () => _showEnrollSheet(context),
           ),
-        if (_can(Resource.students, Action.assign))
+        if (_can(Resource.students, Action.create))
           _FabAction(
             icon: Icons.upload_file_outlined,
             label: 'Import from Excel',
