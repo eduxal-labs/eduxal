@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import '../cache/file_cache.dart';
+import '../core/extensions.dart';
 
 import 'package:drift/drift.dart';
 import 'package:path_provider/path_provider.dart';
@@ -109,7 +110,7 @@ class MemberCreationService {
   /// The phone number is normalised (trimmed, leading/trailing whitespace
   /// removed) before the query.
   Future<PhoneLookupResult> lookupPhone(String phone) async {
-    final normalised = phone.trim();
+    final normalised = phone.toKenyanPhone() ?? phone.trim();
     final existing = await _dao.findUserByPhone(normalised);
     if (existing != null && existing.status != UserStatus.deleted) {
       return UserFound(existing);
@@ -139,7 +140,7 @@ class MemberCreationService {
       return const Err(MemberCreationError.noActiveAccount);
     }
 
-    final normalised = phone.trim();
+    final normalised = phone.toKenyanPhone() ?? phone.trim();
     final existing = await _dao.findUserByPhone(normalised);
 
     if (existing != null && existing.status != UserStatus.deleted) {
@@ -229,7 +230,7 @@ class MemberCreationService {
       return const Err(MemberCreationError.noActiveAccount);
     }
 
-    final normalised = phone.trim();
+    final normalised = phone.toKenyanPhone() ?? phone.trim();
     final existing = await _dao.findUserByPhone(normalised);
 
     if (existing != null && existing.status != UserStatus.deleted) {
@@ -326,7 +327,7 @@ class MemberCreationService {
       return const Err(MemberCreationError.noActiveAccount);
     }
 
-    final normalised = phone.trim();
+    final normalised = phone.toKenyanPhone() ?? phone.trim();
     final existing = await _dao.findUserByPhone(normalised);
 
     if (existing != null && existing.status != UserStatus.deleted) {
@@ -446,7 +447,7 @@ class MemberCreationService {
     String? userId;
     String? userPhone;
     if (phone != null && phone.trim().isNotEmpty) {
-      userPhone = phone.trim();
+      userPhone = phone.toKenyanPhone() ?? phone.trim();
       final existing = await _dao.findUserByPhone(userPhone);
       if (existing != null && existing.status != UserStatus.deleted) {
         // User exists locally — link optimistically for immediate UI display.
@@ -511,7 +512,7 @@ class MemberCreationService {
       return const Err(MemberCreationError.noActiveAccount);
     }
 
-    final normalised = phone.trim();
+    final normalised = phone.toKenyanPhone() ?? phone.trim();
     final existing = await _dao.findUserByPhone(normalised);
 
     if (existing != null && existing.status != UserStatus.deleted) {

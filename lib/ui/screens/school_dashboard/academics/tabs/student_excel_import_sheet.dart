@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:excel/excel.dart' hide Border, TextStyle, BorderStyle; // 'Border', 'TextStyle', and 'BorderStyle' conflict with material
 import '../../../../../client.dart';
+import '../../../../../core/extensions.dart';
 import '../../../../../database/database.dart';
 import '../../../../../database/daos/enrollments_dao.dart';
 import '../../../../../database/daos/members_dao.dart';
@@ -335,11 +336,12 @@ class _StudentExcelImportSheetState extends State<StudentExcelImportSheet> {
             if (guardianPhone.isNotEmpty) {
               final cleanPhone = guardianPhone.replaceAll(RegExp(r'[^0-9+]'), '');
               if (cleanPhone.length >= 7) {
+                final normalizedPhone = cleanPhone.toKenyanPhone() ?? cleanPhone;
                 final parentName = guardianName.isNotEmpty ? guardianName : '$studentName Guardian';
                 final guardianResult = await _memberService.createGuardian(
                   schoolId: widget.schoolId,
                   studentAdm: student.adm,
-                  phone: cleanPhone,
+                  phone: normalizedPhone,
                   name: parentName,
                 );
                 if (guardianResult is Err) {
@@ -373,11 +375,12 @@ class _StudentExcelImportSheetState extends State<StudentExcelImportSheet> {
                   if (guardianPhone.isNotEmpty) {
                     final cleanPhone = guardianPhone.replaceAll(RegExp(r'[^0-9+]'), '');
                     if (cleanPhone.length >= 7) {
+                      final normalizedPhone = cleanPhone.toKenyanPhone() ?? cleanPhone;
                       final parentName = guardianName.isNotEmpty ? guardianName : '${existingStudent.name} Guardian';
                       final guardianResult = await _memberService.createGuardian(
                         schoolId: widget.schoolId,
                         studentAdm: existingStudent.adm,
-                        phone: cleanPhone,
+                        phone: normalizedPhone,
                         name: parentName,
                       );
                       if (guardianResult is Err) {

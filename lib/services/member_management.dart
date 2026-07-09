@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../client.dart';
+import '../core/extensions.dart';
 import '../database/database.dart';
 import '../database/daos/members_dao.dart';
 import '../database/tables/enums.dart';
@@ -489,7 +490,7 @@ class MemberManagementService {
           userValue = const Value(null);
           userPhone = '-'; // Server interprets "-" as unlink.
         } else {
-          userPhone = phone.trim();
+          userPhone = phone.toKenyanPhone() ?? phone.trim();
           final existing = await _dao.findUserByPhone(userPhone);
           if (existing != null && existing.status != UserStatus.deleted) {
             // User exists locally — link optimistically.

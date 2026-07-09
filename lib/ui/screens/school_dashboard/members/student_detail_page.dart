@@ -425,7 +425,8 @@ class _StudentDetailSheetState extends State<StudentDetailSheet>
             }
             setSheetState(() => phoneLooking = true);
             phoneDebounce = Timer(const Duration(milliseconds: 480), () async {
-              final existing = await _membersDao.findUserByPhone(trimmed);
+              final normalized = trimmed.toKenyanPhone() ?? trimmed;
+              final existing = await _membersDao.findUserByPhone(normalized);
               if (existing != null && existing.status != UserStatus.deleted) {
                 setSheetState(() {
                   phoneLooking = false;
