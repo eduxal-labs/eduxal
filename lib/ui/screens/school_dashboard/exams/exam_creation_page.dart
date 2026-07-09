@@ -7,7 +7,10 @@ import '../../../../client.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/catalog_dao.dart';
 import '../../../../database/daos/members_dao.dart';
+import '../../../../database/daos/exams_grades_dao.dart';
 import '../../../../database/tables/curriculum_subjects.dart';
+import '../../../../database/tables/enums.dart';
+import 'package:drift/drift.dart' show Value;
 
 import '../../../../models/membership.dart';
 import '../../../../models/result.dart';
@@ -37,12 +40,14 @@ class _EventDraft {
   int year;
   DateTime? startDate;
   DateTime? endDate;
+  bool generateAIQuestions;
 
   _EventDraft({
     required this.name,
     required this.type,
     required this.term,
     required this.year,
+    this.generateAIQuestions = true,
   });
 }
 
@@ -118,6 +123,7 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
 
   late final CatalogDao _catalogDao;
   late final MembersDao _membersDao;
+  late final ExamsGradesDao _examsGradesDao;
 
   // ── Step 3 state ──────────────────────────────────────────────────────────
   Map<(int, int), List<int>> _confirmedCoverage = {};
@@ -132,6 +138,7 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
     super.initState();
     _catalogDao = CatalogDao(db);
     _membersDao = MembersDao(db);
+    _examsGradesDao = ExamsGradesDao(db);
 
     _draft = _EventDraft(
       name: '',
@@ -240,6 +247,15 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
       for (final g in c.grades) g,
   ];
 
+  int get _totalSteps => _draft.generateAIQuestions ? 5 : 3;
+
+  int get _displayStep {
+    if (_draft.generateAIQuestions) return _step;
+    if (_step == 1) return 1;
+    if (_step == 2) return 2;
+    return 3;
+  }
+
   // ── Navigation ─────────────────────────────────────────────────────────────
 
   void _back() {
@@ -247,8 +263,10 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
       Navigator.of(context).pop();
       return;
     }
-    setState(() => _step--);
-    _pageCtrl.previousPage(
+    final prevStep = (!_draft.generateAIQuestions && _step == 5) ? 2 : _step - 1;
+    setState(() => _step = prevStep);
+    _pageCtrl.animateToPage(
+      _step - 1,
       duration: const Duration(milliseconds: 280),
       curve: Curves.easeInOut,
     );
@@ -289,8 +307,10 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
       return;
     }
 
-    setState(() => _step++);
-    _pageCtrl.nextPage(
+    final nextStep = (!_draft.generateAIQuestions && _step == 2) ? 5 : _step + 1;
+    setState(() => _step = nextStep);
+    _pageCtrl.animateToPage(
+      _step - 1,
       duration: const Duration(milliseconds: 280),
       curve: Curves.easeInOut,
     );
@@ -357,6 +377,59 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
           _activationError = 'Activation failed: ${error.message}';
         });
         return;
+    }
+
+    if (!_draft.generateAIQuestions) {
+      final accountId = cache.currentUser?.user.id;
+      if (accountId == null) {
+        setState(() {
+          _activating = false;
+          _activationError = 'Activation failed: User is not authenticated.';
+        });
+        return;
+      }
+
+      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
+      try {
+        for (int i = 0; i < _papers.length; i++) {
+          final row = _papers[i];
+          final startSecs = row.date!.add(Duration(hours: row.startTime!.hour, minutes: row.startTime!.minute)).millisecondsSinceEpoch ~/ 1000;
+          final endSecs = row.date!.add(Duration(hours: row.endTime!.hour, minutes: row.endTime!.minute)).millisecondsSinceEpoch ~/ 1000;
+          final invigilatorId = row.invigilatorId ?? accountId;
+
+          await _examsGradesDao.createPaper(
+            paper: PapersCompanion(
+              school: Value(widget.schoolId),
+              exam: Value(eventId),
+              subject: Value(row.subjectId!),
+              paper: const Value(null),
+              invigilator: Value(invigilatorId),
+              start: Value(BigInt.from(startSecs)),
+              end: Value(BigInt.from(endSecs)),
+              grade: Value(row.grade!),
+              stream: Value(row.stream),
+              status: const Value(PaperStatus.pending),
+              created: Value(now),
+              updated: Value(now),
+            ),
+            accountId: accountId,
+            timeAllowedMinutes: row.durationMinutes,
+            customInstructions: null,
+          );
+        }
+      } catch (e) {
+        setState(() {
+          _activating = false;
+          _activationError = 'Paper creation failed: $e';
+        });
+        return;
+      }
+
+      // Success for manual exam.
+      setState(() => _activating = false);
+      _showSnack('Exam activated — papers created successfully');
+      if (mounted) Navigator.of(context).pop();
+      return;
     }
 
     // 2. Schedule each paper.
@@ -445,14 +518,14 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
           tooltip: _step == 1 ? 'Cancel' : 'Back',
         ),
         title: Text(
-          'Create Exam — Step $_step of 5',
+          'Create Exam — Step $_displayStep of $_totalSteps',
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
         ),
       ),
       body: Column(
         children: [
           LinearProgressIndicator(
-            value: _step / 5,
+            value: _displayStep / _totalSteps,
             minHeight: 2,
             backgroundColor: cs.outlineVariant.withValues(alpha: 0.2),
             valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
@@ -798,6 +871,46 @@ class _EventDetailsStepState extends State<_EventDetailsStep> {
                 ),
               ),
             ),
+          const SizedBox(height: 20),
+
+          // ── AI Generation Option ──────────────────────────────────────────
+          _fieldLabel('Question Source'),
+          Container(
+            decoration: BoxDecoration(
+              color: AppTheme.nestedBg(isDark, cs),
+              borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+              border: Border.all(
+                color: AppTheme.borderColor(isDark, cs),
+                width: 0.8,
+              ),
+            ),
+            child: SwitchListTile.adaptive(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              title: const Text(
+                'AI Question Generator',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              subtitle: Text(
+                'Let AI generate papers based on syllabus topic coverage. Turn off to provide custom questions or enter grades manually.',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.65),
+                ),
+              ),
+              value: d.generateAIQuestions,
+              activeColor: isDark ? AppTheme.brandIndigoDark : AppTheme.brandIndigo,
+              onChanged: (val) {
+                setState(() {
+                  d.generateAIQuestions = val;
+                });
+                _notify();
+              },
+            ),
+          ),
         ],
       ),
     );

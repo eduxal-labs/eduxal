@@ -50,6 +50,7 @@ class _StudentsTabState extends State<StudentsTab>
   final _searchController = TextEditingController();
   String _searchQuery = '';
   Timer? _debounce;
+  bool _sortByAdm = true; // Default sorting: true (Adm primary), false (Name secondary)
 
   @override
   bool get wantKeepAlive => true;
@@ -211,6 +212,14 @@ class _StudentsTabState extends State<StudentsTab>
     final showingFiltered =
         _searchQuery.isNotEmpty && rows.length != totalCount;
 
+    // Apply sorting: default is ADM (ascending), secondary is Name (alphabetical)
+    final sortedRows = List<GradeStudentRow>.from(rows);
+    if (_sortByAdm) {
+      sortedRows.sort((a, b) => a.student.adm.compareTo(b.student.adm));
+    } else {
+      sortedRows.sort((a, b) => a.student.name.toLowerCase().compareTo(b.student.name.toLowerCase()));
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -220,27 +229,90 @@ class _StudentsTabState extends State<StudentsTab>
         // ── Count header ───────────────────────────────────────────────
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-          child: Text(
-            showingFiltered
-                ? '${rows.length} of $totalCount student${totalCount == 1 ? '' : 's'}'
-                : '$totalCount student${totalCount == 1 ? '' : 's'}',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-            ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                showingFiltered
+                    ? '${rows.length} of $totalCount student${totalCount == 1 ? '' : 's'}'
+                    : '$totalCount student${totalCount == 1 ? '' : 's'}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+              ),
+              PopupMenuButton<bool>(
+                initialValue: _sortByAdm,
+                onSelected: (val) {
+                  setState(() {
+                    _sortByAdm = val;
+                  });
+                },
+                itemBuilder: (ctx) => [
+                  PopupMenuItem(
+                    value: true,
+                    child: Row(
+                      children: [
+                        Icon(Icons.tag_rounded, size: 16, color: _sortByAdm ? cs.primary : cs.onSurfaceVariant),
+                        const SizedBox(width: 8),
+                        const Text('Sort by Adm Number (Default)'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: false,
+                    child: Row(
+                      children: [
+                        Icon(Icons.sort_by_alpha_rounded, size: 16, color: !_sortByAdm ? cs.primary : cs.onSurfaceVariant),
+                        const SizedBox(width: 8),
+                        const Text('Sort Alphabetically'),
+                      ],
+                    ),
+                  ),
+                ],
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+                    borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _sortByAdm ? Icons.tag_rounded : Icons.sort_by_alpha_rounded,
+                        size: 14,
+                        color: cs.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _sortByAdm ? 'Adm Number' : 'Name',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: cs.onSurface,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(Icons.arrow_drop_down_rounded, size: 16, color: cs.onSurfaceVariant),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
 
         // ── List ───────────────────────────────────────────────────────
         Expanded(
-          child: rows.isEmpty
+          child: sortedRows.isEmpty
               ? _buildNoResults(cs)
               : ListView.builder(
                   padding: const EdgeInsets.only(top: 4, bottom: 24),
-                  itemCount: rows.length,
+                  itemCount: sortedRows.length,
                   itemBuilder: (context, index) {
-                    return _buildStudentItem(cs, rows[index], isDark);
+                    return _buildStudentItem(cs, sortedRows[index], isDark);
                   },
                 ),
         ),

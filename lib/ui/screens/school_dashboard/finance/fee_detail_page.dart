@@ -5,15 +5,18 @@ import '../../../../services/authorization_service.dart';
 import '../../../../core/formatters.dart';
 import '../../../../database/database.dart';
 import '../../../../database/daos/finance_dao.dart';
+import '../../../../database/daos/academics_dao.dart';
 import '../../../../models/membership.dart';
 import '../../../../models/permissions.dart';
 import '../../../../models/school_config.dart';
 import '../../../../models/school_context.dart';
+import '../../../../models/grade_analytics.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/active_term_provider.dart';
 import '../../../widgets/permission_denied_handler.dart';
 import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_empty_state.dart';
+import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/edu_tab_bar.dart';
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -144,6 +147,23 @@ class _FeeDetailPageState extends State<FeeDetailPage>
     final accountId = cache.currentUser?.user.id;
     if (accountId == null) return;
 
+    final result = await showEduSheet<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => _InvoiceGenerationPreviewSheet(
+        fee: item.fee,
+        feeAmount: item.fee.amount,
+        schoolId: item.fee.school,
+        year: item.fee.year,
+        term: item.fee.term,
+        grade: item.fee.grade,
+      ),
+    );
+
+    if (result == null) return;
+
+    final selectedAdms = result['selectedAdms'] as List<int>;
+    final discounts = result['discounts'] as Map<int, double>;
+
     int counter = 0;
     try {
       final count = await widget.dao.generateInvoicesFromFee(
@@ -153,6 +173,8 @@ class _FeeDetailPageState extends State<FeeDetailPage>
           return '${item.fee.id}_inv_${DateTime.now().millisecondsSinceEpoch}_$counter';
         },
         accountId: accountId,
+        selectedStudentAdms: selectedAdms,
+        discounts: discounts,
       );
 
       if (context.mounted) {
@@ -161,7 +183,7 @@ class _FeeDetailPageState extends State<FeeDetailPage>
             content: Text(
               count > 0
                   ? 'Generated $count invoice${count == 1 ? '' : 's'}'
-                  : 'All enrolled students already have invoices for this fee',
+                  : 'All selected students already have invoices for this fee',
             ),
             behavior: SnackBarBehavior.floating,
           ),
@@ -853,3 +875,300 @@ String _resolveGradeLabel(int grade) {
 /// Thin adapter: epoch-seconds → formatted date via shared [fmtDateDt].
 String _fmtDateFromEpoch(int epochSeconds) =>
     fmtDateDt(DateTime.fromMillisecondsSinceEpoch(epochSeconds * 1000));
+
+class _InvoiceGenerationPreviewSheet extends StatefulWidget {
+  const _InvoiceGenerationPreviewSheet({
+    required this.fee,
+    required this.feeAmount,
+    required this.schoolId,
+    required this.year,
+    required this.term,
+    required this.grade,
+  });
+
+  final Fee fee;
+  final double feeAmount;
+  final String schoolId;
+  final int year;
+  final int term;
+  final int grade;
+
+  @override
+  State<_InvoiceGenerationPreviewSheet> createState() =>
+      __InvoiceGenerationPreviewSheetState();
+}
+
+class __InvoiceGenerationPreviewSheetState
+    extends State<_InvoiceGenerationPreviewSheet> {
+  final _academicsDao = AcademicsDao(db);
+  late final Stream<List<GradeStudentRow>> _studentsStream;
+
+  // Track checked state and discounts
+  final Set<int> _selectedStudents = {};
+  final Map<int, double> _discounts = {};
+  final Map<int, TextEditingController> _controllers = {};
+  bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _studentsStream = _academicsDao.watchStudentsForGrade(
+      schoolId: widget.schoolId,
+      year: widget.year,
+      term: widget.term,
+      grade: widget.grade,
+    );
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  void _initializeStudents(List<GradeStudentRow> students) {
+    if (_initialized) return;
+    for (final s in students) {
+      final adm = s.student.adm;
+      _selectedStudents.add(adm);
+      final controller = TextEditingController();
+      controller.addListener(() {
+        final val = double.tryParse(controller.text) ?? 0.0;
+        setState(() {
+          _discounts[adm] = val;
+        });
+      });
+      _controllers[adm] = controller;
+    }
+    _initialized = true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return EduSheet(
+      title: 'Generate Invoices',
+      child: StreamBuilder<List<GradeStudentRow>>(
+        stream: _studentsStream,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const SizedBox(
+              height: 200,
+              child: Center(
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              ),
+            );
+          }
+
+          if (snapshot.hasError) {
+            return SizedBox(
+              height: 200,
+              child: Center(
+                child: Text(
+                  'Error loading students: ${snapshot.error}',
+                  style: TextStyle(color: cs.error),
+                ),
+              ),
+            );
+          }
+
+          final students = snapshot.data ?? [];
+          if (students.isEmpty) {
+            return SizedBox(
+              height: 200,
+              child: Center(
+                child: Text(
+                  'No students enrolled in this grade.',
+                  style: TextStyle(color: cs.onSurfaceVariant),
+                ),
+              ),
+            );
+          }
+
+          _initializeStudents(students);
+
+          final totalSelected = _selectedStudents.length;
+          final allSelected = totalSelected == students.length;
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header actions: Select All toggle
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Select Students ($totalSelected/${students.length})',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                    TextButton.icon(
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          if (allSelected) {
+                            _selectedStudents.clear();
+                          } else {
+                            _selectedStudents.addAll(students.map((s) => s.student.adm));
+                          }
+                        });
+                      },
+                      icon: Icon(
+                        allSelected ? Icons.deselect_rounded : Icons.select_all_rounded,
+                        size: 16,
+                      ),
+                      label: Text(allSelected ? 'Uncheck All' : 'Check All'),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+
+              // Student List
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: students.length,
+                  separatorBuilder: (context, index) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final s = students[index];
+                    final adm = s.student.adm;
+                    final isChecked = _selectedStudents.contains(adm);
+                    final discount = _discounts[adm] ?? 0.0;
+                    final finalAmount = (widget.feeAmount - discount).clamp(0.0, double.infinity);
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Row(
+                        children: [
+                          Checkbox(
+                            value: isChecked,
+                            onChanged: (val) {
+                              setState(() {
+                                if (val == true) {
+                                  _selectedStudents.add(adm);
+                                } else {
+                                  _selectedStudents.remove(adm);
+                                }
+                              });
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  s.student.name,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: isChecked ? cs.onSurface : cs.onSurfaceVariant.withValues(alpha: 0.6),
+                                  ),
+                                ),
+                                Text(
+                                  'Adm #$adm',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                                  ),
+                                ),
+                                if (isChecked) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Net Invoice: ${fmtCurrency(finalAmount)}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: finalAmount < widget.feeAmount ? cs.primary : cs.onSurface,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          // Discount input field
+                          if (isChecked)
+                            SizedBox(
+                              width: 100,
+                              child: TextField(
+                                controller: _controllers[adm],
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                style: const TextStyle(fontSize: 12.5),
+                                decoration: InputDecoration(
+                                  labelText: 'Discount',
+                                  prefixText: 'Ksh ',
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const Divider(height: 1),
+
+              // Bottom Actions
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Generating $totalSelected invoice${totalSelected == 1 ? "" : "s"}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: cs.primary,
+                        foregroundColor: cs.onPrimary,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                        ),
+                      ),
+                      onPressed: totalSelected > 0
+                          ? () {
+                              Navigator.of(context).pop({
+                                'selectedAdms': _selectedStudents.toList(),
+                                'discounts': _discounts,
+                              });
+                            }
+                          : null,
+                      child: const Text('Confirm & Generate'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}

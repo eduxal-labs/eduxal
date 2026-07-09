@@ -33,6 +33,7 @@ class StudentsTab extends StatefulWidget {
 class _StudentsTabState extends State<StudentsTab> {
   final _searchCtrl = TextEditingController();
   String _query = '';
+  bool _sortByAdm = true; // Default sorting: true (Adm primary), false (Name secondary)
 
   @override
   void dispose() {
@@ -42,6 +43,8 @@ class _StudentsTabState extends State<StudentsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return StreamBuilder<List<StudentsData>>(
       stream: widget.dao.watchAllStudents(widget.schoolId),
       builder: (context, snapshot) {
@@ -60,75 +63,162 @@ class _StudentsTabState extends State<StudentsTab> {
 
         // Apply search filter by name or admission number
         final filtered = _query.isEmpty
-            ? list
+            ? List<StudentsData>.from(list)
             : list.where((s) {
                 final q = _query.toLowerCase();
                 return s.name.toLowerCase().contains(q) ||
                     s.adm.toString().contains(q);
               }).toList();
 
-        return FlatMemberList(
-          searchController: _searchCtrl,
-          searchHint: 'Search by name or ADM…',
-          onSearchChanged: (v) => setState(() => _query = v.trim()),
-          itemCount: filtered.length,
-          itemBuilder: (context, i) {
-            final s = filtered[i];
-            final row = _StudentRow(
-              schoolId: widget.schoolId,
-              student: s,
-              canDelete: _canDelete,
-              schoolContext: widget.schoolContext,
-            );
-            final isMobile = MediaQuery.sizeOf(context).width < 600;
-            if (!isMobile || !_canDelete) return row;
-            return Dismissible(
-              key: ValueKey('student_${s.adm}'),
-              direction: DismissDirection.endToStart,
-              background: Container(
-                alignment: Alignment.centerRight,
-                padding: const EdgeInsets.only(right: 16),
-                color: Colors.red.withValues(alpha: 0.15),
-                child: const Icon(
-                  Icons.delete_outline_rounded,
-                  color: Colors.red,
-                  size: 20,
-                ),
-              ),
-              confirmDismiss: (_) async {
-                final confirmed = await showEduConfirmDialog(
-                  context: context,
-                  title: 'Delete "${s.name}"?',
-                  message: 'This will permanently delete the student record.',
-                  confirmLabel: 'Delete',
-                  isDestructive: true,
-                );
-                if (!confirmed || !context.mounted) return false;
-                final service = MemberManagementService(MembersDao(db));
-                final result = await service.changeStudentStatus(
-                  schoolId: widget.schoolId,
-                  adm: s.adm,
-                  status: StudentStatus.deleted,
-                );
-                if (!context.mounted) return false;
-                switch (result) {
-                  case Ok():
-                    break;
-                  case Err(error: PermissionDenied(:final reason)):
-                    showPermissionDenied(context, reason);
-                  case Err(:final error):
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Failed to delete student: $error'),
-                        behavior: SnackBarBehavior.floating,
+        // Apply sorting: default is ADM (ascending), secondary is Name (alphabetical)
+        if (_sortByAdm) {
+          filtered.sort((a, b) => a.adm.compareTo(b.adm));
+        } else {
+          filtered.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        }
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${filtered.length} Student${filtered.length == 1 ? "" : "s"}',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w500,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                  PopupMenuButton<bool>(
+                    initialValue: _sortByAdm,
+                    onSelected: (val) {
+                      setState(() {
+                        _sortByAdm = val;
+                      });
+                    },
+                    itemBuilder: (ctx) => [
+                      PopupMenuItem(
+                        value: true,
+                        child: Row(
+                          children: [
+                            Icon(Icons.tag_rounded, size: 16, color: _sortByAdm ? cs.primary : cs.onSurfaceVariant),
+                            const SizedBox(width: 8),
+                            const Text('Sort by Adm Number (Default)'),
+                          ],
+                        ),
                       ),
-                    );
-                }
-                return false; // Stream rebuild handles visual removal
-              },
-              child: row,
-            );
-          },
+                      PopupMenuItem(
+                        value: false,
+                        child: Row(
+                          children: [
+                            Icon(Icons.sort_by_alpha_rounded, size: 16, color: !_sortByAdm ? cs.primary : cs.onSurfaceVariant),
+                            const SizedBox(width: 8),
+                            const Text('Sort Alphabetically'),
+                          ],
+                        ),
+                      ),
+                    ],
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+                        borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _sortByAdm ? Icons.tag_rounded : Icons.sort_by_alpha_rounded,
+                            size: 14,
+                            color: cs.primary,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _sortByAdm ? 'Adm Number' : 'Name',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: cs.onSurface,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(Icons.arrow_drop_down_rounded, size: 16, color: cs.onSurfaceVariant),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: FlatMemberList(
+                searchController: _searchCtrl,
+                searchHint: 'Search by name or ADM…',
+                onSearchChanged: (v) => setState(() => _query = v.trim()),
+                itemCount: filtered.length,
+                itemBuilder: (context, i) {
+                  final s = filtered[i];
+                  final row = _StudentRow(
+                    schoolId: widget.schoolId,
+                    student: s,
+                    canDelete: _canDelete,
+                    schoolContext: widget.schoolContext,
+                  );
+                  final isMobile = MediaQuery.sizeOf(context).width < 600;
+                  if (!isMobile || !_canDelete) return row;
+                  return Dismissible(
+                    key: ValueKey('student_${s.adm}'),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 16),
+                      color: Colors.red.withValues(alpha: 0.15),
+                      child: const Icon(
+                        Icons.delete_outline_rounded,
+                        color: Colors.red,
+                        size: 20,
+                      ),
+                    ),
+                    confirmDismiss: (_) async {
+                      final confirmed = await showEduConfirmDialog(
+                        context: context,
+                        title: 'Delete "${s.name}"?',
+                        message: 'This will permanently delete the student record.',
+                        confirmLabel: 'Delete',
+                        isDestructive: true,
+                      );
+                      if (!confirmed || !context.mounted) return false;
+                      final service = MemberManagementService(MembersDao(db));
+                      final result = await service.changeStudentStatus(
+                        schoolId: widget.schoolId,
+                        adm: s.adm,
+                        status: StudentStatus.deleted,
+                      );
+                      if (!context.mounted) return false;
+                      switch (result) {
+                        case Ok():
+                          break;
+                        case Err(error: PermissionDenied(:final reason)):
+                          showPermissionDenied(context, reason);
+                        case Err(:final error):
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed to delete student: $error'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                      }
+                      return false; // Stream rebuild handles visual removal
+                    },
+                    child: row,
+                  );
+                },
+              ),
+            ),
+          ],
         );
       },
     );

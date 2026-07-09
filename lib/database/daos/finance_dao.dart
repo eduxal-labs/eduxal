@@ -970,24 +970,31 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
     required Fee fee,
     required String Function() generateId,
     required String accountId,
+    List<int>? selectedStudentAdms,
+    Map<int, double>? discounts,
   }) async {
     final count = await transaction(() async {
-      // Cross-reference with enrollments table to get students in this grade.
-      final enrolledStudents = await customSelect(
-        'SELECT DISTINCT e.student FROM enrollments e '
-        'WHERE e.school = ? AND e.year = ? AND e.term = ? AND e.grade = ?',
-        variables: [
-          Variable.withString(fee.school),
-          Variable.withInt(fee.year),
-          Variable.withInt(fee.term),
-          Variable.withInt(fee.grade),
-        ],
-        readsFrom: {},
-      ).get();
+      Set<int> studentAdms;
+      if (selectedStudentAdms != null) {
+        studentAdms = selectedStudentAdms.toSet();
+      } else {
+        // Cross-reference with enrollments table to get students in this grade.
+        final enrolledStudents = await customSelect(
+          'SELECT DISTINCT e.student FROM enrollments e '
+          'WHERE e.school = ? AND e.year = ? AND e.term = ? AND e.grade = ?',
+          variables: [
+            Variable.withString(fee.school),
+            Variable.withInt(fee.year),
+            Variable.withInt(fee.term),
+            Variable.withInt(fee.grade),
+          ],
+          readsFrom: {},
+        ).get();
 
-      final studentAdms = enrolledStudents
-          .map((r) => r.read<int>('student'))
-          .toSet();
+        studentAdms = enrolledStudents
+            .map((r) => r.read<int>('student'))
+            .toSet();
+      }
 
       int count = 0;
       for (final adm in studentAdms) {
@@ -1003,6 +1010,9 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
 
         if (existing != null) continue; // already invoiced
 
+        final discount = discounts?[adm] ?? 0.0;
+        final finalAmount = (fee.amount - discount).clamp(0.0, double.infinity);
+
         final id = generateId();
         await createInvoice(
           id: id,
@@ -1011,7 +1021,7 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
           term: fee.term,
           feeId: fee.id,
           studentAdm: adm,
-          amount: fee.amount,
+          amount: finalAmount,
           due: fee.due,
           accountId: accountId,
         );
@@ -1239,7 +1249,7 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
         // Auth check for update path — before any write.
         final authResult = await authorization.check(
           action: SyncAction.updateDiscount,
-          schoolId: null,
+          schoolId: schoolId,
           recordId: null,
         );
         if (!authResult.allowed) throw PermissionException(authResult.reason!);
@@ -1282,7 +1292,7 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
         // Auth check for create path — before any write.
         final authResult = await authorization.check(
           action: SyncAction.createDiscount,
-          schoolId: null,
+          schoolId: schoolId,
           recordId: null,
         );
         if (!authResult.allowed) throw PermissionException(authResult.reason!);
@@ -1335,7 +1345,7 @@ class FinanceDao extends DatabaseAccessor<AppDatabase> with _$FinanceDaoMixin {
   }) async {
     final authResult = await authorization.check(
       action: SyncAction.deleteDiscount,
-      schoolId: null,
+      schoolId: schoolId,
       recordId: null,
     );
     if (!authResult.allowed) throw PermissionException(authResult.reason!);
