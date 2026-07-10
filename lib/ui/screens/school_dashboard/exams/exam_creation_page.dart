@@ -62,8 +62,9 @@ class _PaperScheduleRow {
   int? durationMinutes; // auto-computed from start/end
   String? invigilatorId;
   String? invigilatorName;
+  int? paperNumber; // null = single paper, 1, 2, 3 for Paper 1, 2, 3
 
-  _PaperScheduleRow();
+  _PaperScheduleRow({this.paperNumber});
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -402,7 +403,7 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
               school: Value(widget.schoolId),
               exam: Value(eventId),
               subject: Value(row.subjectId!),
-              paper: const Value(null),
+              paper: Value(row.paperNumber),
               invigilator: Value(invigilatorId),
               start: Value(BigInt.from(startSecs)),
               end: Value(BigInt.from(endSecs)),
@@ -499,6 +500,29 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
     );
   }
 
+  Future<void> _showAutomatedSetupDialog(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _AutomatedSetupSheet(
+        allGrades: _allGrades,
+        gradeLabel: _gradeLabel,
+        subjectsForGrade: _subjectsForGrade,
+        examStartDate: _draft.startDate,
+        existingPapersCount: _papers.length,
+        onGenerated: (papers) {
+          setState(() {
+            _papers
+              ..clear()
+              ..addAll(papers);
+            _rowErrors.clear();
+          });
+        },
+      ),
+    );
+  }
+
   // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
@@ -567,6 +591,7 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
                       ..addAll(shifted);
                   }),
                   onPaperChanged: (i) => setState(() => _rowErrors.remove(i)),
+                  onAutomateSetup: () => _showAutomatedSetupDialog(context),
                 ),
                 // Step 3 — Syllabus Coverage
                 _SyllabusCoverageStep(
@@ -952,6 +977,7 @@ class _SchedulePapersStep extends StatelessWidget {
     required this.onAddPaper,
     required this.onRemovePaper,
     required this.onPaperChanged,
+    required this.onAutomateSetup,
   });
 
   final List<_PaperScheduleRow> papers;
@@ -967,6 +993,7 @@ class _SchedulePapersStep extends StatelessWidget {
   final VoidCallback onAddPaper;
   final void Function(int) onRemovePaper;
   final void Function(int) onPaperChanged;
+  final VoidCallback onAutomateSetup;
 
   @override
   Widget build(BuildContext context) {
@@ -975,6 +1002,66 @@ class _SchedulePapersStep extends StatelessWidget {
 
     return CustomScrollView(
       slivers: [
+        // Premium Auto Setup banner
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cs.primaryContainer.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                border: Border.all(
+                  color: cs.primary.withValues(alpha: 0.25),
+                  width: 0.8,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.auto_awesome, color: cs.primary, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Tedious to add papers manually?',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: cs.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Let the system auto-generate all papers with customizable settings.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.85),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: cs.primary,
+                      foregroundColor: cs.onPrimary,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: onAutomateSetup,
+                    icon: const Icon(Icons.flash_on, size: 14),
+                    label: const Text('Auto Setup', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
         // Empty state
         if (papers.isEmpty)
           SliverToBoxAdapter(
@@ -1226,11 +1313,17 @@ class _PaperScheduleCard extends StatelessWidget {
               // ── Header ─────────────────────────────────────────────────
               Row(
                 children: [
-                  Text(
-                    'Paper ${index + 1}',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+                  Expanded(
+                    child: Text(
+                      row.subjectId != null
+                          ? '${row.subjectName ?? ""}${row.paperNumber != null ? " - Paper ${row.paperNumber}" : ""}'
+                          : 'Paper ${index + 1}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   if (row.durationMinutes != null) ...[
@@ -1301,24 +1394,43 @@ class _PaperScheduleCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
 
-              // ── Subject ────────────────────────────────────────────────
-              _FieldBlock(
-                label: 'Subject',
-                child: _SubjectDropdown(
-                  value: row.subjectId,
-                  subjects: subjects,
-                  gradeSelected: row.grade != null,
-                  cs: cs,
-                  isDark: isDark,
-                  onChanged: (id) {
-                    if (id == null) return;
-                    final name = subjects.firstWhere((s) => s.id == id).name;
-                    _mutate(() {
-                      row.subjectId = id;
-                      row.subjectName = name;
-                    });
-                  },
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: _FieldBlock(
+                      label: 'Subject',
+                      child: _SubjectDropdown(
+                        value: row.subjectId,
+                        subjects: subjects,
+                        gradeSelected: row.grade != null,
+                        cs: cs,
+                        isDark: isDark,
+                        onChanged: (id) {
+                          if (id == null) return;
+                          final name = subjects.firstWhere((s) => s.id == id).name;
+                          _mutate(() {
+                            row.subjectId = id;
+                            row.subjectName = name;
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 2,
+                    child: _FieldBlock(
+                      label: 'Paper Type',
+                      child: _PaperNumberDropdown(
+                        value: row.paperNumber,
+                        cs: cs,
+                        isDark: isDark,
+                        onChanged: (n) => _mutate(() => row.paperNumber = n),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
 
@@ -1465,8 +1577,8 @@ class _TimetablePreview extends StatelessWidget {
             d.month == row.date!.month &&
             d.day == row.date!.day,
       );
-      if (gi < 0 || di < 0) continue;
-      cellData.putIfAbsent((gi, di), () => []).add(row.subjectName ?? '?');
+      final pNumStr = row.paperNumber != null ? ' (P${row.paperNumber})' : '';
+      cellData.putIfAbsent((gi, di), () => []).add('${row.subjectName ?? "?"}$pNumStr');
     }
 
     const labelW = 76.0;
@@ -3133,7 +3245,9 @@ class _ReviewStep extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  row.subjectName ?? '—',
+                  row.subjectId != null
+                      ? '${row.subjectName ?? ""}${row.paperNumber != null ? " - Paper ${row.paperNumber}" : ""}'
+                      : '—',
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -3399,6 +3513,549 @@ class _ConfirmStep extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Paper Number Dropdown and Automated Setup
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PaperNumberDropdown extends StatelessWidget {
+  const _PaperNumberDropdown({
+    required this.value,
+    required this.onChanged,
+    required this.cs,
+    required this.isDark,
+  });
+
+  final int? value;
+  final ValueChanged<int?> onChanged;
+  final ColorScheme cs;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return _DropdownBox(
+      cs: cs,
+      isDark: isDark,
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int?>(
+          value: value,
+          dropdownColor: AppTheme.overlayBg(isDark, cs),
+          isExpanded: true,
+          isDense: true,
+          style: TextStyle(
+            color: cs.onSurface,
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+          ),
+          items: [
+            const DropdownMenuItem<int?>(
+              value: null,
+              child: Text('Single'),
+            ),
+            ...[1, 2, 3].map(
+              (n) => DropdownMenuItem<int?>(
+                value: n,
+                child: Text('Paper $n'),
+              ),
+            ),
+          ],
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+}
+
+class _AutomatedSetupSheet extends StatefulWidget {
+  const _AutomatedSetupSheet({
+    required this.allGrades,
+    required this.gradeLabel,
+    required this.subjectsForGrade,
+    this.examStartDate,
+    required this.existingPapersCount,
+    required this.onGenerated,
+  });
+
+  final List<GradeConfig> allGrades;
+  final String Function(int) gradeLabel;
+  final List<Subject> Function(int?) subjectsForGrade;
+  final DateTime? examStartDate;
+  final int existingPapersCount;
+  final ValueChanged<List<_PaperScheduleRow>> onGenerated;
+
+  @override
+  State<_AutomatedSetupSheet> createState() => _AutomatedSetupSheetState();
+}
+
+class _AutomatedSetupSheetState extends State<_AutomatedSetupSheet> {
+  final Set<int> _selectedGrades = {};
+  int _selectedDurationMinutes = 120; // Default: 2 hours
+
+  bool _splitLanguages = true;
+  bool _splitMath = true;
+  bool _splitSciences = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedGrades.addAll(widget.allGrades.map((g) => g.grade));
+  }
+
+  void _selectAll() {
+    setState(() {
+      _selectedGrades.addAll(widget.allGrades.map((g) => g.grade));
+    });
+  }
+
+  void _selectNone() {
+    setState(() {
+      _selectedGrades.clear();
+    });
+  }
+
+  TimeOfDay _addMinutes(TimeOfDay base, int minutes) {
+    final totalMinutes = base.hour * 60 + base.minute + minutes;
+    final hour = (totalMinutes ~/ 60) % 24;
+    final minute = totalMinutes % 60;
+    return TimeOfDay(hour: hour, minute: minute);
+  }
+
+  void _generate() {
+    if (_selectedGrades.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select at least one grade.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    DateTime currentDate = widget.examStartDate ?? DateTime.now();
+    final sessionStarts = [
+      const TimeOfDay(hour: 8, minute: 30),
+      const TimeOfDay(hour: 11, minute: 30),
+      const TimeOfDay(hour: 14, minute: 30),
+    ];
+
+    int sessionIndex = 0;
+
+    final Map<String, List<({int grade, Subject subject})>> subjectGroups = {};
+    for (final grade in _selectedGrades) {
+      final subjects = widget.subjectsForGrade(grade);
+      for (final subject in subjects) {
+        final key = subject.name.trim().toLowerCase();
+        subjectGroups.putIfAbsent(key, () => []).add((grade: grade, subject: subject));
+      }
+    }
+
+    final sortedKeys = subjectGroups.keys.toList()..sort();
+    final List<_PaperScheduleRow> generatedPapers = [];
+
+    for (final key in sortedKeys) {
+      final group = subjectGroups[key]!;
+      if (group.isEmpty) continue;
+
+      int numPapers = 1;
+      final isLanguage = key.contains('english') ||
+          key.contains('kiswahili') ||
+          key.contains('lugha') ||
+          key.contains('fasihi') ||
+          key.contains('language') ||
+          key.contains('composition') ||
+          key.contains('insha');
+
+      final isMath = key.contains('math') || key.contains('hesabu');
+
+      final isScience = key.contains('chem') ||
+          key.contains('phys') ||
+          key.contains('bio') ||
+          key.contains('science');
+
+      if (isLanguage && _splitLanguages) {
+        numPapers = 3;
+      } else if (isMath && _splitMath) {
+        numPapers = 2;
+      } else if (isScience && _splitSciences) {
+        numPapers = 3;
+      }
+
+      for (int p = 1; p <= numPapers; p++) {
+        while (currentDate.weekday == DateTime.sunday) {
+          currentDate = currentDate.add(const Duration(days: 1));
+        }
+
+        final startTime = sessionStarts[sessionIndex];
+        final endTime = _addMinutes(startTime, _selectedDurationMinutes);
+
+        for (final item in group) {
+          final row = _PaperScheduleRow(paperNumber: numPapers > 1 ? p : null)
+            ..grade = item.grade
+            ..subjectId = item.subject.id
+            ..subjectName = item.subject.name
+            ..date = currentDate
+            ..startTime = startTime
+            ..endTime = endTime
+            ..durationMinutes = _selectedDurationMinutes;
+          generatedPapers.add(row);
+        }
+
+        sessionIndex++;
+        if (sessionIndex >= 3) {
+          sessionIndex = 0;
+          currentDate = currentDate.add(const Duration(days: 1));
+        }
+      }
+    }
+
+    widget.onGenerated(generatedPapers);
+    Navigator.of(context).pop();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Successfully scheduled ${generatedPapers.length} papers!'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _confirmAndGenerate() {
+    if (widget.existingPapersCount > 0) {
+      showDialog<bool>(
+        context: context,
+        builder: (dialogCtx) {
+          final dCs = Theme.of(dialogCtx).colorScheme;
+          return AlertDialog(
+            title: const Text('Overwrite Scheduled Papers?'),
+            content: Text(
+              'You already have ${widget.existingPapersCount} manually added paper(s). '
+              'Generating a new automated schedule will replace them completely. Are you sure you want to continue?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogCtx).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: dCs.error),
+                onPressed: () => Navigator.of(dialogCtx).pop(true),
+                child: const Text('Overwrite'),
+              ),
+            ],
+          );
+        },
+      ).then((confirmed) {
+        if (confirmed == true) {
+          _generate();
+        }
+      });
+    } else {
+      _generate();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
+    final viewInsets = MediaQuery.of(context).viewInsets;
+
+    final durationPresets = [
+      (label: '1h', mins: 60),
+      (label: '1h 30m', mins: 90),
+      (label: '2h', mins: 120),
+      (label: '2h 30m', mins: 150),
+      (label: '3h', mins: 180),
+    ];
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + viewInsets.bottom),
+      decoration: BoxDecoration(
+        color: AppTheme.modalBg(isDark, cs),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Icon(Icons.auto_awesome, color: cs.primary, size: 24),
+                const SizedBox(width: 8),
+                Text(
+                  'Automated Paper Setup',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Instantly schedule all subject papers aligned across classes to create a beautiful, synchronized exam timetable.',
+              style: TextStyle(
+                fontSize: 12,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const _SectionHeader(title: '1. Select Target Grades'),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                TextButton.icon(
+                  onPressed: _selectAll,
+                  icon: const Icon(Icons.select_all_rounded, size: 16),
+                  label: const Text('Select All', style: TextStyle(fontSize: 12)),
+                ),
+                TextButton.icon(
+                  onPressed: _selectNone,
+                  icon: const Icon(Icons.deselect_rounded, size: 16),
+                  label: const Text('Deselect All', style: TextStyle(fontSize: 12)),
+                ),
+              ],
+            ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: widget.allGrades.map((gc) {
+                final isSelected = _selectedGrades.contains(gc.grade);
+                return FilterChip(
+                  label: Text(
+                    widget.gradeLabel(gc.grade),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    setState(() {
+                      if (selected) {
+                        _selectedGrades.add(gc.grade);
+                      } else {
+                        _selectedGrades.remove(gc.grade);
+                      }
+                    });
+                  },
+                  selectedColor: cs.primary.withValues(alpha: 0.15),
+                  checkmarkColor: cs.primary,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 20),
+            const _SectionHeader(title: '2. Default Paper Duration'),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: durationPresets.map((p) {
+                final isSelected = _selectedDurationMinutes == p.mins;
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: InkWell(
+                      onTap: () => setState(() => _selectedDurationMinutes = p.mins),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? cs.primary
+                              : cs.surfaceContainerLowest,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isSelected
+                                ? cs.primary
+                                : AppTheme.borderColor(isDark, cs),
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            p.label,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              color: isSelected ? cs.onPrimary : cs.onSurface,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 20),
+            const _SectionHeader(title: '3. Multi-Paper Rules'),
+            const SizedBox(height: 4),
+            Text(
+              'Some subjects are divided into multiple papers for exam-standard grading. Choose which to split:',
+              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+            _RuleSwitchTile(
+              title: 'Split Languages (Paper 1, 2, 3)',
+              subtitle: 'English & Kiswahili compositions, grammar, and literature.',
+              value: _splitLanguages,
+              onChanged: (val) => setState(() => _splitLanguages = val),
+              cs: cs,
+            ),
+            const SizedBox(height: 8),
+            _RuleSwitchTile(
+              title: 'Split Mathematics (Paper 1, 2)',
+              subtitle: 'Mathematics is divided into Paper 1 and Paper 2.',
+              value: _splitMath,
+              onChanged: (val) => setState(() => _splitMath = val),
+              cs: cs,
+            ),
+            const SizedBox(height: 8),
+            _RuleSwitchTile(
+              title: 'Split Sciences (Paper 1, 2, 3)',
+              subtitle: 'Biology, Chemistry & Physics theories + practicals.',
+              value: _splitSciences,
+              onChanged: (val) => setState(() => _splitSciences = val),
+              cs: cs,
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                      ),
+                    ),
+                    child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _confirmAndGenerate,
+                    icon: const Icon(Icons.flash_on, size: 16),
+                    label: const Text('Generate Timetable', style: TextStyle(fontWeight: FontWeight.bold)),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: cs.primary,
+                      foregroundColor: cs.onPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title});
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Text(
+      title,
+      style: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.bold,
+        color: cs.primary,
+        letterSpacing: 0.3,
+      ),
+    );
+  }
+}
+
+class _RuleSwitchTile extends StatelessWidget {
+  const _RuleSwitchTile({
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+    required this.cs,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeThumbColor: cs.primary,
+          ),
+        ],
       ),
     );
   }
