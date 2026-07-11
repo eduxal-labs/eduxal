@@ -18,6 +18,7 @@ import '../../../widgets/edu_confirm_dialog.dart';
 import '../../../widgets/edu_sheet.dart';
 import '../../../widgets/user_avatar.dart';
 import 'members_shared.dart';
+import 'teacher_excel_import_sheet.dart';
 
 class TeachersTab extends StatefulWidget {
   const TeachersTab({
@@ -110,6 +111,24 @@ class _TeachersTabState extends State<TeachersTab> {
           searchController: _searchCtrl,
           searchHint: 'Search teachers…',
           onSearchChanged: (v) => setState(() => _query = v.trim()),
+          searchActions: [
+            IconButton(
+              icon: const Icon(Icons.upload_file_outlined),
+              tooltip: 'Import from Excel',
+              onPressed: () {
+                showEduSheet(
+                  context: context,
+                  builder: (ctx) => TeacherExcelImportSheet(
+                    schoolId: widget.schoolId,
+                  ),
+                );
+              },
+              style: IconButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                padding: const EdgeInsets.all(8),
+              ),
+            ),
+          ],
           itemCount: filtered.length,
           itemBuilder: (context, i) {
             final t = filtered[i];

@@ -788,6 +788,7 @@ class FlatMemberList extends StatelessWidget {
     this.searchController,
     this.searchHint,
     this.onSearchChanged,
+    this.searchActions,
   });
 
   final int itemCount;
@@ -795,6 +796,7 @@ class FlatMemberList extends StatelessWidget {
   final TextEditingController? searchController;
   final String? searchHint;
   final ValueChanged<String>? onSearchChanged;
+  final List<Widget>? searchActions;
 
   @override
   Widget build(BuildContext context) {
@@ -807,99 +809,109 @@ class FlatMemberList extends StatelessWidget {
         if (searchController != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-            child: SizedBox(
-              height: 38,
-              child: ValueListenableBuilder<TextEditingValue>(
-                valueListenable: searchController!,
-                builder: (context, value, _) {
-                  return TextField(
-                    controller: searchController,
-                    onChanged: onSearchChanged,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400,
-                      color: cs.onSurface,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: searchHint ?? 'Search…',
-                      hintStyle: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w300,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                      ),
-                      prefixIcon: Padding(
-                        padding: const EdgeInsets.only(left: 10, right: 6),
-                        child: Icon(
-                          Icons.search_rounded,
-                          size: 18,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      prefixIconConstraints: const BoxConstraints(
-                        minWidth: 38,
-                        minHeight: 38,
-                      ),
-                      suffixIcon: value.text.isNotEmpty
-                          ? GestureDetector(
-                              onTap: () {
-                                searchController!.clear();
-                                onSearchChanged?.call('');
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: Icon(
-                                  Icons.close_rounded,
-                                  size: 16,
-                                  color: cs.onSurfaceVariant.withValues(
-                                    alpha: 0.5,
-                                  ),
-                                ),
-                              ),
-                            )
-                          : null,
-                      suffixIconConstraints: const BoxConstraints(
-                        minWidth: 32,
-                        minHeight: 38,
-                      ),
-                      filled: true,
-                      fillColor: isDark
-                          ? cs.surfaceContainerHighest.withValues(alpha: 0.3)
-                          : cs.surfaceContainerHighest.withValues(alpha: 0.5),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(
-                          AppTheme.kCardRadius,
-                        ),
-                        borderSide: BorderSide.none,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(
-                          AppTheme.kCardRadius,
-                        ),
-                        borderSide: BorderSide(
-                          color: cs.outlineVariant.withValues(
-                            alpha: isDark ? 0.2 : 0.3,
+            child: Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 38,
+                    child: ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: searchController!,
+                      builder: (context, value, _) {
+                        return TextField(
+                          controller: searchController,
+                          onChanged: onSearchChanged,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            color: cs.onSurface,
                           ),
-                          width: 0.5,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(
-                          AppTheme.kCardRadius,
-                        ),
-                        borderSide: BorderSide(
-                          color: cs.primary.withValues(alpha: 0.5),
-                          width: 1.0,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 0,
-                      ),
-                      isDense: true,
+                          decoration: InputDecoration(
+                            hintText: searchHint ?? 'Search…',
+                            hintStyle: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w300,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                            ),
+                            prefixIcon: Padding(
+                              padding: const EdgeInsets.only(left: 10, right: 6),
+                              child: Icon(
+                                Icons.search_rounded,
+                                size: 18,
+                                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                              ),
+                            ),
+                            prefixIconConstraints: const BoxConstraints(
+                              minWidth: 38,
+                              minHeight: 38,
+                            ),
+                            suffixIcon: value.text.isNotEmpty
+                                ? GestureDetector(
+                                    onTap: () {
+                                      searchController!.clear();
+                                      onSearchChanged?.call('');
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: Icon(
+                                        Icons.close_rounded,
+                                        size: 16,
+                                        color: cs.onSurfaceVariant.withValues(
+                                          alpha: 0.5,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : null,
+                            suffixIconConstraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 38,
+                            ),
+                            filled: true,
+                            fillColor: isDark
+                                ? cs.surfaceContainerHighest.withValues(alpha: 0.3)
+                                : cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.kCardRadius,
+                              ),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.kCardRadius,
+                              ),
+                              borderSide: BorderSide(
+                                color: cs.outlineVariant.withValues(
+                                  alpha: isDark ? 0.2 : 0.3,
+                                ),
+                                width: 0.5,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.kCardRadius,
+                              ),
+                              borderSide: BorderSide(
+                                color: cs.primary.withValues(alpha: 0.5),
+                                width: 1.0,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 0,
+                            ),
+                            isDense: true,
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
+                  ),
+                ),
+                if (searchActions != null && searchActions!.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  ...searchActions!,
+                ],
+              ],
             ),
           ),
 
