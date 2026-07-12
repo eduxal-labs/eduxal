@@ -3635,91 +3635,165 @@ class _AutomatedSetupSheetState extends State<_AutomatedSetupSheet> {
       return;
     }
 
-    DateTime currentDate = widget.examStartDate ?? DateTime.now();
-    final sessionStarts = [
-      const TimeOfDay(hour: 8, minute: 30),
-      const TimeOfDay(hour: 11, minute: 30),
-      const TimeOfDay(hour: 14, minute: 30),
-    ];
+    try {
+      DateTime currentDate = widget.examStartDate ?? DateTime.now();
+      final sessionStarts = [
+        const TimeOfDay(hour: 8, minute: 30),
+        const TimeOfDay(hour: 11, minute: 30),
+        const TimeOfDay(hour: 14, minute: 30),
+      ];
 
-    int sessionIndex = 0;
+      int sessionIndex = 0;
 
-    final Map<String, List<({int grade, Subject subject})>> subjectGroups = {};
-    for (final grade in _selectedGrades) {
-      final subjects = widget.subjectsForGrade(grade);
-      for (final subject in subjects) {
-        final key = subject.name.trim().toLowerCase();
-        subjectGroups.putIfAbsent(key, () => []).add((grade: grade, subject: subject));
+      final Map<String, List<({int grade, Subject subject})>> subjectGroups = {};
+      for (final grade in _selectedGrades) {
+        final subjects = widget.subjectsForGrade(grade);
+        for (final subject in subjects) {
+          final key = subject.name.trim().toLowerCase();
+          subjectGroups.putIfAbsent(key, () => []).add((grade: grade, subject: subject));
+        }
       }
+
+      final sortedKeys = subjectGroups.keys.toList()..sort();
+      final List<_PaperScheduleRow> generatedPapers = [];
+
+      for (final key in sortedKeys) {
+        final group = subjectGroups[key]!;
+        if (group.isEmpty) continue;
+
+        int numPapers = 1;
+        final isLanguage = key.contains('english') ||
+            key.contains('kiswahili') ||
+            key.contains('lugha') ||
+            key.contains('fasihi') ||
+            key.contains('language') ||
+            key.contains('composition') ||
+            key.contains('insha');
+
+        final isMath = key.contains('math') || key.contains('hesabu');
+
+        final isScience = key.contains('chem') ||
+            key.contains('phys') ||
+            key.contains('bio') ||
+            key.contains('science');
+
+        if (isLanguage && _splitLanguages) {
+          numPapers = 3;
+        } else if (isMath && _splitMath) {
+          numPapers = 2;
+        } else if (isScience && _splitSciences) {
+          numPapers = 3;
+        }
+
+        for (int p = 1; p <= numPapers; p++) {
+          while (currentDate.weekday == DateTime.sunday) {
+            currentDate = currentDate.add(const Duration(days: 1));
+          }
+
+          final startTime = sessionStarts[sessionIndex];
+          final endTime = _addMinutes(startTime, _selectedDurationMinutes);
+
+          for (final item in group) {
+            final row = _PaperScheduleRow(paperNumber: numPapers > 1 ? p : null)
+              ..grade = item.grade
+              ..subjectId = item.subject.id
+              ..subjectName = item.subject.name
+              ..date = currentDate
+              ..startTime = startTime
+              ..endTime = endTime
+              ..durationMinutes = _selectedDurationMinutes;
+            generatedPapers.add(row);
+          }
+
+          sessionIndex++;
+          if (sessionIndex >= 3) {
+            sessionIndex = 0;
+            currentDate = currentDate.add(const Duration(days: 1));
+          }
+        }
+      }
+
+      widget.onGenerated(generatedPapers);
+      Navigator.of(context).pop();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Successfully scheduled ${generatedPapers.length} papers!'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e, stack) {
+      debugPrint('Error generating schedule: $e\n$stack');
+      _showErrorDialog(e, stack);
     }
+  }
 
-    final sortedKeys = subjectGroups.keys.toList()..sort();
-    final List<_PaperScheduleRow> generatedPapers = [];
-
-    for (final key in sortedKeys) {
-      final group = subjectGroups[key]!;
-      if (group.isEmpty) continue;
-
-      int numPapers = 1;
-      final isLanguage = key.contains('english') ||
-          key.contains('kiswahili') ||
-          key.contains('lugha') ||
-          key.contains('fasihi') ||
-          key.contains('language') ||
-          key.contains('composition') ||
-          key.contains('insha');
-
-      final isMath = key.contains('math') || key.contains('hesabu');
-
-      final isScience = key.contains('chem') ||
-          key.contains('phys') ||
-          key.contains('bio') ||
-          key.contains('science');
-
-      if (isLanguage && _splitLanguages) {
-        numPapers = 3;
-      } else if (isMath && _splitMath) {
-        numPapers = 2;
-      } else if (isScience && _splitSciences) {
-        numPapers = 3;
-      }
-
-      for (int p = 1; p <= numPapers; p++) {
-        while (currentDate.weekday == DateTime.sunday) {
-          currentDate = currentDate.add(const Duration(days: 1));
-        }
-
-        final startTime = sessionStarts[sessionIndex];
-        final endTime = _addMinutes(startTime, _selectedDurationMinutes);
-
-        for (final item in group) {
-          final row = _PaperScheduleRow(paperNumber: numPapers > 1 ? p : null)
-            ..grade = item.grade
-            ..subjectId = item.subject.id
-            ..subjectName = item.subject.name
-            ..date = currentDate
-            ..startTime = startTime
-            ..endTime = endTime
-            ..durationMinutes = _selectedDurationMinutes;
-          generatedPapers.add(row);
-        }
-
-        sessionIndex++;
-        if (sessionIndex >= 3) {
-          sessionIndex = 0;
-          currentDate = currentDate.add(const Duration(days: 1));
-        }
-      }
-    }
-
-    widget.onGenerated(generatedPapers);
-    Navigator.of(context).pop();
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Successfully scheduled ${generatedPapers.length} papers!'),
-        behavior: SnackBarBehavior.floating,
-      ),
+  void _showErrorDialog(Object error, StackTrace stack) {
+    if (!mounted) return;
+    final errorText = '$error\n\n$stack';
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        final dCs = Theme.of(dialogCtx).colorScheme;
+        return AlertDialog(
+          icon: Icon(Icons.error_outline_rounded, color: dCs.error, size: 40),
+          title: const Text('Generation Error'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'An error occurred while automatically generating the exam schedule papers. '
+                'Please copy the error details below and share them with support.',
+                style: TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                constraints: const BoxConstraints(maxHeight: 180),
+                decoration: BoxDecoration(
+                  color: dCs.surfaceContainerHighest.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: dCs.outlineVariant.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(12),
+                  child: SelectableText(
+                    errorText,
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      color: dCs.error,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            OutlinedButton.icon(
+              icon: const Icon(Icons.copy_rounded, size: 16),
+              label: const Text('Copy Details'),
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: errorText));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Error details copied to clipboard!'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
     );
   }
 
