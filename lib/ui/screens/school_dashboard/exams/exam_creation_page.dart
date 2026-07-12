@@ -3545,10 +3545,10 @@ class _ConfirmStep extends StatelessWidget {
                         ),
                         IconButton(
                           icon: const Icon(Icons.copy_rounded, size: 16),
+                          constraints: const BoxConstraints(),
                           style: IconButton.styleFrom(
                             foregroundColor: cs.error,
                             padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
                           ),
                           tooltip: 'Copy Error',
                           onPressed: () {
