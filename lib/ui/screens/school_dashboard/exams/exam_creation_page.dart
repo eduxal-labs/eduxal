@@ -380,15 +380,40 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
         return;
     }
 
+    final accountId = cache.currentUser?.user.id;
+    if (accountId == null) {
+      setState(() {
+        _activating = false;
+        _activationError = 'Activation failed: User is not authenticated.';
+      });
+      return;
+    }
+
+    // Insert the exam row locally immediately so it is instantly visible in the UI
+    try {
+      final examTypeVal = switch (typeInt) {
+        0 => ExamType.exam,
+        1 => ExamType.assignment,
+        _ => ExamType.assessment,
+      };
+      await _examsGradesDao.insertExamLocal(
+        ExamsCompanion(
+          id: Value(eventId),
+          school: Value(widget.schoolId),
+          year: Value(_draft.year),
+          term: Value(_draft.term),
+          name: Value(_draft.name),
+          type: Value(examTypeVal),
+          start: Value(_draft.startDate!.millisecondsSinceEpoch ~/ 86400000),
+          end: Value(_draft.endDate!.millisecondsSinceEpoch ~/ 86400000),
+          teacher: Value(accountId),
+        ),
+      );
+    } catch (_) {
+      // Ignore database write exceptions if background sync already inserted it in parallel
+    }
+
     if (!_draft.generateAIQuestions) {
-      final accountId = cache.currentUser?.user.id;
-      if (accountId == null) {
-        setState(() {
-          _activating = false;
-          _activationError = 'Activation failed: User is not authenticated.';
-        });
-        return;
-      }
 
       final now = BigInt.from(DateTime.now().millisecondsSinceEpoch ~/ 1000);
       try {

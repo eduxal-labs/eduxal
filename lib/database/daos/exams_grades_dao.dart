@@ -1106,6 +1106,11 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
   // Exam mutations
   // ───────────────────────────────────────────────────────────────────────────
 
+  /// Inserts an exam row locally into SQLite without writing sync logs.
+  Future<void> insertExamLocal(ExamsCompanion exam) async {
+    await into(exams).insert(exam, mode: InsertMode.insertOrReplace);
+  }
+
   /// Creates a new exam and writes a [SyncAction.createExam] log entry in one
   /// transaction.
   ///
