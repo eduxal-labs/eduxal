@@ -320,8 +320,8 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
   bool _validatePapers() {
     _rowErrors.clear();
     if (_papers.isEmpty) {
-      _showSnack('Add at least one paper before continuing.');
-      return false;
+      // Scheduling papers during creation setup is fully optional.
+      return true;
     }
     for (int i = 0; i < _papers.length; i++) {
       final row = _papers[i];
@@ -419,9 +419,18 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
           );
         }
       } catch (e) {
+        final errorMsg = e.toString();
+        String userFriendlyError;
+        if (errorMsg.contains('paper schedule falls outside the exam date range') ||
+            errorMsg.contains('1811')) {
+          userFriendlyError = 'Some papers have been scheduled on dates that fall outside your selected exam start and end dates.\n\n'
+              '• Solution: Go back to Step 1 and extend your Exam Date Range, or reschedule those papers in Step 2 to fall within that range.';
+        } else {
+          userFriendlyError = 'Paper creation failed: $e';
+        }
         setState(() {
           _activating = false;
-          _activationError = 'Paper creation failed: $e';
+          _activationError = userFriendlyError;
         });
         return;
       }
@@ -455,9 +464,17 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
         case Ok(:final value):
           scheduleIds[i] = value;
         case Err(:final error):
+          final errMsg = error.message;
+          String userFriendlyError;
+          if (errMsg != null && errMsg.contains('paper schedule falls outside the exam date range')) {
+            userFriendlyError = 'Some papers have been scheduled on dates that fall outside your selected exam start and end dates.\n\n'
+                '• Solution: Go back to Step 1 and extend your Exam Date Range, or reschedule those papers in Step 2 to fall within that range.';
+          } else {
+            userFriendlyError = 'Activation failed: $errMsg';
+          }
           setState(() {
             _activating = false;
-            _activationError = 'Activation failed: ${error.message}';
+            _activationError = userFriendlyError;
           });
           return;
       }
@@ -1116,7 +1133,7 @@ class _SchedulePapersStep extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Tap "Add Paper" below to schedule the first paper.',
+                    'Tap "Add Paper" below to schedule a paper, or tap "Next" to continue without scheduling papers (you can add them later from the dashboard).',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 12,
