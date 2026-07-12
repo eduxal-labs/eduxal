@@ -517,6 +517,37 @@ class _ExamCreationPageState extends State<ExamCreationPage> {
               ..clear()
               ..addAll(papers);
             _rowErrors.clear();
+
+            if (papers.isNotEmpty) {
+              DateTime? maxDate;
+              for (final p in papers) {
+                if (p.date != null) {
+                  if (maxDate == null || p.date!.isAfter(maxDate)) {
+                    maxDate = p.date;
+                  }
+                }
+              }
+              if (maxDate != null && (_draft.endDate == null || maxDate.isAfter(_draft.endDate!))) {
+                _draft.endDate = maxDate;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Successfully scheduled ${papers.length} papers! '
+                      'The exam end date was automatically extended to ${_fmtDate(maxDate)} to cover all papers.',
+                    ),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+                return;
+              }
+            }
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Successfully scheduled ${papers.length} papers!'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
           });
         },
       ),
@@ -3488,23 +3519,57 @@ class _ConfirmStep extends StatelessWidget {
                     width: 0.8,
                   ),
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Icon(
-                      Icons.error_outline_rounded,
-                      size: 16,
-                      color: cs.error,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        error!,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w300,
-                          color: cs.error.withValues(alpha: 0.9),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.error_outline_rounded,
+                              size: 16,
+                              color: cs.error,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Activation Error',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: cs.error,
+                              ),
+                            ),
+                          ],
                         ),
+                        IconButton(
+                          icon: const Icon(Icons.copy_rounded, size: 16),
+                          style: IconButton.styleFrom(
+                            foregroundColor: cs.error,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                          tooltip: 'Copy Error',
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: error!));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Error copied to clipboard!'),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    SelectableText(
+                      error!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontFamily: 'monospace',
+                        color: cs.error.withValues(alpha: 0.9),
                       ),
                     ),
                   ],
@@ -3715,13 +3780,6 @@ class _AutomatedSetupSheetState extends State<_AutomatedSetupSheet> {
 
       widget.onGenerated(generatedPapers);
       Navigator.of(context).pop();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Successfully scheduled ${generatedPapers.length} papers!'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
     } catch (e, stack) {
       debugPrint('Error generating schedule: $e\n$stack');
       _showErrorDialog(e, stack);
