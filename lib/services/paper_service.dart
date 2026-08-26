@@ -573,4 +573,25 @@ class PaperService {
       return Err(GrpcError.internal('getPaperPdfUrl failed: $e'));
     }
   }
+
+  /// Get a presigned DOCX URL for the teacher/master paper.
+  ///
+  /// Returns a presigned URL string to download the MS Word (.docx) file.
+  Future<Result<String, GrpcError>> getPaperDocxUrl({
+    required String paperId,
+    required String accessToken,
+  }) async {
+    try {
+      final req = paperpb.GetPaperDocxUrlRequest()..paperId = paperId;
+      final resp = await _paperClient.getPaperDocxUrl(
+        req,
+        options: _opts(accessToken),
+      );
+      return Ok(resp.url);
+    } on GrpcError catch (e) {
+      return Err(e);
+    } catch (e) {
+      return Err(GrpcError.internal('getPaperDocxUrl failed: $e'));
+    }
+  }
 }

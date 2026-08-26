@@ -1969,7 +1969,7 @@ class _PaperHeaderState extends State<_PaperHeader>
               if (widget.paperPdf != null) ...[
                 const SizedBox(width: 4),
                 Tooltip(
-                  message: 'View / Print Paper',
+                  message: 'View / Print Paper (PDF)',
                   child: InkWell(
                     onTap: () async {
                       // Check for local copy first.
@@ -2004,6 +2004,35 @@ class _PaperHeaderState extends State<_PaperHeader>
                       padding: const EdgeInsets.all(5),
                       child: Icon(
                         Icons.picture_as_pdf_rounded,
+                        size: 18,
+                        color: cs.primary.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: 'Download Editable MS Word (.docx)',
+                  child: InkWell(
+                    onTap: () => downloadAndOpenDocx(
+                      school: widget.schoolId,
+                      exam: widget.exam.exam.id,
+                      subject: widget.paper.subject,
+                      paper: widget.paper.paper,
+                      grade: widget.paper.grade,
+                      stream: widget.paper.stream,
+                      accessToken: accessToken,
+                      context: context,
+                      title:
+                          '${widget.subjectNames[widget.paper.subject] ?? 'Paper'}'
+                          '${widget.paper.paper != null ? ' Paper ${widget.paper.paper}' : ''}',
+                      serverPaperId: widget.serverPaperId,
+                    ),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(5),
+                      child: Icon(
+                        Icons.description_outlined,
                         size: 18,
                         color: cs.primary.withValues(alpha: 0.7),
                       ),

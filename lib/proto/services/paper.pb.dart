@@ -890,6 +890,128 @@ class GetPaperPdfUrlResponse extends $pb.GeneratedMessage {
   void clearExpiry() => $_clearField(2);
 }
 
+class GetPaperDocxUrlRequest extends $pb.GeneratedMessage {
+  factory GetPaperDocxUrlRequest({
+    $core.String? paperId,
+  }) {
+    final result = create();
+    if (paperId != null) result.paperId = paperId;
+    return result;
+  }
+
+  GetPaperDocxUrlRequest._();
+
+  factory GetPaperDocxUrlRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GetPaperDocxUrlRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetPaperDocxUrlRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'paper_service'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'paperId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetPaperDocxUrlRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetPaperDocxUrlRequest copyWith(
+          void Function(GetPaperDocxUrlRequest) updates) =>
+      super.copyWith((message) => updates(message as GetPaperDocxUrlRequest))
+          as GetPaperDocxUrlRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetPaperDocxUrlRequest create() => GetPaperDocxUrlRequest._();
+  @$core.override
+  GetPaperDocxUrlRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GetPaperDocxUrlRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetPaperDocxUrlRequest>(create);
+  static GetPaperDocxUrlRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get paperId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set paperId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPaperId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPaperId() => $_clearField(1);
+}
+
+class GetPaperDocxUrlResponse extends $pb.GeneratedMessage {
+  factory GetPaperDocxUrlResponse({
+    $core.String? url,
+    $fixnum.Int64? expiry,
+  }) {
+    final result = create();
+    if (url != null) result.url = url;
+    if (expiry != null) result.expiry = expiry;
+    return result;
+  }
+
+  GetPaperDocxUrlResponse._();
+
+  factory GetPaperDocxUrlResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory GetPaperDocxUrlResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetPaperDocxUrlResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'paper_service'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'url')
+    ..aInt64(2, _omitFieldNames ? '' : 'expiry')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetPaperDocxUrlResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetPaperDocxUrlResponse copyWith(
+          void Function(GetPaperDocxUrlResponse) updates) =>
+      super.copyWith((message) => updates(message as GetPaperDocxUrlResponse))
+          as GetPaperDocxUrlResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GetPaperDocxUrlResponse create() => GetPaperDocxUrlResponse._();
+  @$core.override
+  GetPaperDocxUrlResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static GetPaperDocxUrlResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetPaperDocxUrlResponse>(create);
+  static GetPaperDocxUrlResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get url => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set url($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasUrl() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearUrl() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get expiry => $_getI64(1);
+  @$pb.TagNumber(2)
+  set expiry($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExpiry() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExpiry() => $_clearField(2);
+}
+
 class GetMarkingSchemeUrlRequest extends $pb.GeneratedMessage {
   factory GetMarkingSchemeUrlRequest({
     $core.String? paperId,

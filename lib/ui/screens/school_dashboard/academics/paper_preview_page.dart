@@ -9,6 +9,7 @@ import '../../../../client.dart';
 import '../../../widgets/tiptap_renderer.dart';
 import '../../../widgets/stimulus_block.dart';
 import '../../../widgets/answer_space.dart';
+import 'paper_pdf_viewer.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Paper Preview Page
@@ -85,6 +86,20 @@ class _PaperPreviewPageState extends State<PaperPreviewPage> {
         ),
         title: const Text('Paper Preview'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.description_outlined),
+            tooltip: 'Download MS Word (.docx)',
+            onPressed: () => downloadAndOpenDocx(
+              school: '',
+              exam: '',
+              subject: 0,
+              grade: 0,
+              accessToken: accessToken,
+              context: context,
+              title: 'Paper Preview',
+              serverPaperId: widget.paperId,
+            ),
+          ),
           IconButton(
             icon: Icon(
               _showMarkingScheme

@@ -67,6 +67,13 @@ class PaperServiceClient extends $grpc.Client {
     return $createUnaryCall(_$getPaperPdfUrl, request, options: options);
   }
 
+  $grpc.ResponseFuture<$0.GetPaperDocxUrlResponse> getPaperDocxUrl(
+    $0.GetPaperDocxUrlRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$getPaperDocxUrl, request, options: options);
+  }
+
   $grpc.ResponseFuture<$0.GetMarkingSchemeUrlResponse> getMarkingSchemeUrl(
     $0.GetMarkingSchemeUrlRequest request, {
     $grpc.CallOptions? options,
@@ -115,6 +122,11 @@ class PaperServiceClient extends $grpc.Client {
           '/paper_service.PaperService/GetPaperPdfUrl',
           ($0.GetPaperPdfUrlRequest value) => value.writeToBuffer(),
           $0.GetPaperPdfUrlResponse.fromBuffer);
+  static final _$getPaperDocxUrl =
+      $grpc.ClientMethod<$0.GetPaperDocxUrlRequest, $0.GetPaperDocxUrlResponse>(
+          '/paper_service.PaperService/GetPaperDocxUrl',
+          ($0.GetPaperDocxUrlRequest value) => value.writeToBuffer(),
+          $0.GetPaperDocxUrlResponse.fromBuffer);
   static final _$getMarkingSchemeUrl = $grpc.ClientMethod<
           $0.GetMarkingSchemeUrlRequest, $0.GetMarkingSchemeUrlResponse>(
       '/paper_service.PaperService/GetMarkingSchemeUrl',
@@ -178,6 +190,15 @@ abstract class PaperServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.GetPaperPdfUrlRequest.fromBuffer(value),
         ($0.GetPaperPdfUrlResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.GetPaperDocxUrlRequest,
+            $0.GetPaperDocxUrlResponse>(
+        'GetPaperDocxUrl',
+        getPaperDocxUrl_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.GetPaperDocxUrlRequest.fromBuffer(value),
+        ($0.GetPaperDocxUrlResponse value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$0.GetMarkingSchemeUrlRequest,
             $0.GetMarkingSchemeUrlResponse>(
         'GetMarkingSchemeUrl',
@@ -247,6 +268,15 @@ abstract class PaperServiceBase extends $grpc.Service {
 
   $async.Future<$0.GetPaperPdfUrlResponse> getPaperPdfUrl(
       $grpc.ServiceCall call, $0.GetPaperPdfUrlRequest request);
+
+  $async.Future<$0.GetPaperDocxUrlResponse> getPaperDocxUrl_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.GetPaperDocxUrlRequest> $request) async {
+    return getPaperDocxUrl($call, await $request);
+  }
+
+  $async.Future<$0.GetPaperDocxUrlResponse> getPaperDocxUrl(
+      $grpc.ServiceCall call, $0.GetPaperDocxUrlRequest request);
 
   $async.Future<$0.GetMarkingSchemeUrlResponse> getMarkingSchemeUrl_Pre(
       $grpc.ServiceCall $call,

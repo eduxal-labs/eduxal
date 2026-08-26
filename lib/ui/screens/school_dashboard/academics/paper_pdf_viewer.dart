@@ -216,6 +216,174 @@ Future<void> downloadAndOpenDirectUrl({
   }
 }
 
+/// Downloads a finalized paper MS Word (.docx) document and opens it with the system default application.
+///
+/// Shows a loading SnackBar while downloading, and an error SnackBar on failure.
+/// On desktop platforms, opens the DOCX with LibreOffice/MS Word.
+/// On mobile or unsupported platforms, shows the saved file path or share sheet.
+///
+/// [title] is used in the loading/error SnackBar messages (default: 'Exam Paper').
+Future<void> downloadAndOpenDocx({
+  required String school,
+  required String exam,
+  required int subject,
+  int? paper,
+  required int grade,
+  int? stream,
+  required String accessToken,
+  required BuildContext context,
+  String title = 'Exam Paper',
+  String? serverPaperId,
+}) async {
+  final messenger = ScaffoldMessenger.of(context);
+
+  // Show persistent loading SnackBar — dismissed on completion or error.
+  messenger.showSnackBar(
+    SnackBar(
+      content: Row(
+        children: [
+          const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text('Downloading $title (.docx)…'),
+        ],
+      ),
+      duration: const Duration(minutes: 5),
+    ),
+  );
+
+  try {
+    // 1. Get presigned DOCX URL from the paper service.
+    final paperId = serverPaperId ??
+        '$school|$exam|$subject|${paper ?? ''}|$grade|${stream ?? ''}';
+    final result = await paperService.getPaperDocxUrl(
+      paperId: paperId,
+      accessToken: accessToken,
+    );
+
+    switch (result) {
+      case Err(:final error):
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to get $title (.docx): ${error.message ?? 'Unknown error'}',
+            ),
+          ),
+        );
+        return;
+
+      case Ok(:final value):
+        messenger.hideCurrentSnackBar();
+        if (!context.mounted) return;
+        await downloadAndOpenDirectDocxUrl(
+          url: value,
+          context: context,
+          title: title,
+        );
+    }
+  } catch (e) {
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(content: Text('Failed to download $title (.docx): $e')),
+    );
+  }
+}
+
+/// Downloads a Word document (.docx) from a direct presigned URL and opens it with the system
+/// viewer.
+Future<void> downloadAndOpenDirectDocxUrl({
+  required String url,
+  required BuildContext context,
+  String title = 'Document',
+}) async {
+  final messenger = ScaffoldMessenger.of(context);
+
+  messenger.showSnackBar(
+    SnackBar(
+      content: Row(
+        children: [
+          const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text('Downloading $title (.docx)…'),
+        ],
+      ),
+      duration: const Duration(minutes: 5),
+    ),
+  );
+
+  try {
+    final httpClient = HttpClient();
+    try {
+      final request = await httpClient.getUrl(Uri.parse(url));
+      final response = await request.close();
+
+      if (response.statusCode != 200) {
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              '$title download failed (HTTP ${response.statusCode})',
+            ),
+          ),
+        );
+        return;
+      }
+
+      // Save to temp directory with a sanitized, timestamped filename.
+      final tempDir = await getTemporaryDirectory();
+      final safeName = title
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+          .replaceAll(RegExp(r'^_|_$'), '');
+      final filename =
+          '${safeName}_${DateTime.now().millisecondsSinceEpoch}.docx';
+      final file = File('${tempDir.path}/$filename');
+      final sink = file.openWrite();
+      await response.pipe(sink);
+
+      messenger.hideCurrentSnackBar();
+
+      // Open with system viewer (desktop) or share sheet (mobile).
+      if (Platform.isLinux) {
+        await Process.run('xdg-open', [file.path]);
+      } else if (Platform.isMacOS) {
+        await Process.run('open', [file.path]);
+      } else if (Platform.isWindows) {
+        await Process.run('start', ['', file.path], runInShell: true);
+      } else {
+        await Share.shareXFiles([
+          XFile(
+            file.path,
+            mimeType:
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          ),
+        ], subject: '$title Word Document');
+      }
+    } finally {
+      httpClient.close();
+    }
+  } catch (e) {
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(content: Text('Failed to download $title (.docx): $e')),
+    );
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // PaperPdfViewerPage
 //
@@ -405,6 +573,23 @@ class _PaperPdfViewerPageState extends State<PaperPdfViewerPage> {
         ),
         actions: [
           if (!_loading && _error == null) ...[
+            // Download MS Word (.docx) button.
+            IconButton(
+              icon: const Icon(Icons.description_outlined, size: 20),
+              tooltip: 'Download MS Word (.docx)',
+              onPressed: () => downloadAndOpenDocx(
+                school: widget.school,
+                exam: widget.exam,
+                subject: widget.subject,
+                paper: widget.paper,
+                grade: widget.grade,
+                stream: widget.stream,
+                accessToken: widget.accessToken,
+                context: context,
+                title: widget.title,
+                serverPaperId: widget.serverPaperId,
+              ),
+            ),
             // Print button (uses the `printing` package).
             IconButton(
               icon: _isPrinting

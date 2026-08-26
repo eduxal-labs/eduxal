@@ -273,6 +273,34 @@ final $typed_data.Uint8List getPaperPdfUrlResponseDescriptor =
         'ChZHZXRQYXBlclBkZlVybFJlc3BvbnNlEhAKA3VybBgBIAEoCVIDdXJsEhYKBmV4cGlyeRgCIA'
         'EoA1IGZXhwaXJ5');
 
+@$core.Deprecated('Use getPaperDocxUrlRequestDescriptor instead')
+const GetPaperDocxUrlRequest$json = {
+  '1': 'GetPaperDocxUrlRequest',
+  '2': [
+    {'1': 'paper_id', '3': 1, '4': 1, '5': 9, '10': 'paperId'},
+  ],
+};
+
+/// Descriptor for `GetPaperDocxUrlRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getPaperDocxUrlRequestDescriptor =
+    $convert.base64Decode(
+        'ChZHZXRQYXBlckRvY3hVcmxSZXF1ZXN0EhkKCHBhcGVyX2lkGAEgASgJUgdwYXBlcklk');
+
+@$core.Deprecated('Use getPaperDocxUrlResponseDescriptor instead')
+const GetPaperDocxUrlResponse$json = {
+  '1': 'GetPaperDocxUrlResponse',
+  '2': [
+    {'1': 'url', '3': 1, '4': 1, '5': 9, '10': 'url'},
+    {'1': 'expiry', '3': 2, '4': 1, '5': 3, '10': 'expiry'},
+  ],
+};
+
+/// Descriptor for `GetPaperDocxUrlResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getPaperDocxUrlResponseDescriptor =
+    $convert.base64Decode(
+        'ChdHZXRQYXBlckRvY3hVcmxSZXNwb25zZRIQCgN1cmwYASABKAlSA3VybBIWCgZleHBpcnkYAi'
+        'ABKANSBmV4cGlyeQ==');
+
 @$core.Deprecated('Use getMarkingSchemeUrlRequestDescriptor instead')
 const GetMarkingSchemeUrlRequest$json = {
   '1': 'GetMarkingSchemeUrlRequest',

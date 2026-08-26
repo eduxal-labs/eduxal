@@ -2023,6 +2023,30 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
                       ),
                       const SizedBox(height: 8),
 
+                      // Download MS Word (.docx) button
+                      SizedBox(
+                        width: double.infinity,
+                        child: _FinalizeActionButton(
+                          icon: Icons.description_outlined,
+                          label: 'Download MS Word (.docx)',
+                          color: cs.primaryContainer,
+                          textColor: cs.onPrimaryContainer,
+                          onTap: () => downloadAndOpenDocx(
+                            school: widget.schoolId,
+                            exam: widget.examId,
+                            subject: widget.subjectId,
+                            paper: widget.paperId,
+                            grade: widget.grade,
+                            stream: widget.stream,
+                            accessToken: accessToken,
+                            context: context,
+                            title: widget.subjectName,
+                            serverPaperId: widget.serverPaperId,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
                       // View Marking Scheme button (only when server returned a marking scheme URL)
                       if (_paperPdf?.markingSchemeUrl != null) ...[
                         const SizedBox(height: 8),
