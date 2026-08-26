@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart'
     show consolidateHttpClientResponseBytes;
 import 'package:flutter/material.dart';
@@ -216,13 +217,14 @@ Future<void> downloadAndOpenDirectUrl({
   }
 }
 
-/// Downloads a finalized paper MS Word (.docx) document and opens it with the system default application.
+/// Downloads a finalized paper MS Word (.docx) document and prompts the user
+/// to choose the save location and filename.
 ///
-/// Shows a loading SnackBar while downloading, and an error SnackBar on failure.
-/// On desktop platforms, opens the DOCX with LibreOffice/MS Word.
-/// On mobile or unsupported platforms, shows the saved file path or share sheet.
+/// Shows a loading SnackBar while downloading, prompts the native OS file picker
+/// for the destination folder and filename, saves the file, and provides an "Open"
+/// action on the completion SnackBar.
 ///
-/// [title] is used in the loading/error SnackBar messages (default: 'Exam Paper').
+/// [title] is used for the default filename and SnackBar messages (default: 'Exam Paper').
 Future<void> downloadAndOpenDocx({
   required String school,
   required String exam,
@@ -251,7 +253,7 @@ Future<void> downloadAndOpenDocx({
             ),
           ),
           const SizedBox(width: 12),
-          Text('Downloading $title (.docx)…'),
+          Text('Preparing $title (.docx)…'),
         ],
       ),
       duration: const Duration(minutes: 5),
@@ -296,8 +298,8 @@ Future<void> downloadAndOpenDocx({
   }
 }
 
-/// Downloads a Word document (.docx) from a direct presigned URL and opens it with the system
-/// viewer.
+/// Downloads a Word document (.docx) from a direct presigned URL, prompts the user
+/// for the download location and filename via the native OS file dialog, and saves it.
 Future<void> downloadAndOpenDirectDocxUrl({
   required String url,
   required BuildContext context,
@@ -327,6 +329,7 @@ Future<void> downloadAndOpenDirectDocxUrl({
 
   try {
     final httpClient = HttpClient();
+    final Uint8List bytes;
     try {
       final request = await httpClient.getUrl(Uri.parse(url));
       final response = await request.close();
@@ -343,39 +346,87 @@ Future<void> downloadAndOpenDirectDocxUrl({
         return;
       }
 
-      // Save to temp directory with a sanitized, timestamped filename.
-      final tempDir = await getTemporaryDirectory();
-      final safeName = title
-          .toLowerCase()
-          .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
-          .replaceAll(RegExp(r'^_|_$'), '');
-      final filename =
-          '${safeName}_${DateTime.now().millisecondsSinceEpoch}.docx';
-      final file = File('${tempDir.path}/$filename');
-      final sink = file.openWrite();
-      await response.pipe(sink);
-
-      messenger.hideCurrentSnackBar();
-
-      // Open with system viewer (desktop) or share sheet (mobile).
-      if (Platform.isLinux) {
-        await Process.run('xdg-open', [file.path]);
-      } else if (Platform.isMacOS) {
-        await Process.run('open', [file.path]);
-      } else if (Platform.isWindows) {
-        await Process.run('start', ['', file.path], runInShell: true);
-      } else {
-        await Share.shareXFiles([
-          XFile(
-            file.path,
-            mimeType:
-                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          ),
-        ], subject: '$title Word Document');
-      }
+      bytes = await consolidateHttpClientResponseBytes(response);
     } finally {
       httpClient.close();
     }
+
+    messenger.hideCurrentSnackBar();
+
+    // Clean human-readable default filename based on the title.
+    String cleanFileName = title
+        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
+        .replaceAll(RegExp(r'\s+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    if (cleanFileName.isEmpty) {
+      cleanFileName = 'Assessment_Paper';
+    }
+    if (!cleanFileName.toLowerCase().endsWith('.docx')) {
+      cleanFileName = '$cleanFileName.docx';
+    }
+
+    // Prompt user for download directory and file name.
+    String? savedPath;
+    try {
+      savedPath = await FilePicker.saveFile(
+        dialogTitle: 'Save Word Document (.docx)',
+        fileName: cleanFileName,
+        type: FileType.custom,
+        allowedExtensions: const ['docx'],
+        bytes: bytes,
+      );
+    } catch (_) {
+      // Fallback if desktop portal or native picker encounters an issue
+      final downloadsDir =
+          await getDownloadsDirectory() ?? await getTemporaryDirectory();
+      final fallbackFile = File('${downloadsDir.path}/$cleanFileName');
+      await fallbackFile.writeAsBytes(bytes);
+      savedPath = fallbackFile.path;
+    }
+
+    if (savedPath == null) {
+      // User dismissed or cancelled the save dialog
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Download cancelled'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    // Ensure bytes are on disk (some platform pickers return the selected target path)
+    final file = File(savedPath);
+    if (!await file.exists() || (await file.length()) == 0) {
+      await file.writeAsBytes(bytes);
+    }
+
+    final fileNameOnly = file.path.split(Platform.pathSeparator).last;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('Saved $fileNameOnly'),
+        action: SnackBarAction(
+          label: 'Open',
+          onPressed: () async {
+            if (Platform.isLinux) {
+              await Process.run('xdg-open', [file.path]);
+            } else if (Platform.isMacOS) {
+              await Process.run('open', [file.path]);
+            } else if (Platform.isWindows) {
+              await Process.run('start', ['', file.path], runInShell: true);
+            } else {
+              await Share.shareXFiles([
+                XFile(
+                  file.path,
+                  mimeType:
+                      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                ),
+              ], subject: '$title Word Document');
+            }
+          },
+        ),
+      ),
+    );
   } catch (e) {
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(

@@ -2040,7 +2040,8 @@ class _PaperGenerationPageState extends State<PaperGenerationPage> {
                             stream: widget.stream,
                             accessToken: accessToken,
                             context: context,
-                            title: widget.subjectName,
+                            title:
+                                '${widget.subjectName}${widget.paperId != null ? ' Paper ${widget.paperId}' : ''}',
                             serverPaperId: widget.serverPaperId,
                           ),
                         ),
