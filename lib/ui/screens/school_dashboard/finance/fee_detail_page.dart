@@ -862,10 +862,7 @@ class _EnrolledCountBadgeState extends State<_EnrolledCountBadge> {
   }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// Utility functions
-// ═════════════════════════════════════════════════════════════════════════════
-
+/// Resolves a grade integer into a human-readable label.
 String _resolveGradeLabel(int grade) {
   return kCbcGradeLabels[grade] ??
       kEightFourFourGradeLabels[grade] ??
@@ -948,6 +945,7 @@ class __InvoiceGenerationPreviewSheetState
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = cs.brightness == Brightness.dark;
 
     return EduSheet(
       title: 'Generate Invoices',
@@ -967,9 +965,13 @@ class __InvoiceGenerationPreviewSheetState
             return SizedBox(
               height: 200,
               child: Center(
-                child: Text(
-                  'Error loading students: ${snapshot.error}',
-                  style: TextStyle(color: cs.error),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    'Error loading students: ${snapshot.error}',
+                    style: TextStyle(color: cs.error),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ),
             );
@@ -980,9 +982,12 @@ class __InvoiceGenerationPreviewSheetState
             return SizedBox(
               height: 200,
               child: Center(
-                child: Text(
-                  'No students enrolled in this grade.',
-                  style: TextStyle(color: cs.onSurfaceVariant),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    'No students enrolled in this grade.',
+                    style: TextStyle(color: cs.onSurfaceVariant),
+                  ),
                 ),
               ),
             );
@@ -991,7 +996,19 @@ class __InvoiceGenerationPreviewSheetState
           _initializeStudents(students);
 
           final totalSelected = _selectedStudents.length;
-          final allSelected = totalSelected == students.length;
+          final allSelected =
+              totalSelected == students.length && students.isNotEmpty;
+
+          // Check if any selected student has an invalid discount (>= feeAmount or < 0)
+          bool hasInvalidDiscount = false;
+          for (final adm in _selectedStudents) {
+            final disc = _discounts[adm] ?? 0.0;
+            if (disc >= widget.feeAmount || disc < 0) {
+              hasInvalidDiscount = true;
+              break;
+            }
+          }
+          final canConfirm = totalSelected > 0 && !hasInvalidDiscount;
 
           return Column(
             mainAxisSize: MainAxisSize.min,
@@ -999,7 +1016,8 @@ class __InvoiceGenerationPreviewSheetState
             children: [
               // Header actions: Select All toggle
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -1021,12 +1039,15 @@ class __InvoiceGenerationPreviewSheetState
                           if (allSelected) {
                             _selectedStudents.clear();
                           } else {
-                            _selectedStudents.addAll(students.map((s) => s.student.adm));
+                            _selectedStudents.addAll(
+                                students.map((s) => s.student.adm));
                           }
                         });
                       },
                       icon: Icon(
-                        allSelected ? Icons.deselect_rounded : Icons.select_all_rounded,
+                        allSelected
+                            ? Icons.deselect_rounded
+                            : Icons.select_all_rounded,
                         size: 16,
                       ),
                       label: Text(allSelected ? 'Uncheck All' : 'Check All'),
@@ -1034,25 +1055,31 @@ class __InvoiceGenerationPreviewSheetState
                   ],
                 ),
               ),
-              const Divider(height: 1),
+              AppTheme.tableRowDivider(isDark, cs),
 
               // Student List
               Flexible(
                 child: ListView.separated(
                   shrinkWrap: true,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  padding: const EdgeInsets.symmetric(vertical: 4),
                   itemCount: students.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1),
+                  separatorBuilder: (context, index) =>
+                      AppTheme.tableRowDivider(isDark, cs),
                   itemBuilder: (context, index) {
                     final s = students[index];
                     final adm = s.student.adm;
                     final isChecked = _selectedStudents.contains(adm);
                     final discount = _discounts[adm] ?? 0.0;
-                    final finalAmount = (widget.feeAmount - discount).clamp(0.0, double.infinity);
+                    final isDiscInvalid =
+                        discount >= widget.feeAmount || discount < 0;
+                    final finalAmount = (widget.feeAmount - discount)
+                        .clamp(0.0, double.infinity);
 
                     return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Checkbox(
                             value: isChecked,
@@ -1076,45 +1103,65 @@ class __InvoiceGenerationPreviewSheetState
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
-                                    color: isChecked ? cs.onSurface : cs.onSurfaceVariant.withValues(alpha: 0.6),
+                                    color: isChecked
+                                        ? cs.onSurface
+                                        : cs.onSurfaceVariant
+                                            .withValues(alpha: 0.6),
                                   ),
                                 ),
                                 Text(
                                   'Adm #$adm',
                                   style: TextStyle(
                                     fontSize: 11.5,
-                                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                                    color: cs.onSurfaceVariant
+                                        .withValues(alpha: 0.5),
                                   ),
                                 ),
                                 if (isChecked) ...[
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Net Invoice: ${fmtCurrency(finalAmount)}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: finalAmount < widget.feeAmount ? cs.primary : cs.onSurface,
+                                  const SizedBox(height: 3),
+                                  if (isDiscInvalid)
+                                    Text(
+                                      'Discount must be < ${fmtCurrency(widget.feeAmount)}',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                        color: cs.error,
+                                      ),
+                                    )
+                                  else
+                                    Text(
+                                      'Net Invoice: ${fmtCurrency(finalAmount)}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: finalAmount < widget.feeAmount
+                                            ? Colors.green.shade700
+                                            : cs.onSurface,
+                                      ),
                                     ),
-                                  ),
                                 ],
                               ],
                             ),
                           ),
-                          const SizedBox(width: 16),
+                          const SizedBox(width: 12),
                           // Discount input field
                           if (isChecked)
                             SizedBox(
-                              width: 100,
+                              width: 110,
                               child: TextField(
                                 controller: _controllers[adm],
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                style: const TextStyle(fontSize: 12.5),
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                        decimal: true),
+                                style: const TextStyle(fontSize: 12),
                                 decoration: InputDecoration(
                                   labelText: 'Discount',
-                                  prefixText: 'Ksh ',
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 8),
                                   border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(AppTheme.kChipRadius),
+                                    borderRadius: BorderRadius.circular(
+                                        AppTheme.kChipRadius),
                                   ),
                                 ),
                               ),
@@ -1125,7 +1172,7 @@ class __InvoiceGenerationPreviewSheetState
                   },
                 ),
               ),
-              const Divider(height: 1),
+              AppTheme.tableRowDivider(isDark, cs),
 
               // Bottom Actions
               Padding(
@@ -1134,7 +1181,9 @@ class __InvoiceGenerationPreviewSheetState
                   children: [
                     Expanded(
                       child: Text(
-                        'Generating $totalSelected invoice${totalSelected == 1 ? "" : "s"}',
+                        totalSelected == 0
+                            ? 'No students selected'
+                            : '$totalSelected invoice${totalSelected == 1 ? "" : "s"} to generate',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -1143,16 +1192,18 @@ class __InvoiceGenerationPreviewSheetState
                       ),
                     ),
                     const SizedBox(width: 16),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: cs.primary,
-                        foregroundColor: cs.onPrimary,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.green.shade600,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 12),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppTheme.kCardRadius),
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.kCardRadius),
                         ),
                       ),
-                      onPressed: totalSelected > 0
+                      onPressed: canConfirm
                           ? () {
                               Navigator.of(context).pop({
                                 'selectedAdms': _selectedStudents.toList(),

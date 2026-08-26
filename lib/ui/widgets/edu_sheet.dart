@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
@@ -36,12 +38,14 @@ class EduSheet extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
     final viewInsets = MediaQuery.viewInsetsOf(context);
+    final isMobile =
+        MediaQuery.sizeOf(context).width < AppTheme.kMobileBreakpoint;
 
     Widget content = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (showHandle) _SheetHandle(cs: cs),
+        if (showHandle && isMobile) _SheetHandle(cs: cs),
         if (title != null)
           _SheetTitleRow(
             title: title!,
@@ -63,21 +67,26 @@ class EduSheet extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.only(bottom: viewInsets.bottom),
       child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.modalBg(isDark, cs),
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(AppTheme.kModalRadius),
-            topRight: Radius.circular(AppTheme.kModalRadius),
-          ),
-          border: Border(
-            top: BorderSide(
-              color: isDark
-                  ? AppTheme.borderColor(isDark, cs)
-                  : cs.outlineVariant.withValues(alpha: 0.5),
-              width: 1,
-            ),
-          ),
-        ),
+        decoration: isMobile
+            ? BoxDecoration(
+                color: AppTheme.modalBg(isDark, cs),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(AppTheme.kModalRadius),
+                  topRight: Radius.circular(AppTheme.kModalRadius),
+                ),
+                border: Border(
+                  top: BorderSide(
+                    color: isDark
+                        ? AppTheme.borderColor(isDark, cs)
+                        : cs.outlineVariant.withValues(alpha: 0.5),
+                    width: 1,
+                  ),
+                ),
+              )
+            : BoxDecoration(
+                color: AppTheme.modalBg(isDark, cs),
+                borderRadius: BorderRadius.circular(AppTheme.kModalRadius),
+              ),
         child: SafeArea(
           top: false,
           child: content,
@@ -176,6 +185,7 @@ Future<T?> showEduSheet<T>({
 
   if (w >= AppTheme.kMobileBreakpoint) {
     // ── Desktop: dialog ──────────────────────────────────────────────────
+    final dialogWidth = math.min(maxWidth, w - 48);
     return showDialog<T>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.35),
@@ -190,8 +200,8 @@ Future<T?> showEduSheet<T>({
             horizontal: 24,
             vertical: 40,
           ),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: maxWidth),
+          child: SizedBox(
+            width: dialogWidth,
             child: Container(
               decoration: BoxDecoration(
                 color: AppTheme.modalBg(isDark, cs),
