@@ -1583,7 +1583,7 @@ class DeltaWriter {
     // Delete any stale local row that matches the natural key but has a
     // different id, then upsert with the server's authoritative id.
     await _db.customStatement(
-      'DELETE FROM subjects WHERE name = ? AND curriculum = ? AND id != ?',
+      'DELETE FROM subjects WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND curriculum = ? AND id != ?',
       [row.name, curriculumIndex, serverId],
     );
     await _db

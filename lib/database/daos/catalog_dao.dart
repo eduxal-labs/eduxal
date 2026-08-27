@@ -72,6 +72,20 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
       recordId: null,
     );
     if (!authResult.allowed) throw PermissionException(authResult.reason!);
+
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError('Subject name cannot be empty');
+    }
+
+    // Check if subject already exists case-insensitively
+    final existing = await (select(subjects)..where(
+      (s) => s.name.lower().equals(trimmed.toLowerCase()) & s.curriculum.equals(curriculum.index_),
+    )).getSingleOrNull();
+    if (existing != null) {
+      throw StateError('A subject with the name "$trimmed" already exists for this curriculum.');
+    }
+
     await transaction(() async {
       final nowSeconds = BigInt.from(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
@@ -80,7 +94,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
 
       await into(subjects).insert(
         SubjectsCompanion(
-          name: Value(name),
+          name: Value(trimmed),
           curriculum: Value(curriculum),
           created: Value(nowSeconds),
           updated: Value(nowSeconds),
@@ -88,7 +102,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
       );
 
       final payload = sync_pb.CreateSubjectPayload(
-        name: name,
+        name: trimmed,
         curriculum: curriculum.index_,
       );
 
@@ -96,7 +110,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
         LogsCompanion(
           account: Value(accountId),
           action: Value(SyncAction.createSubject),
-          resource: Value(name),
+          resource: Value(trimmed),
           payload: Value(payload.writeToBuffer()),
           created: Value(nowMs),
         ),
@@ -113,15 +127,17 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
     required CurriculumType curriculum,
     required String accountId,
   }) async {
+    final trimmed = name.trim();
     final existing =
         await (select(subjects)..where(
               (s) =>
-                  s.name.equals(name) & s.curriculum.equals(curriculum.index_),
+                  s.name.lower().equals(trimmed.toLowerCase()) &
+                  s.curriculum.equals(curriculum.index_),
             ))
             .getSingleOrNull();
     if (existing != null) return existing.id;
     await createSubject(
-      name: name,
+      name: trimmed,
       curriculum: curriculum,
       accountId: accountId,
     );
@@ -129,7 +145,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
         await (select(subjects)
               ..where(
                 (s) =>
-                    s.name.equals(name) &
+                    s.name.lower().equals(trimmed.toLowerCase()) &
                     s.curriculum.equals(curriculum.index_),
               )
               ..orderBy([(s) => OrderingTerm.desc(s.id)]))
@@ -153,6 +169,25 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
       recordId: null,
     );
     if (!authResult.allowed) throw PermissionException(authResult.reason!);
+
+    final trimmed = name?.trim();
+    if (trimmed != null && trimmed.isEmpty) {
+      throw ArgumentError('Subject name cannot be empty');
+    }
+
+    if (trimmed != null) {
+      final currentSub = await getSubject(id);
+      final targetCurriculum = curriculum ?? currentSub?.curriculum;
+      if (targetCurriculum != null) {
+        final duplicate = await (select(subjects)..where(
+          (s) => s.id.equals(id).not() & s.name.lower().equals(trimmed.toLowerCase()) & s.curriculum.equals(targetCurriculum.index_),
+        )).getSingleOrNull();
+        if (duplicate != null) {
+          throw StateError('A subject with the name "$trimmed" already exists for this curriculum.');
+        }
+      }
+    }
+
     await transaction(() async {
       final nowSeconds = BigInt.from(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
@@ -161,7 +196,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
 
       await (update(subjects)..where((s) => s.id.equals(id))).write(
         SubjectsCompanion(
-          name: name != null ? Value(name) : const Value.absent(),
+          name: trimmed != null ? Value(trimmed) : const Value.absent(),
           curriculum: curriculum != null
               ? Value(curriculum)
               : const Value.absent(),
@@ -170,7 +205,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
       );
 
       final payload = sync_pb.UpdateSubjectPayload(id: id);
-      if (name != null) payload.name = name;
+      if (trimmed != null) payload.name = trimmed;
       if (curriculum != null) payload.curriculum = curriculum.index_;
 
       final current = await (select(

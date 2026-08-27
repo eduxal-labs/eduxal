@@ -349,7 +349,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 16;
+  int get schemaVersion => 17;
 
   Future<void> _rewriteLegacyInviteLogs() async {
     final rows = await customSelect(
@@ -743,6 +743,13 @@ class AppDatabase extends _$AppDatabase {
       if (from < 16) {
         await m.createTable(markingQueue);
       }
+      if (from < 17) {
+        await customStatement('DROP INDEX IF EXISTS uq_subjects_name_curriculum');
+        await customStatement(
+          'CREATE UNIQUE INDEX IF NOT EXISTS uq_subjects_name_curriculum'
+          ' ON subjects(name COLLATE NOCASE, curriculum)',
+        );
+      }
     },
     onCreate: (m) async {
       // 1. Create all Drift-managed tables.
@@ -1128,6 +1135,12 @@ class AppDatabase extends _$AppDatabase {
     await customStatement(
       'CREATE UNIQUE INDEX IF NOT EXISTS uq_accounts_active'
       ' ON accounts(is_active) WHERE is_active = 1',
+    );
+
+    // subjects: name and curriculum unique case-insensitively
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS uq_subjects_name_curriculum'
+      ' ON subjects(name COLLATE NOCASE, curriculum)',
     );
 
     // ----------------------------------------------------------------

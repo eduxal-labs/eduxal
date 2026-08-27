@@ -1965,17 +1965,23 @@ class _SubjectTeacherPickerSheetState
       assignedMap[entry.subject.subject] = entry.teacher.name;
     }
 
-    // Build candidate list from real subjects table rows.
-    final candidates = <_SubjectCandidate>[];
+    // Build candidate list from real subjects table rows, deduplicating
+    // case-insensitively to prevent any similar/duplicate subjects.
+    final candidateMap = <String, _SubjectCandidate>{};
     for (final subject in subjectsList) {
-      candidates.add(
-        _SubjectCandidate(
+      final key = subject.name.trim().toLowerCase();
+      final isAssigned = assignedMap.containsKey(subject.id);
+      if (!candidateMap.containsKey(key) || isAssigned) {
+        candidateMap[key] = _SubjectCandidate(
           subjectId: subject.id,
-          subjectName: subject.name,
+          subjectName: subject.name.trim(),
           assignedTeacherName: assignedMap[subject.id],
-        ),
-      );
+        );
+      }
     }
+
+    final candidates = candidateMap.values.toList()
+      ..sort((a, b) => a.subjectName.toLowerCase().compareTo(b.subjectName.toLowerCase()));
 
     if (!mounted) return;
     setState(() {

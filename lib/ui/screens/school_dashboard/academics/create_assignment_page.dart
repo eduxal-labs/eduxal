@@ -126,7 +126,7 @@ class _CreateAssignmentPageState extends State<CreateAssignmentPage>
         _allTopics = rows.map((t) => (id: t.id, name: t.name)).toList();
         _topicsLoading = false;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _topicsLoading = false);
     }
