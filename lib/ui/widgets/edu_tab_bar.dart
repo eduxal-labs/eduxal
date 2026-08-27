@@ -1,3 +1,5 @@
+import 'dart:ui';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -17,6 +19,7 @@ import 'package:flutter/material.dart';
 //   ✓ Slightly tinted background container with subtle elevation
 //   ✓ BorderRadius.circular(8–10), slim text (w400 / w500)
 //   ✓ No underline indicator anywhere
+//   ✓ Desktop & mobile mouse drag and scroll wheel support
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// A tab descriptor for [EduTabBar].
@@ -53,7 +56,7 @@ class EduTab {
 ///   ],
 /// )
 /// ```
-class EduTabBar extends StatelessWidget {
+class EduTabBar extends StatefulWidget {
   const EduTabBar({
     super.key,
     required this.controller,
@@ -70,7 +73,7 @@ class EduTabBar extends StatelessWidget {
   /// Tab descriptors — one per tab.
   final List<EduTab> tabs;
 
-  /// Whether the tab bar scrolls horizontally. Defaults to `false` (fill).
+  /// Whether the tab bar scrolls horizontally. Defaults to `true`.
   final bool isScrollable;
 
   /// Override the strip height. Defaults to 38 for text tabs, 36 for icon-only.
@@ -83,12 +86,74 @@ class EduTabBar extends StatelessWidget {
   final ValueChanged<int>? onTap;
 
   @override
+  State<EduTabBar> createState() => _EduTabBarState();
+}
+
+class _EduTabBarState extends State<EduTabBar> {
+  final ScrollController _scrollController = ScrollController();
+  late List<GlobalKey> _tabKeys;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabKeys = List.generate(widget.tabs.length, (_) => GlobalKey());
+    widget.controller.addListener(_handleTabChange);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToActiveTab(animate: false);
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant EduTabBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.tabs.length != oldWidget.tabs.length) {
+      _tabKeys = List.generate(widget.tabs.length, (_) => GlobalKey());
+    }
+    if (widget.controller != oldWidget.controller) {
+      oldWidget.controller.removeListener(_handleTabChange);
+      widget.controller.addListener(_handleTabChange);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToActiveTab(animate: false);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_handleTabChange);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _handleTabChange() {
+    if (!mounted || !widget.isScrollable) return;
+    _scrollToActiveTab(animate: true);
+  }
+
+  void _scrollToActiveTab({bool animate = true}) {
+    if (!mounted || !widget.isScrollable) return;
+    final index = widget.controller.index;
+    if (index >= 0 && index < _tabKeys.length) {
+      final keyContext = _tabKeys[index].currentContext;
+      if (keyContext != null) {
+        Scrollable.ensureVisible(
+          keyContext,
+          alignment: 0.5,
+          duration: animate ? const Duration(milliseconds: 250) : Duration.zero,
+          curve: Curves.easeInOut,
+        );
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = cs.brightness == Brightness.dark;
 
-    final bool iconOnly = tabs.every((t) => t.label == null && t.icon != null);
-    final double stripHeight = height ?? (iconOnly ? 36.0 : 38.0);
+    final bool iconOnly =
+        widget.tabs.every((t) => t.label == null && t.icon != null);
+    final double stripHeight = widget.height ?? (iconOnly ? 36.0 : 38.0);
 
     Widget strip = Container(
       height: stripHeight,
@@ -107,9 +172,10 @@ class EduTabBar extends StatelessWidget {
         ],
       ),
       child: TabBar(
-        controller: controller,
-        isScrollable: isScrollable,
-        tabAlignment: isScrollable ? TabAlignment.start : TabAlignment.fill,
+        controller: widget.controller,
+        isScrollable: widget.isScrollable,
+        tabAlignment:
+            widget.isScrollable ? TabAlignment.start : TabAlignment.fill,
         splashBorderRadius: BorderRadius.circular(8),
         dividerColor: Colors.transparent,
         dividerHeight: 0,
@@ -145,12 +211,18 @@ class EduTabBar extends StatelessWidget {
         ),
         overlayColor: WidgetStateProperty.all(Colors.transparent),
         splashFactory: NoSplash.splashFactory,
-        onTap: onTap,
-        tabs: tabs.map((tab) {
+        onTap: widget.onTap,
+        tabs: List.generate(widget.tabs.length, (i) {
+          final tab = widget.tabs[i];
+          final key = i < _tabKeys.length ? _tabKeys[i] : null;
+
           if (iconOnly) {
-            return Tab(
-              height: stripHeight - 8, // account for container padding
-              icon: Icon(tab.icon, size: 17),
+            return KeyedSubtree(
+              key: key,
+              child: Tab(
+                height: stripHeight - 8,
+                icon: Icon(tab.icon, size: 17),
+              ),
             );
           }
 
@@ -158,9 +230,14 @@ class EduTabBar extends StatelessWidget {
           final badgeWidget = tab.count != null && tab.count! > 0
               ? Container(
                   margin: const EdgeInsets.only(left: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 1,
+                  ),
                   decoration: BoxDecoration(
-                    color: cs.primary.withValues(alpha: isDark ? 0.25 : 0.12),
+                    color: cs.primary.withValues(
+                      alpha: isDark ? 0.25 : 0.12,
+                    ),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -175,47 +252,75 @@ class EduTabBar extends StatelessWidget {
               : null;
 
           if (tab.icon != null || badgeWidget != null) {
-            return Tab(
-              height: stripHeight - 8,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (tab.icon != null) ...[
-                    Icon(tab.icon, size: 15),
-                    const SizedBox(width: 6),
+            return KeyedSubtree(
+              key: key,
+              child: Tab(
+                height: stripHeight - 8,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (tab.icon != null) ...[
+                      Icon(tab.icon, size: 15),
+                      const SizedBox(width: 6),
+                    ],
+                    labelWidget,
+                    ?badgeWidget,
                   ],
-                  labelWidget,
-                  if (badgeWidget != null) badgeWidget,
-                ],
+                ),
               ),
             );
           }
 
-          // Text-only (the common case for inner pages)
-          return Tab(height: stripHeight - 8, text: tab.label ?? '');
-        }).toList(),
+          return KeyedSubtree(
+            key: key,
+            child: Tab(height: stripHeight - 8, text: tab.label ?? ''),
+          );
+        }),
       ),
     );
 
-    if (isScrollable) {
-      // For scrollable tabs, we wrap in a SingleChildScrollView so that the
-      // background "pill" container can be wider than the screen and scroll
-      // horizontally as a single unit.
-      return SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        padding: padding ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: strip,
+    if (widget.isScrollable) {
+      return Listener(
+        onPointerSignal: (event) {
+          if (event is PointerScrollEvent && _scrollController.hasClients) {
+            final delta = event.scrollDelta.dy != 0
+                ? event.scrollDelta.dy
+                : event.scrollDelta.dx;
+            final newOffset = (_scrollController.offset + delta).clamp(
+              0.0,
+              _scrollController.position.maxScrollExtent,
+            );
+            _scrollController.jumpTo(newOffset);
+          }
+        },
+        child: ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(
+            dragDevices: {
+              PointerDeviceKind.touch,
+              PointerDeviceKind.mouse,
+              PointerDeviceKind.trackpad,
+              PointerDeviceKind.stylus,
+              PointerDeviceKind.invertedStylus,
+            },
+          ),
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            padding: widget.padding ??
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: strip,
+          ),
+        ),
       );
     }
 
-    // Fixed-width tabs fill available space or align left.
     strip = Align(alignment: Alignment.centerLeft, child: strip);
 
     return Padding(
-      padding:
-          padding ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: widget.padding ??
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: strip,
     );
   }

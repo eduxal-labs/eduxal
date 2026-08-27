@@ -298,6 +298,12 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
   Future<List<Topic>> getTopicsForSubject(int subjectId) =>
       (select(topics)..where((t) => t.subject.equals(subjectId))).get();
 
+  /// One-shot read of topics matching [ids].
+  Future<List<Topic>> getTopicsByIds(List<int> ids) {
+    if (ids.isEmpty) return Future.value([]);
+    return (select(topics)..where((t) => t.id.isIn(ids))).get();
+  }
+
   /// Reactively watches the total topic count for [subjectId] across all
   /// grades. Used for the count badge on subject tiles.
   Stream<int> watchTopicCountForSubject(int subjectId) {

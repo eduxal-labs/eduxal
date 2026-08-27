@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as dev;
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
@@ -7,6 +8,20 @@ import 'client.dart';
 
 import 'ui/screens/splash/splash_screen.dart';
 import 'ui/theme/app_theme.dart';
+
+/// Global scroll behavior enabling mouse and trackpad dragging on desktop.
+class AppScrollBehavior extends MaterialScrollBehavior {
+  const AppScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.stylus,
+    PointerDeviceKind.invertedStylus,
+    PointerDeviceKind.trackpad,
+  };
+}
 
 /// Entry point.
 ///
@@ -88,6 +103,7 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       title: 'EduXal',
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const AppScrollBehavior(),
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: _themeMode,

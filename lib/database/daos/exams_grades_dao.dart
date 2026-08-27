@@ -611,6 +611,74 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     return result;
   }
 
+  /// Returns the next sequential paper number for a given topic and paper type.
+  ///
+  /// For example, if "Assessment 1 of Photosynthesis" exists, this returns 2.
+  /// If no paper matching the topic exists, this returns 1.
+  Future<int> getNextTopicPaperNumber({
+    required String schoolId,
+    required int subject,
+    int? grade,
+    int? stream,
+    required String topicName,
+    required bool isAssessment,
+  }) async {
+    final prefix = isAssessment ? 'Assessment' : 'Assignment';
+    final trimmedTopic = topicName.trim();
+    if (trimmedTopic.isEmpty) return 1;
+
+    final escapedTopic = RegExp.escape(trimmedTopic);
+    final pattern = RegExp(
+      '^$prefix\\s+(\\d+)\\s+of\\s+$escapedTopic',
+      caseSensitive: false,
+    );
+
+    int maxNumber = 0;
+
+    // Check papers_v2 table
+    final pv2Query = select(papersV2)..where((p) {
+      var cond = p.school.equals(schoolId) & p.subject.equals(subject);
+      if (grade != null) cond = cond & p.grade.equals(grade);
+      if (stream != null) cond = cond & p.stream.equals(stream);
+      return cond;
+    });
+    final pv2List = await pv2Query.get();
+    for (final p in pv2List) {
+      final match = pattern.firstMatch(p.name);
+      if (match != null) {
+        final num = int.tryParse(match.group(1) ?? '');
+        if (num != null && num > maxNumber) {
+          maxNumber = num;
+        }
+      }
+    }
+
+    // Also check legacy papers table joined with exams
+    final papersQuery = select(papers)..where((p) {
+      var cond = p.school.equals(schoolId) & p.subject.equals(subject);
+      if (grade != null) cond = cond & p.grade.equals(grade);
+      if (stream != null) cond = cond & p.stream.equals(stream);
+      return cond;
+    });
+    final legacyPapers = await papersQuery.get();
+    if (legacyPapers.isNotEmpty) {
+      final examIds = legacyPapers.map((p) => p.exam).toSet();
+      final examList =
+          await (select(exams)..where((e) => e.id.isIn(examIds))).get();
+      for (final e in examList) {
+        final match = pattern.firstMatch(e.name);
+        if (match != null) {
+          final num = int.tryParse(match.group(1) ?? '');
+          if (num != null && num > maxNumber) {
+            maxNumber = num;
+          }
+        }
+      }
+    }
+
+    return maxNumber + 1;
+  }
+
   /// Watches all distinct streams that have papers for a given [grade] within
   /// the supplied [examIds].  Joins with the `streams` table to resolve
   /// human-readable names.
@@ -1352,7 +1420,6 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     );
     if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
-      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       // Manually cascade-delete child rows. SQLite's ON DELETE CASCADE
       // requires PRAGMA foreign_keys = ON on the active connection, which
       // is not guaranteed inside Drift transactions. Explicit deletes are
@@ -1500,44 +1567,35 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
       );
       if (paperNum != null) payload.paper = paperNum;
       if (stream != null) payload.stream = stream;
-      bool hasChanges = false;
 
       if (changes.invigilator.present) {
         payload.invigilator = changes.invigilator.value;
-        hasChanges = true;
       }
       if (changes.start.present) {
         payload.start = fixnum.Int64(changes.start.value.toInt());
-        hasChanges = true;
       }
       if (changes.end.present) {
         payload.end = fixnum.Int64(changes.end.value.toInt());
-        hasChanges = true;
       }
       if (changes.status.present) {
         payload.status = changes.status.value.index;
-        hasChanges = true;
       }
       // grade and stream are already set above as identifying fields.
       // If the caller is *changing* the grade or stream value itself,
       // that still counts as a meaningful change for the log entry.
       if (changes.grade.present && changes.grade.value != grade) {
         payload.grade = changes.grade.value;
-        hasChanges = true;
       }
       if (changes.stream.present && changes.stream.value != stream) {
         if (changes.stream.value != null) {
           payload.stream = changes.stream.value!;
         }
-        hasChanges = true;
       }
       if (timeAllowedMinutes != null) {
         payload.timeAllowedMinutes = timeAllowedMinutes;
-        hasChanges = true;
       }
       if (customInstructions != null) {
         payload.instructions = customInstructions;
-        hasChanges = true;
       }
     });
     sync.schedulePush();
@@ -1585,7 +1643,6 @@ class ExamsGradesDao extends DatabaseAccessor<AppDatabase>
     );
     if (!authResult.allowed) throw PermissionException(authResult.reason!);
     await transaction(() async {
-      final now = BigInt.from(DateTime.now().millisecondsSinceEpoch);
       final payload = sync_pb.DeletePaperPayload(
         school: schoolId,
         exam: examId,
